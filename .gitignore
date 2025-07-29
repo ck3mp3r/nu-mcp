@@ -1,0 +1,50 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# direnv
+.envrc
+.direnv/
+
+# Thumbnails
+._*
+
+# macOS metadata
+.Spotlight-V100
+.Trashes
+
+# macOS resource forks
+*.ResourceFork
+
+# macOS Finder tags
+*.fseventsd
+
+# macOS temporary files
+.TemporaryItems
+.apdisk
+
+# Common system files
+Icon?
+
+# VS Code
+.vscode/
+
+# Other common editor files
+*~
+*.swp
+*.swo
+
+# Node modules (if applicable)
+node_modules/
+
+# Python cache (if applicable)
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+
+target/
+result
