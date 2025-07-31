@@ -1,112 +1,106 @@
-use serde::Deserialize;
-use std::env;
-use std::fs::read_to_string;
-use std::io::Result;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::{TcpListener, TcpStream};
+use rmcp::{
+    RoleServer, ServiceExt,
+    handler::server::ServerHandler,
+    model::*,
+    serde_json::{Map, Value},
+    service::RequestContext,
+    transport,
+};
+use std::sync::Arc;
 use tokio::process::Command;
 
-#[derive(Deserialize, Clone, Default)]
-struct MCPConfig {
-    allow_sudo: bool,
-    allowed_commands: Option<Vec<String>>,
-    denied_commands: Option<Vec<String>>,
-}
+#[derive(Clone)]
+pub struct NushellTool;
 
-fn load_config(path: &str) -> MCPConfig {
-    match read_to_string(path) {
-        Ok(config_str) => match serde_json::from_str(&config_str) {
-            Ok(cfg) => cfg,
-            Err(_) => {
-                eprintln!("Warning: Invalid config file. Using defaults.");
-                MCPConfig::default()
-            }
-        },
-        Err(_) => {
-            eprintln!("Warning: Config file not found. Using defaults.");
-            MCPConfig::default()
+impl ServerHandler for NushellTool {
+    fn get_info(&self) -> ServerInfo {
+        ServerInfo {
+            instructions: Some("MCP server exposing Nushell commands".into()),
+            ..Default::default()
         }
     }
-}
 
-fn is_command_allowed(cmd: &str, config: &MCPConfig) -> bool {
-    if !config.allow_sudo && cmd.contains("sudo") {
-        return false;
+    async fn list_tools(
+        &self,
+        _request: Option<PaginatedRequestParam>,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ListToolsResult, ErrorData> {
+        // Create the input schema manually
+        let mut schema = Map::new();
+        schema.insert("type".to_string(), Value::String("object".to_string()));
+
+        let mut properties = Map::new();
+        let mut command_prop = Map::new();
+        command_prop.insert("type".to_string(), Value::String("string".to_string()));
+        command_prop.insert(
+            "description".to_string(),
+            Value::String("The Nushell command to execute".to_string()),
+        );
+        properties.insert("command".to_string(), Value::Object(command_prop));
+
+        schema.insert("properties".to_string(), Value::Object(properties));
+        schema.insert(
+            "required".to_string(),
+            Value::Array(vec![Value::String("command".to_string())]),
+        );
+
+        let tools = vec![Tool {
+            name: "run_nushell".into(),
+            description: Some("Run a Nushell command and return its output".into()),
+            input_schema: Arc::new(schema),
+            annotations: None,
+        }];
+
+        Ok(ListToolsResult {
+            tools,
+            next_cursor: None,
+        })
     }
-    if let Some(allowed) = &config.allowed_commands {
-        if !allowed.is_empty() && !allowed.iter().any(|a| cmd.starts_with(a)) {
-            return false;
-        }
-    }
-    if let Some(denied) = &config.denied_commands {
-        if denied.iter().any(|d| cmd.starts_with(d)) {
-            return false;
-        }
-    }
-    true
-}
 
-async fn handle_client(mut socket: TcpStream, config: MCPConfig) {
-    let (reader, mut writer) = socket.split();
-    let mut reader = BufReader::new(reader);
-    let mut line = String::new();
+    async fn call_tool(
+        &self,
+        request: CallToolRequestParam,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        match request.name.as_ref() {
+            "run_nushell" => {
+                // Extract the command parameter
+                let command = request
+                    .arguments
+                    .as_ref()
+                    .and_then(|args| args.get("command"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("version");
 
-    loop {
-        line.clear();
-        let bytes_read = reader.read_line(&mut line).await.unwrap();
-        if bytes_read == 0 {
-            break; // Connection closed
-        }
+                let output = Command::new("nu")
+                    .arg("-c")
+                    .arg(command)
+                    .output()
+                    .await
+                    .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
 
-        let command = line.trim();
-        if command.is_empty() {
-            continue;
-        }
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
-        if !is_command_allowed(command, &config) {
-            let msg = "Error: Command not allowed by server configuration.\n";
-            writer.write_all(msg.as_bytes()).await.unwrap();
-            continue;
-        }
-
-        // Run Nushell command
-        let output = Command::new("nu").arg("-c").arg(command).output().await;
-
-        match output {
-            Ok(output) => {
-                if !output.stdout.is_empty() {
-                    writer.write_all(&output.stdout).await.unwrap();
+                let mut content = vec![Content::text(stdout)];
+                if !stderr.is_empty() {
+                    content.push(Content::text(format!("stderr: {}", stderr)));
                 }
-                if !output.stderr.is_empty() {
-                    writer.write_all(&output.stderr).await.unwrap();
-                }
+
+                Ok(CallToolResult::success(content))
             }
-            Err(e) => {
-                let err_msg = format!("Failed to run Nushell: ${e}\n");
-                writer.write_all(err_msg.as_bytes()).await.unwrap();
-            }
+            _ => Err(ErrorData::invalid_request(
+                format!("Unknown tool: {}", request.name),
+                None,
+            )),
         }
     }
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
-    let config = if args.len() > 1 {
-        let config_path = &args[1];
-        println!("Loaded config from: ${config_path}");
-        load_config(config_path)
-    } else {
-        println!("No config file provided. Using sane defaults.");
-        MCPConfig::default()
-    };
-    let listener = TcpListener::bind("127.0.0.1:7878").await?;
-
-    loop {
-        let (socket, _) = listener.accept().await?;
-        let config = config.clone();
-        tokio::spawn(async move {
-            handle_client(socket, config).await;
-        });
-    }
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let tool = NushellTool;
+    let service = tool.serve(transport::stdio()).await?;
+    service.waiting().await?;
+    Ok(())
 }
