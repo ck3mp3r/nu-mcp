@@ -20,10 +20,11 @@
       fenix.overlays.default
       devshell.overlays.default
     ];
+    cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+    pname = cargoToml.package.name;
+    version = cargoToml.package.version;
     rustMultiarch = import ./rust-multiarch.nix {
-      inherit nixpkgs fenix overlays;
-      pname = "nu-mcp";
-      version = "0.1.0";
+      inherit nixpkgs fenix overlays pname version;
       src = ./.;
       cargoLock = {lockFile = ./Cargo.lock;};
     };
@@ -41,7 +42,7 @@
           ];
         };
         formatter = pkgs.alejandra;
-        packages.default = rustMultiarch.${system};
+        packages.default = rustMultiarch.${system}.default;
       }
     ))
     // {

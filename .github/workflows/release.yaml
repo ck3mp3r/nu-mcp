@@ -1,0 +1,78 @@
+name: Multi-Arch Nix Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  get-version:
+    runs-on: ubuntu-latest
+    outputs:
+      semver: ${{ steps.semver.outputs.semver }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: extract
+        run: |
+          version=$(awk -F' *= *' '/^version *=/ {gsub(/"/, "", $2); print $2; exit}' Cargo.toml)
+          echo "version=$version" >> $GITHUB_OUTPUT
+      - id: semver
+        uses: ck3mp3r/actions/semver-version@main
+        with:
+          current-version: ${{ steps.extract.outputs.version }}
+          detect-branch-builds: 'false'
+      - name: Check if tag exists
+        run: |
+          if gh release view "v${{ steps.semver.outputs.semver }}" > /dev/null 2>&1; then
+            echo "Tag v${{ steps.semver.outputs.semver }} already exists!"
+            exit 1
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    needs: get-version
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            nix_system: x86_64-linux
+          - os: ubuntu-latest
+            nix_system: aarch64-linux
+          - os: macos-14
+            nix_system: aarch64-darwin
+          - os: macos-13
+            nix_system: x86_64-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v10
+      - name: Build for ${{ matrix.nix_system }}
+        run: nix build .#${{ matrix.nix_system }}
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.nix_system }}-binary
+          path: result/bin/*
+
+  release:
+    needs: [get-version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.get-version.outputs.semver }}
+          name: "Release v${{ needs.get-version.outputs.semver }}"
+          draft: false
+          prerelease: false
+      - name: Upload binaries to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./artifacts/**/*.*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
