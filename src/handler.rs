@@ -25,7 +25,7 @@ impl ServerHandler for NushellTool {
             instructions.push_str("  (none specified)\n");
         } else {
             for cmd in &self.config.allowed_commands {
-                instructions.push_str(&format!("  - {}\n", cmd));
+                instructions.push_str(&format!("  - {cmd}\n"));
             }
         }
 
@@ -34,7 +34,7 @@ impl ServerHandler for NushellTool {
             instructions.push_str("  (none specified)\n");
         } else {
             for cmd in &self.config.denied_commands {
-                instructions.push_str(&format!("  - {}\n", cmd));
+                instructions.push_str(&format!("  - {cmd}\n"));
             }
         }
 
