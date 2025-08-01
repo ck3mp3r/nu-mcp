@@ -15,10 +15,9 @@ use tokio::process::Command;
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct Config {
     pub denied_commands: Vec<String>,
+    pub allowed_commands: Vec<String>,
     pub allow_sudo: bool,
 }
-
-
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -26,6 +25,10 @@ struct Cli {
     /// Comma-separated list of denied commands
     #[arg(long, value_delimiter = ',')]
     denied_cmds: Option<Vec<String>>,
+
+    /// Comma-separated list of allowed commands (takes precedence over denied)
+    #[arg(long, value_delimiter = ',')]
+    allowed_cmds: Option<Vec<String>>,
 
     /// Allow sudo (default: false)
     #[arg(long, default_value_t = false)]
@@ -96,13 +99,18 @@ impl ServerHandler for NushellTool {
                     .and_then(|v| v.as_str())
                     .unwrap_or("version");
 
-                // Check denied commands
+                // Allowed commands take precedence over denied commands
                 let first_word = command.split_whitespace().next().unwrap_or("");
-                if self
+                if !self
                     .config
-                    .denied_commands
+                    .allowed_commands
                     .iter()
-                    .any(|dc| first_word == dc)
+                    .any(|ac| first_word == ac)
+                    && self
+                        .config
+                        .denied_commands
+                        .iter()
+                        .any(|dc| first_word == dc)
                 {
                     return Err(ErrorData::invalid_request(
                         format!("Command '{first_word}' is denied by server configuration"),
@@ -194,6 +202,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let config = Config {
         denied_commands: cli.denied_cmds.unwrap_or(default_denied),
+        allowed_commands: cli.allowed_cmds.unwrap_or_default(),
         allow_sudo: cli.allow_sudo,
     };
 
