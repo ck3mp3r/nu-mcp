@@ -9,6 +9,7 @@
   };
 
   outputs = {
+    self,
     nixpkgs,
     flake-utils,
     devshell,
@@ -29,6 +30,15 @@
           rustc = fenixToolchain;
           rust-analyzer = fenixToolchain;
         };
+
+        nu-mcp = rustPlatform.buildRustPackage {
+          pname = "nu-mcp";
+          version = "0.1.0";
+          src = ./.;
+          cargoLock = {
+            lockFile = ./Cargo.lock;
+          };
+        };
       in {
         devShells.default = pkgs.devshell.mkShell {
           packages = [
@@ -40,14 +50,13 @@
           ];
         };
 
-        packages.default = rustPlatform.buildRustPackage {
-          pname = "nu-mcp";
-          version = "0.1.0";
-          src = ./.;
-          cargoLock = {
-            lockFile = ./Cargo.lock;
-          };
-        };
+        formatter = pkgs.alejandra;
+        packages.default = nu-mcp;
       }
-    );
+    )
+    // {
+      overlays.default = final: prev: {
+        nu-mcp = self.packages.${final.system}.default;
+      };
+    };
 }
