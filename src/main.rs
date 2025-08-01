@@ -1,3 +1,4 @@
+use clap::Parser;
 use rmcp::{
     RoleServer, ServiceExt,
     handler::server::ServerHandler,
@@ -6,12 +7,35 @@ use rmcp::{
     service::RequestContext,
     transport,
 };
+use serde::Deserialize;
+use std::env;
 use std::sync::Arc;
 use tokio::process::Command;
-use std::env;
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct Config {
+    pub denied_commands: Vec<String>,
+    pub allow_sudo: bool,
+}
+
+
+
+#[derive(Parser, Debug)]
+#[command(author, version, about)]
+struct Cli {
+    /// Comma-separated list of denied commands
+    #[arg(long, value_delimiter = ',')]
+    denied_cmds: Option<Vec<String>>,
+
+    /// Allow sudo (default: false)
+    #[arg(long, default_value_t = false)]
+    allow_sudo: bool,
+}
 
 #[derive(Clone)]
-pub struct NushellTool;
+pub struct NushellTool {
+    config: Config,
+}
 
 impl ServerHandler for NushellTool {
     fn get_info(&self) -> ServerInfo {
@@ -65,13 +89,34 @@ impl ServerHandler for NushellTool {
     ) -> Result<CallToolResult, ErrorData> {
         match request.name.as_ref() {
             "run_nushell" => {
-                // Extract the command parameter
                 let command = request
                     .arguments
                     .as_ref()
                     .and_then(|args| args.get("command"))
                     .and_then(|v| v.as_str())
                     .unwrap_or("version");
+
+                // Check denied commands
+                let first_word = command.split_whitespace().next().unwrap_or("");
+                if self
+                    .config
+                    .denied_commands
+                    .iter()
+                    .any(|dc| first_word == dc)
+                {
+                    return Err(ErrorData::invalid_request(
+                        format!("Command '{first_word}' is denied by server configuration"),
+                        None,
+                    ));
+                }
+
+                // Check sudo
+                if !self.config.allow_sudo && first_word == "sudo" {
+                    return Err(ErrorData::invalid_request(
+                        "Use of 'sudo' is not permitted by server configuration".to_string(),
+                        None,
+                    ));
+                }
 
                 // Validate command for security
                 fn is_command_safe(command: &str) -> bool {
@@ -80,11 +125,15 @@ impl ServerHandler for NushellTool {
                         return false;
                     }
                     // Reject absolute paths (Windows)
-                    if command.contains(":\\") || command.contains(":/" ) {
+                    if command.contains(":\\") || command.contains(":/") {
                         return false;
                     }
                     // Reject parent directory traversal
-                    if command.contains("../") || command.contains("..\\") || command.contains(".. ") || command.contains(" ..") {
+                    if command.contains("../")
+                        || command.contains("..\\")
+                        || command.contains(".. ")
+                        || command.contains(" ..")
+                    {
                         return false;
                     }
                     true
@@ -98,7 +147,8 @@ impl ServerHandler for NushellTool {
                 }
 
                 // Restrict to current working directory
-                let cwd = env::current_dir().map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+                let cwd = env::current_dir()
+                    .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
 
                 let output = Command::new("nu")
                     .arg("-c")
@@ -128,7 +178,26 @@ impl ServerHandler for NushellTool {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let tool = NushellTool;
+    let cli = Cli::parse();
+
+    let default_denied = vec![
+        "rm".to_string(),
+        "shutdown".to_string(),
+        "reboot".to_string(),
+        "poweroff".to_string(),
+        "halt".to_string(),
+        "mkfs".to_string(),
+        "dd".to_string(),
+        "chmod".to_string(),
+        "chown".to_string(),
+    ];
+
+    let config = Config {
+        denied_commands: cli.denied_cmds.unwrap_or(default_denied),
+        allow_sudo: cli.allow_sudo,
+    };
+
+    let tool = NushellTool { config };
     let service = tool.serve(transport::stdio()).await?;
     service.waiting().await?;
     Ok(())
