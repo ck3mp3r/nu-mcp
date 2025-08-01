@@ -8,6 +8,7 @@ use rmcp::{
 };
 use std::sync::Arc;
 use tokio::process::Command;
+use std::env;
 
 #[derive(Clone)]
 pub struct NushellTool;
@@ -72,9 +73,37 @@ impl ServerHandler for NushellTool {
                     .and_then(|v| v.as_str())
                     .unwrap_or("version");
 
+                // Validate command for security
+                fn is_command_safe(command: &str) -> bool {
+                    // Reject absolute paths (Unix)
+                    if command.contains(" /") || command.starts_with('/') {
+                        return false;
+                    }
+                    // Reject absolute paths (Windows)
+                    if command.contains(":\\") || command.contains(":/" ) {
+                        return false;
+                    }
+                    // Reject parent directory traversal
+                    if command.contains("../") || command.contains("..\\") || command.contains(".. ") || command.contains(" ..") {
+                        return false;
+                    }
+                    true
+                }
+
+                if !is_command_safe(command) {
+                    return Err(ErrorData::invalid_request(
+                        "Command contains forbidden path traversal or absolute path".to_string(),
+                        None,
+                    ));
+                }
+
+                // Restrict to current working directory
+                let cwd = env::current_dir().map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+
                 let output = Command::new("nu")
                     .arg("-c")
                     .arg(command)
+                    .current_dir(&cwd)
                     .output()
                     .await
                     .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
@@ -84,7 +113,7 @@ impl ServerHandler for NushellTool {
 
                 let mut content = vec![Content::text(stdout)];
                 if !stderr.is_empty() {
-                    content.push(Content::text(format!("stderr: {}", stderr)));
+                    content.push(Content::text(format!("stderr: {stderr}")));
                 }
 
                 Ok(CallToolResult::success(content))
