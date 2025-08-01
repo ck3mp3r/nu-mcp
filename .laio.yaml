@@ -1,0 +1,16 @@
+---
+name: nu-mcp
+
+path: .
+
+windows:
+  - name: code
+    flex_direction: column
+    panes:
+      - commands:
+          - command: nvim
+
+  - name: misc
+    panes:
+      - flex: 1
+      - flex: 1

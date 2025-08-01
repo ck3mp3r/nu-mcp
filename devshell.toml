@@ -1,0 +1,10 @@
+[[commands]]
+name = "check"
+help = "Run cargo check"
+command = "cargo check"
+
+[[commands]]
+name = "fmt"
+help = "Run cargo fmt"
+command = "cargo fmt"
+
