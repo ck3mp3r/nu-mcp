@@ -1,15 +1,39 @@
+packages = [
+  "cargo-tarpaulin"
+]
+
 [[commands]]
 name = "check"
-help = "Run cargo check"
 command = "cargo check"
+category = "rust"
+help = "Run cargo check"
 
 [[commands]]
 name = "fmt"
-help = "Run cargo fmt"
 command = "cargo fmt"
+category = "rust"
+help = "Run cargo fmt"
 
 [[commands]]
-name = "test"
-help = "Run cargo test"
+name = "tests"
 command = "cargo test"
+category = "rust"
+help = "Run cargo test"
 
+[[commands]]
+name = "clippy"
+command = "cargo clippy $@"
+category = "rust"
+help = "Run cargo clippy"
+
+[[commands]]
+name = "coverage"
+command = "cargo tarpaulin --out Html"
+category = "rust"
+help = "Generate code coverage"
+
+[git.hooks]
+enable = true
+
+[git.hooks.pre-push]
+text = "tests"
