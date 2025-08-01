@@ -21,4 +21,4 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@main
 
       - name: Run tests in Nix develop shell
-        run: nix develop --command test
+        run: nix develop --command tests
