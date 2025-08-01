@@ -1,19 +1,21 @@
 ---
 name: CI
 on:
-  push:
-    branches-ignore:
-      - main
   pull_request:
     branches:
       - "**"
+  push:
+    branches-ignore:
+      - main
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  group: ci-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 jobs:
   test:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && !github.event.pull_request)
+    if: |
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'push' && github.event.head_commit.message != null)
     steps:
       - uses: actions/checkout@v4
       - name: Install Determinate Nix
