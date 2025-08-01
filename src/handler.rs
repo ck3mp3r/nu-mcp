@@ -18,8 +18,33 @@ pub struct NushellTool {
 
 impl ServerHandler for NushellTool {
     fn get_info(&self) -> ServerInfo {
+        let mut instructions = String::from("MCP server exposing Nushell commands.\n");
+
+        instructions.push_str("Allowed commands (always permitted):\n");
+        if self.config.allowed_commands.is_empty() {
+            instructions.push_str("  (none specified)\n");
+        } else {
+            for cmd in &self.config.allowed_commands {
+                instructions.push_str(&format!("  - {}\n", cmd));
+            }
+        }
+
+        instructions.push_str("Denied commands (blocked unless in allowed list):\n");
+        if self.config.denied_commands.is_empty() {
+            instructions.push_str("  (none specified)\n");
+        } else {
+            for cmd in &self.config.denied_commands {
+                instructions.push_str(&format!("  - {}\n", cmd));
+            }
+        }
+
+        instructions.push_str(&format!(
+            "Sudo allowed: {}\n",
+            if self.config.allow_sudo { "yes" } else { "no" }
+        ));
+
         ServerInfo {
-            instructions: Some("MCP server exposing Nushell commands".into()),
+            instructions: Some(instructions),
             ..Default::default()
         }
     }
