@@ -1,0 +1,27 @@
+name: update-flake-lock
+on:
+  workflow_dispatch: # allows manual triggering
+  schedule:
+    - cron: "0 0 * * 0" # runs weekly on Sunday at 00:00
+    - cron: "30 0 * * 0" # runs weekly on Sunday at 00:30
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'pull_request' }}
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: token
+        with:
+          app-id: ${{ secrets.BOT_ID }}
+          private-key: ${{ secrets.BOT }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.token.outputs.token }}
+
+      - name: update flake lock
+        uses: ck3mp3r/actions/update-flake-lock@main
+        with:
+          github-token: ${{ steps.token.outputs.token }}

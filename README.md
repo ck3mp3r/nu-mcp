@@ -32,6 +32,43 @@ nu-mcp:
     - "--allow-sudo"
 ```
 
+## Installation
+
+### As a Nix profile (standalone usage)
+
+You can install this flake as a Nix profile:
+
+```sh
+nix profile install github:ck3mp3r/nu-mcp
+```
+
+Or, if you have a local checkout:
+
+```sh
+nix profile install path:/absolute/path/to/nu-mcp
+```
+
+### As an overlay in your own flake
+
+Add this flake as an input and overlay in your `flake.nix`:
+
+```nix
+{
+  inputs.nu-mcp.url = "github:ck3mp3r/nu-mcp";
+  # ...
+  outputs = { self, nixpkgs, nu-mcp, ... }:
+    let
+      overlays = [ nu-mcp.overlays.default ];
+      pkgs = import nixpkgs { inherit system overlays; };
+    in {
+      # Now pkgs.nu-mcp is available
+      packages.x86_64-linux.nu-mcp = pkgs.nu-mcp;
+    };
+}
+```
+
+You can now use `pkgs.nu-mcp` in your own packages, devShells, or CI.
+
 ## Development
 - See [modelcontextprotocol/rust-sdk](https://github.com/modelcontextprotocol/rust-sdk) for SDK details and advanced usage.
 - The code is modular and fully async.

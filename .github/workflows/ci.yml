@@ -1,0 +1,19 @@
+---
+name: CI
+on:
+  pull_request:
+    branches:
+      - "**"
+  push:
+    branches-ignore:
+      - main
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.event.pull_request == null)
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: Run tests in Nix develop shell
+        run: nix develop --command test
