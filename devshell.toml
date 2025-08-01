@@ -8,3 +8,8 @@ name = "fmt"
 help = "Run cargo fmt"
 command = "cargo fmt"
 
+[[commands]]
+name = "test"
+help = "Run cargo test"
+command = "cargo test"
+
