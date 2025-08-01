@@ -15,46 +15,37 @@
     devshell,
     fenix,
     ...
-  }:
-    flake-utils.lib.eachDefaultSystem (
+  }: let
+    overlays = [
+      fenix.overlays.default
+      devshell.overlays.default
+    ];
+    rustMultiarch = import ./rust-multiarch.nix {
+      inherit nixpkgs fenix overlays;
+      pname = "nu-mcp";
+      version = "0.1.0";
+      src = ./.;
+      cargoLock = {lockFile = ./Cargo.lock;};
+    };
+  in
+    (flake-utils.lib.eachDefaultSystem (
       system: let
-        overlays = [
-          fenix.overlays.default
-          devshell.overlays.default
-        ];
         pkgs = import nixpkgs {inherit system overlays;};
-
         fenixToolchain = fenix.packages.${system}.stable.toolchain;
-        rustPlatform = pkgs.makeRustPlatform {
-          cargo = fenixToolchain;
-          rustc = fenixToolchain;
-          rust-analyzer = fenixToolchain;
-        };
-
-        nu-mcp = rustPlatform.buildRustPackage {
-          pname = "nu-mcp";
-          version = "0.1.0";
-          src = ./.;
-          cargoLock = {
-            lockFile = ./Cargo.lock;
-          };
-        };
       in {
         devShells.default = pkgs.devshell.mkShell {
-          packages = [
-            fenixToolchain
-          ];
+          packages = [fenixToolchain];
           imports = [
             (pkgs.devshell.importTOML ./devshell.toml)
             "${devshell}/extra/git/hooks.nix"
           ];
         };
-
         formatter = pkgs.alejandra;
-        packages.default = nu-mcp;
+        packages.default = rustMultiarch.${system};
       }
-    )
+    ))
     // {
+      packages = rustMultiarch;
       overlays.default = final: prev: {
         nu-mcp = self.packages.${final.system}.default;
       };
