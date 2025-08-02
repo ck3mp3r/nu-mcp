@@ -10,7 +10,9 @@ pub fn is_command_allowed(config: &Config, command: &str) -> Result<(), String> 
     if !config.allowed_commands.iter().any(|ac| first_word == ac)
         && config.denied_commands.iter().any(|dc| first_word == dc)
     {
-        return Err(format!("Command '{first_word}' is denied by server configuration"));
+        return Err(format!(
+            "Command '{first_word}' is denied by server configuration"
+        ));
     }
     if !config.allow_sudo && first_word == "sudo" {
         return Err("Use of 'sudo' is not permitted by server configuration".to_string());

@@ -5,17 +5,22 @@ on:
     branches-ignore:
       - main
     paths:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - '**/*.nix'
-      - 'src/**'
-      - 'tests/**'
+      - "**/*.nix"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "flake.lock"
+      - "flake.nix"
+      - "src/**"
+      - "tests/**"
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Code checkout
+        uses: actions/checkout@v4
+
       - name: Install Determinate Nix
         uses: DeterminateSystems/nix-installer-action@main
+
       - name: Run tests in Nix develop shell
-        run: nix develop --command test
+        run: nix develop --command tests
