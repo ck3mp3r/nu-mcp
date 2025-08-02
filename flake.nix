@@ -22,11 +22,12 @@
       fenix.overlays.default
       devshell.overlays.default
     ];
-    rustMultiarch = nix-utils.lib.rust-multiarch {
+    rustMultiarch = nix-utils.lib.rustMultiarch {
       inherit nixpkgs fenix overlays;
       src = ./.;
       cargoToml = ./Cargo.toml;
       cargoLock = {lockFile = ./Cargo.lock;};
+      archiveAndHash = true;
     };
   in
     (flake-utils.lib.eachDefaultSystem (
