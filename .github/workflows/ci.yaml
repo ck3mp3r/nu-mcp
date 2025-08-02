@@ -5,9 +5,11 @@ on:
     branches-ignore:
       - main
     paths:
-      - "Cargo.toml"
-      - "Cargo.lock"
       - "**/*.nix"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "flake.lock"
+      - "flake.nix"
       - "src/**"
       - "tests/**"
 jobs:
