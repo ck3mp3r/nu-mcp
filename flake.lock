@@ -80,16 +80,17 @@
       },
       "locked": {
         "dir": "nix-utils",
-        "lastModified": 1754165794,
-        "narHash": "sha256-2fsfKsDSeZvLjeRP8zBbGClR0PkFhoieWKW+AhGx8Nk=",
+        "lastModified": 1754168383,
+        "narHash": "sha256-LcpZS7V40o8X48fYsjfKOG2lpT2QblYjX2Xc+xjLb8k=",
         "owner": "ck3mp3r",
         "repo": "flakes",
-        "rev": "a9ad05c859f0b3f906c28b46d00f312ba4e3ba29",
+        "rev": "7f30df47cd36b85adc9118741f23ed81ebda7424",
         "type": "github"
       },
       "original": {
         "dir": "nix-utils",
         "owner": "ck3mp3r",
+        "ref": "fix/nix-multiarch",
         "repo": "flakes",
         "type": "github"
       }

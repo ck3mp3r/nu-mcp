@@ -6,7 +6,7 @@
     flake-utils.url = "github:numtide/flake-utils";
     devshell.url = "github:numtide/devshell";
     fenix.url = "github:nix-community/fenix";
-    nix-utils.url = "github:ck3mp3r/flakes?dir=nix-utils";
+    nix-utils.url = "github:ck3mp3r/flakes?dir=nix-utils&ref=fix/nix-multiarch";
   };
 
   outputs = {
