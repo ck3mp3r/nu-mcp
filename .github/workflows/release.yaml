@@ -20,7 +20,7 @@ jobs:
 
       - name: Calculate semantic version
         id: semver
-        uses: ck3mp3r/actions/semver-version@main
+        uses: ck3mp3r/actions/semver-version@fix/semver-action
         with:
           current-version: ${{ steps.extract.outputs.version }}
           detect-branch-builds: "false"
