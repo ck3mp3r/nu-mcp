@@ -6,11 +6,13 @@
     flake-utils.url = "github:numtide/flake-utils";
     devshell.url = "github:numtide/devshell";
     fenix.url = "github:nix-community/fenix";
+    nix-utils.url = "github:ck3mp3r/flakes?dir=nix-utils&ref=feat/nix-utils";
   };
 
   outputs = {
     self,
     nixpkgs,
+    nix-utils,
     flake-utils,
     devshell,
     fenix,
@@ -20,12 +22,10 @@
       fenix.overlays.default
       devshell.overlays.default
     ];
-    cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
-    pname = cargoToml.package.name;
-    version = cargoToml.package.version;
-    rustMultiarch = import ./rust-multiarch.nix {
-      inherit nixpkgs fenix overlays pname version;
+    rustMultiarch = nix-utils.lib.rust-multiarch {
+      inherit nixpkgs fenix overlays;
       src = ./.;
+      cargoToml = ./Cargo.toml;
       cargoLock = {lockFile = ./Cargo.lock;};
     };
   in
