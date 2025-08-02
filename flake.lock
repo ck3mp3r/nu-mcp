@@ -80,11 +80,11 @@
       },
       "locked": {
         "dir": "nix-utils",
-        "lastModified": 1754168383,
-        "narHash": "sha256-LcpZS7V40o8X48fYsjfKOG2lpT2QblYjX2Xc+xjLb8k=",
+        "lastModified": 1754169150,
+        "narHash": "sha256-Af0uc8wlhIPlDThZBNkGR4HoVxfRf4VJnhs97PU3SNg=",
         "owner": "ck3mp3r",
         "repo": "flakes",
-        "rev": "7f30df47cd36b85adc9118741f23ed81ebda7424",
+        "rev": "54b2e07c35636bbc1e7fe44cbfeca4c66f41b61d",
         "type": "github"
       },
       "original": {
