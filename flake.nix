@@ -13,7 +13,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nix-utils = {
-      url = "github:ck3mp3r/flakes?dir=nix-utils&ref=fix/linux-variants";
+      url = "github:ck3mp3r/flakes?dir=nix-utils";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
