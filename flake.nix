@@ -31,15 +31,23 @@
       fenix.overlays.default
       devshell.overlays.default
     ];
+
+    systems = [
+      "aarch64-darwin"
+      "x86_64-darwin"
+      # "aarch64-linux"
+      "x86_64-linux"
+    ];
+
     rustMultiarch = nix-utils.lib.rustMultiarch {
-      inherit nixpkgs fenix overlays;
+      inherit nixpkgs fenix overlays systems;
       src = ./.;
       cargoToml = ./Cargo.toml;
       cargoLock = {lockFile = ./Cargo.lock;};
       archiveAndHash = true;
     };
   in
-    (flake-utils.lib.eachDefaultSystem (
+    (flake-utils.lib.eachSystem systems (
       system: let
         pkgs = import nixpkgs {inherit system overlays;};
         fenixToolchain = fenix.packages.${system}.stable.toolchain;
