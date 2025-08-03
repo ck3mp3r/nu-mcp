@@ -44,8 +44,6 @@ jobs:
         include:
           - os: ubuntu-latest
             nix_system: x86_64-linux
-          # - os: ubuntu-latest
-          #   nix_system: aarch64-linux
           - os: macos-14
             nix_system: aarch64-darwin
           - os: macos-13
@@ -80,22 +78,78 @@ jobs:
     needs: [get-version, build]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Set up git user for all steps
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Checkout main
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Create and push release branch
+        run: |
+          git checkout -b release/${{ needs.get-version.outputs.semver }}
+          git push origin release/${{ needs.get-version.outputs.semver }}
+
+      # Already on release branch, no need to checkout again
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
           path: ./artifacts
 
-      - name: Create GitHub Release
-        id: create_release
+      - name: Generate data.json from artifacts
+        run: |
+          VERSION=${{ needs.get-version.outputs.semver }}
+          ARTIFACTS=()
+          for file in ./artifacts/**/*.sha256; do
+            PLATFORM=$(basename "$file" | sed -E 's/nu-mcp-.*-([^.]+)\.sha256/\1/')
+            SHA=$(cat "$file")
+            TGZ_FILE="${file%.sha256}.tgz"
+            URL="https://github.com/${{ github.repository }}/releases/download/$VERSION/$(basename "$TGZ_FILE")"
+            ARTIFACTS+=("{\"platform\":\"$PLATFORM\",\"url\":\"$URL\",\"sha256\":\"$SHA\"}")
+          done
+          ARTIFACTS_JSON=$(IFS=,; echo "${ARTIFACTS[*]}")
+          echo "{\"version\":\"$VERSION\",\"artifacts\":[${ARTIFACTS_JSON}]}" > data.json
+
+      - name: Commit data.json to release branch
+        run: |
+          git add data.json
+          git commit -m "Add data.json for release ${{ needs.get-version.outputs.semver }}" || echo "No changes to commit"
+          git push origin HEAD
+
+      - name: Create GitHub Release and Upload Artifacts
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.get-version.outputs.semver }}
           name: "Release v${{ needs.get-version.outputs.semver }}"
           draft: false
           prerelease: false
+          update_existing: true
           files: ./artifacts/**/*.*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout main for merge
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Merge release branch to main
+        run: |
+          git fetch origin release/${{ needs.get-version.outputs.semver }}
+          git merge --squash origin/release/${{ needs.get-version.outputs.semver }}
+          git commit -m "Update data.json for release ${{ needs.get-version.outputs.semver }}"
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete release branch
+        run: |
+          git push origin --delete release/${{ needs.get-version.outputs.semver }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
