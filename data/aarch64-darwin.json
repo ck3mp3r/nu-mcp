@@ -1,4 +1,12 @@
+<<<<<<< HEAD
 {
   "url": "https://github.com/ck3mp3r/nu-mcp/releases/download/v0.1.2/nu-mcp-0.1.2-aarch64-darwin.tgz",
   "hash": "0rqmwla9zjml2xpwlsbkdqa3wybg2nhykd4fha11xi2ycjvqv6bq"
 }
+||||||| parent of a9307ad (refactor(release): generate per-arch data files and update workflow)
+=======
+{
+  "url": "https://github.com/ck3mp3r/nu-mcp/releases/download/0.1.0/nu-mcp-0.1.0-aarch64-darwin.tgz",
+  "hash": "11e0a07f73a06b928bc05fc825c5c29fa76618243f9b4d95611ca6133f5fd770"
+}
+>>>>>>> a9307ad (refactor(release): generate per-arch data files and update workflow)
