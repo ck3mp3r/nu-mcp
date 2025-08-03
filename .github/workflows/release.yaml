@@ -115,7 +115,7 @@ jobs:
               "url": "$URL",
               "hash": "$SHA"
             }
-            EOF
+          EOF
           done
 
       - name: Update Cargo.toml version if needed
