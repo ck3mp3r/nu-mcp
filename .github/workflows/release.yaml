@@ -3,6 +3,9 @@ name: Multi-Arch Nix Release
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   get-version:
     runs-on: ubuntu-latest
