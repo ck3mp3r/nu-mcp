@@ -105,16 +105,20 @@ jobs:
         run: |
           VERSION=${{ needs.get-version.outputs.semver }}
           mkdir -p data
-          for file in ./artifacts/**/*.sha256; do
-            PLATFORM=$(basename "$file" | sed -E 's/nu-mcp-.*-([^.]+)\.sha256/\1/')
-            SHA=$(cat "$file")
-            TGZ_FILE="${file%.sha256}.tgz"
-            URL="https://github.com/${{ github.repository }}/releases/download/v$VERSION/$(basename "$TGZ_FILE")"
+          for file in ./artifacts/**/*.tgz; do
+            FILENAME=$(basename "$file")
+            PLATFORM=$(echo "$FILENAME" | sed -E 's/nu-mcp-[0-9.]+-(.+)\.tgz/\1/')
+
+            SHA256_FILE="${file%.tgz}-nix.sha256"
+            SHA=$(cat "$SHA256_FILE")
+
+            URL="https://github.com/${{ github.repository }}/releases/download/v$VERSION/$FILENAME"
+
             cat > data/${PLATFORM}.json <<EOF
-            {
-              "url": "$URL",
-              "hash": "$SHA"
-            }
+          {
+            "url": "$URL",
+            "hash": "$SHA"
+          }
           EOF
           done
 
