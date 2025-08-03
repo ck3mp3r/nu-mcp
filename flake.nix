@@ -4,9 +4,18 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    devshell.url = "github:numtide/devshell";
-    fenix.url = "github:nix-community/fenix";
-    nix-utils.url = "github:ck3mp3r/flakes?dir=nix-utils&ref=fix/nix-multiarch";
+    devshell = {
+      url = "github:numtide/devshell";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    nix-utils = {
+      url = "github:ck3mp3r/flakes?dir=nix-utils&ref=fix/nix-multiarch";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = {
