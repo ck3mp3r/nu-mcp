@@ -111,11 +111,11 @@ jobs:
             TGZ_FILE="${file%.sha256}.tgz"
             URL="https://github.com/${{ github.repository }}/releases/download/v$VERSION/$(basename "$TGZ_FILE")"
             cat > data/${PLATFORM}.json <<EOF
-{
-  "url": "$URL",
-  "hash": "$SHA"
-}
-EOF
+            {
+              "url": "$URL",
+              "hash": "$SHA"
+            }
+            EOF
           done
 
       - name: Update Cargo.toml version if needed
