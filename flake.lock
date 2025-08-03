@@ -86,16 +86,17 @@
       },
       "locked": {
         "dir": "nix-utils",
-        "lastModified": 1754246143,
-        "narHash": "sha256-BUaXwMiNXsrqKvv4hsXs285gNnwAE/YtvD+/N9HdXx8=",
+        "lastModified": 1754252848,
+        "narHash": "sha256-wArj2g+X//mOgrradVlLFq69Nkp2/b60keGCMAEW2vw=",
         "owner": "ck3mp3r",
         "repo": "flakes",
-        "rev": "199e1ded3cab625b6cec53337496597537b819e8",
+        "rev": "29d1fcf2c785df6ca9e0f45241b8b4a4f54aedaf",
         "type": "github"
       },
       "original": {
         "dir": "nix-utils",
         "owner": "ck3mp3r",
+        "ref": "fix/linux-variants",
         "repo": "flakes",
         "type": "github"
       }

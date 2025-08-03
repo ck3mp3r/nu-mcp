@@ -13,7 +13,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nix-utils = {
-      url = "github:ck3mp3r/flakes?dir=nix-utils";
+      url = "github:ck3mp3r/flakes?dir=nix-utils&ref=fix/linux-variants";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -67,6 +67,7 @@
           system
           systems
           ;
+        linuxVariant = "gnu";
         archiveAndHash = true;
       };
     })
