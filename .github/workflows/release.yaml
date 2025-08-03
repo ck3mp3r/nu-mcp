@@ -115,10 +115,22 @@ jobs:
           ARTIFACTS_JSON=$(IFS=,; echo "${ARTIFACTS[*]}")
           echo "{\"version\":\"$VERSION\",\"artifacts\":[${ARTIFACTS_JSON}]}" > data.json
 
-      - name: Commit data.json to release branch
+      - name: Update Cargo.toml version if needed
         run: |
-          git add data.json
-          git commit -m "Add data.json for release ${{ needs.get-version.outputs.semver }}" || echo "No changes to commit"
+          VERSION=${{ needs.get-version.outputs.semver }}
+          CURRENT=$(awk -F' *= *' '/^version *=/ {gsub(/"/, "", $2); print $2; exit}' Cargo.toml)
+          if [ "$CURRENT" != "$VERSION" ]; then
+            sed -i.bak -E "s/^version *= *\"[^\"]+\"/version = \"$VERSION\"/" Cargo.toml
+            rm Cargo.toml.bak
+            echo "Updated Cargo.toml version to $VERSION"
+          else
+            echo "Cargo.toml version already $VERSION"
+          fi
+
+      - name: Commit data.json and Cargo.toml to release branch
+        run: |
+          git add data.json Cargo.toml
+          git commit -m "Release ${{ needs.get-version.outputs.semver }}: update data.json and Cargo.toml" || echo "No changes to commit"
           git push origin HEAD
 
       - name: Create GitHub Release and Upload Artifacts
@@ -143,7 +155,7 @@ jobs:
         run: |
           git fetch origin release/${{ needs.get-version.outputs.semver }}
           git merge --squash origin/release/${{ needs.get-version.outputs.semver }}
-          git commit -m "Update data.json for release ${{ needs.get-version.outputs.semver }}"
+          git commit -m "Update data.json and Cargo.toml for release ${{ needs.get-version.outputs.semver }}"
           git push origin main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
