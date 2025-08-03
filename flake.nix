@@ -32,39 +32,45 @@
       devshell.overlays.default
     ];
 
-    systems = [
-      "aarch64-darwin"
-      "x86_64-darwin"
-      # "aarch64-linux"
-      "x86_64-linux"
-    ];
-
-    rustMultiarch = nix-utils.lib.rustMultiarch {
-      inherit nixpkgs fenix overlays systems;
-      src = ./.;
-      cargoToml = ./Cargo.toml;
-      cargoLock = {lockFile = ./Cargo.lock;};
-      archiveAndHash = true;
-    };
+    systems = ["aarch64-darwin" "x86_64-darwin" "x86_64-linux"];
+    dataDir = ./data;
+    installData = builtins.listToAttrs (map (system: {
+        name = system;
+        value = builtins.fromJSON (builtins.readFile (dataDir + "/${system}.json"));
+      })
+      systems);
+    cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+    cargoLock = {lockFile = ./Cargo.lock;};
+    src = ./.;
   in
-    (flake-utils.lib.eachSystem systems (
-      system: let
-        pkgs = import nixpkgs {inherit system overlays;};
-        fenixToolchain = fenix.packages.${system}.stable.toolchain;
-      in {
-        devShells.default = pkgs.devshell.mkShell {
-          packages = [fenixToolchain];
-          imports = [
-            (pkgs.devshell.importTOML ./devshell.toml)
-            "${devshell}/extra/git/hooks.nix"
-          ];
-        };
-        formatter = pkgs.alejandra;
-        packages.default = rustMultiarch.${system}.default;
-      }
-    ))
+    flake-utils.lib.eachSystem systems (system: let
+      pkgs = import nixpkgs {inherit system overlays;};
+    in {
+      devShells.default = pkgs.devshell.mkShell {
+        packages = [fenix.packages.${system}.stable.toolchain];
+        imports = [
+          (pkgs.devshell.importTOML ./devshell.toml)
+          "${devshell}/extra/git/hooks.nix"
+        ];
+      };
+      formatter = pkgs.alejandra;
+      packages = nix-utils.lib.rust.buildPackages {
+        inherit
+          cargoLock
+          cargoToml
+          fenix
+          installData
+          nixpkgs
+          overlays
+          pkgs
+          src
+          system
+          systems
+          ;
+        archiveAndHash = true;
+      };
+    })
     // {
-      packages = rustMultiarch;
       overlays.default = final: prev: {
         nu-mcp = self.packages.${final.system}.default;
       };
