@@ -35,8 +35,8 @@ jobs:
         include:
           - os: ubuntu-latest
             nix_system: x86_64-linux
-          - os: ubuntu-latest
-            nix_system: aarch64-linux
+          # - os: ubuntu-latest
+          #   nix_system: aarch64-linux
           - os: macos-14
             nix_system: aarch64-darwin
           - os: macos-13
