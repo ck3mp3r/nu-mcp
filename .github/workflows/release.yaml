@@ -96,11 +96,6 @@ jobs:
           name: "Release v${{ needs.get-version.outputs.semver }}"
           draft: false
           prerelease: false
-
-      - name: Upload build outputs to Release
-        uses: softprops/action-gh-release@v2
-        with:
           files: ./artifacts/**/*.*
-          tag_name: v${{ needs.get-version.outputs.semver }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
