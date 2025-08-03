@@ -1,6 +1,7 @@
 ---
 name: CI
 on:
+  workflow_dispatch:
   push:
     branches-ignore:
       - main
@@ -23,4 +24,4 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@main
 
       - name: Run tests in Nix develop shell
-        run: nix develop --command tests
+        run: nix build .#x86_64-linux

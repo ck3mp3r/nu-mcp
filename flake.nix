@@ -67,7 +67,6 @@
           system
           systems
           ;
-        linuxVariant = "gnu";
         archiveAndHash = true;
       };
     })
