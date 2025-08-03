@@ -5,6 +5,12 @@ on:
 
 permissions:
   contents: write
+  actions: read
+  checks: read
+  deployments: read
+  issues: read
+  pull-requests: read
+  id-token: write
 
 jobs:
   get-version:
