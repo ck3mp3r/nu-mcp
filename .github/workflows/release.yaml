@@ -101,19 +101,26 @@ jobs:
         with:
           path: ./artifacts
 
-      - name: Generate data.json from artifacts
+      - name: Generate per-arch data files
         run: |
           VERSION=${{ needs.get-version.outputs.semver }}
-          ARTIFACTS=()
-          for file in ./artifacts/**/*.sha256; do
-            PLATFORM=$(basename "$file" | sed -E 's/nu-mcp-.*-([^.]+)\.sha256/\1/')
-            SHA=$(cat "$file")
-            TGZ_FILE="${file%.sha256}.tgz"
-            URL="https://github.com/${{ github.repository }}/releases/download/$VERSION/$(basename "$TGZ_FILE")"
-            ARTIFACTS+=("{\"platform\":\"$PLATFORM\",\"url\":\"$URL\",\"sha256\":\"$SHA\"}")
+          mkdir -p data
+          for file in ./artifacts/**/*.tgz; do
+            FILENAME=$(basename "$file")
+            PLATFORM=$(echo "$FILENAME" | sed -E 's/nu-mcp-[0-9.]+-(.+)\.tgz/\1/')
+
+            SHA256_FILE="${file%.tgz}-nix.sha256"
+            SHA=$(cat "$SHA256_FILE")
+
+            URL="https://github.com/${{ github.repository }}/releases/download/v$VERSION/$FILENAME"
+
+            cat > data/${PLATFORM}.json <<EOF
+          {
+            "url": "$URL",
+            "hash": "$SHA"
+          }
+          EOF
           done
-          ARTIFACTS_JSON=$(IFS=,; echo "${ARTIFACTS[*]}")
-          echo "{\"version\":\"$VERSION\",\"artifacts\":[${ARTIFACTS_JSON}]}" > data.json
 
       - name: Update Cargo.toml version if needed
         run: |
@@ -127,10 +134,10 @@ jobs:
             echo "Cargo.toml version already $VERSION"
           fi
 
-      - name: Commit data.json and Cargo.toml to release branch
+      - name: Commit data and Cargo.toml to release branch
         run: |
-          git add data.json Cargo.toml
-          git commit -m "Release ${{ needs.get-version.outputs.semver }}: update data.json and Cargo.toml" || echo "No changes to commit"
+          git add data Cargo.toml
+          git commit -m "Release ${{ needs.get-version.outputs.semver }}: update per-arch data and Cargo.toml" || echo "No changes to commit"
           git push origin HEAD
 
       - name: Create GitHub Release and Upload Artifacts
@@ -155,7 +162,7 @@ jobs:
         run: |
           git fetch origin release/${{ needs.get-version.outputs.semver }}
           git merge --squash origin/release/${{ needs.get-version.outputs.semver }}
-          git commit -m "Update data.json and Cargo.toml for release ${{ needs.get-version.outputs.semver }}"
+          git commit -m "Update per-arch data and Cargo.toml for release ${{ needs.get-version.outputs.semver }}"
           git push origin main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
