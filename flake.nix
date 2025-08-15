@@ -12,8 +12,8 @@
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    nix-utils = {
-      url = "github:ck3mp3r/flakes?dir=nix-utils";
+    rustix = {
+      url = "github:ck3mp3r/flakes?dir=rustix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -21,7 +21,7 @@
   outputs = {
     self,
     nixpkgs,
-    nix-utils,
+    rustix,
     flake-utils,
     devshell,
     fenix,
@@ -54,7 +54,7 @@
         ];
       };
       formatter = pkgs.alejandra;
-      packages = nix-utils.lib.rust.buildPackages {
+      packages = rustix.lib.rust.buildPackages {
         inherit
           cargoLock
           cargoToml
