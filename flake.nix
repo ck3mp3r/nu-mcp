@@ -2,7 +2,7 @@
   description = "Rust Nushell MCP Server with Devshell and Fenix";
 
   inputs = {
-    nixpkgs.url = "github:NixOs/nixpkgs";
+    nixpkgs.url = "github:NixOs/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     devshell = {
       url = "github:numtide/devshell";

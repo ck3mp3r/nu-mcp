@@ -28,11 +28,11 @@
         "rust-analyzer-src": "rust-analyzer-src"
       },
       "locked": {
-        "lastModified": 1758350402,
-        "narHash": "sha256-xpbGgQ6ymKvz/LQ3RrUTHdbRKWznZAbdaNAH7TdbKZs=",
+        "lastModified": 1758695884,
+        "narHash": "sha256-rnHjtBRkcwRkrUZxg0RqN1qWTG+QC/gj4vn9uzEkBww=",
         "owner": "nix-community",
         "repo": "fenix",
-        "rev": "bfa40349cb508ebec2a8d0f89d65022967d28dc4",
+        "rev": "9cdb79384d02234fb2868eba6c7d390253ef6f83",
         "type": "github"
       },
       "original": {
@@ -79,15 +79,16 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1758413555,
-        "narHash": "sha256-CJjpJ36BbApaxqvuGIoajly1nqCpeq1YZuc2M2Cz/d0=",
+        "lastModified": 1758446476,
+        "narHash": "sha256-5rdAi7CTvM/kSs6fHe1bREIva5W3TbImsto+dxG4mBo=",
         "owner": "NixOs",
         "repo": "nixpkgs",
-        "rev": "7b38f24f2fe65231f1f957d7259e929acb260c1f",
+        "rev": "a1f79a1770d05af18111fbbe2a3ab2c42c0f6cd0",
         "type": "github"
       },
       "original": {
         "owner": "NixOs",
+        "ref": "nixpkgs-unstable",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -104,11 +105,11 @@
     "rust-analyzer-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1758294437,
-        "narHash": "sha256-PXDZtnSSNXIlTlytspxkTm/RENaQKdTJ44RGqm/LPLA=",
+        "lastModified": 1758620797,
+        "narHash": "sha256-Ly4rHgrixFMBnkbMursVt74mxnntnE6yVdF5QellJ+A=",
         "owner": "rust-lang",
         "repo": "rust-analyzer",
-        "rev": "b12a1293473d4c1c74a63752184b8d21d32a6bde",
+        "rev": "905641f3520230ad6ef421bcf5da9c6b49f2479b",
         "type": "github"
       },
       "original": {
@@ -127,11 +128,11 @@
       },
       "locked": {
         "dir": "rustix",
-        "lastModified": 1758069030,
-        "narHash": "sha256-HHuZX1ngDJf8nA2oL7CrAhRsaDUBC0GzAdv4rICs6Qw=",
+        "lastModified": 1758673896,
+        "narHash": "sha256-5UeWgj/n37twuArsKCRi0Hv+sz3HM6B/TXuLJyeMjJw=",
         "owner": "ck3mp3r",
         "repo": "flakes",
-        "rev": "45d95e47a1e00e2742a7cd663d18133177b083b0",
+        "rev": "5e24117726b76b32d5a4dfbb89c70594fd878348",
         "type": "github"
       },
       "original": {
