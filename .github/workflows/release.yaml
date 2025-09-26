@@ -89,12 +89,13 @@ jobs:
           ref: main
           fetch-depth: 0
 
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v10
+
       - name: Create and push release branch
         run: |
           git checkout -b release/${{ needs.get-version.outputs.semver }}
           git push origin release/${{ needs.get-version.outputs.semver }}
-
-      # Already on release branch, no need to checkout again
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
@@ -122,7 +123,7 @@ jobs:
           EOF
           done
 
-      - name: Update Cargo.toml version if needed
+      - name: Update Cargo.toml version and refresh Cargo.lock if needed
         run: |
           VERSION=${{ needs.get-version.outputs.semver }}
           CURRENT=$(awk -F' *= *' '/^version *=/ {gsub(/"/, "", $2); print $2; exit}' Cargo.toml)
@@ -130,6 +131,10 @@ jobs:
             sed -i.bak -E "s/^version *= *\"[^\"]+\"/version = \"$VERSION\"/" Cargo.toml
             rm Cargo.toml.bak
             echo "Updated Cargo.toml version to $VERSION"
+
+            # Update Cargo.lock to reflect the new version using nix develop
+            nix develop --command cargo check
+            echo "Updated Cargo.lock with new version"
           else
             echo "Cargo.toml version already $VERSION"
           fi
