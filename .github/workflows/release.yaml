@@ -1,4 +1,4 @@
-name: Multi-Arch Nix Release
+name: Multi-Arch Nix Release (v2)
 
 on:
   workflow_dispatch:
@@ -13,10 +13,10 @@ permissions:
   id-token: write
 
 jobs:
-  get-version:
+  prep-release:
     runs-on: ubuntu-latest
     outputs:
-      semver: ${{ steps.semver.outputs.semver }}
+      version: ${{ steps.prep.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,21 +24,24 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.ref }}
 
-      - name: Extract version from Cargo.toml
-        id: extract
-        run: |
-          version=$(awk -F' *= *' '/^version *=/ {gsub(/"/, "", $2); print $2; exit}' Cargo.toml)
-          echo "version=$version" >> $GITHUB_OUTPUT
+      - name: Setup Nu Tools
+        uses: ck3mp3r/actions/nu-tools@main
 
-      - name: Calculate semantic version
-        id: semver
-        uses: ck3mp3r/actions/semver-version@main
-        with:
-          current-version: ${{ steps.extract.outputs.version }}
-          detect-branch-builds: "false"
+      - name: Prepare release
+        id: prep
+        shell: nu {0}
+        run: |
+          use nu-tools *
+          setup-git-user
+
+          let current_version = (open Cargo.toml).package.version
+          let latest_tag = (get-latest-tag)
+          let version = (semver-calculate $latest_tag $current_version | create-release-branch)
+          update-cargo-version $version | commit-files $"Prepare release ($version)"
+          $"version=($version)" | save --append $env.GITHUB_OUTPUT
 
   build:
-    needs: get-version
+    needs: prep-release
     strategy:
       matrix:
         include:
@@ -50,130 +53,75 @@ jobs:
             nix_system: x86_64-darwin
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout repository
+      - name: Checkout release branch
         uses: actions/checkout@v4
+        with:
+          ref: release/${{ needs.prep-release.outputs.version }}
 
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v10
+        uses: DeterminateSystems/nix-installer-action@v20
 
       - name: Build for ${{ matrix.nix_system }}
         run: nix build .#${{ matrix.nix_system }}
 
       - name: Copy build outputs for uniqueness
         run: |
-          cp result/nu-mcp.tgz ${{ github.workspace }}/nu-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}.tgz
-          cp result/nu-mcp.sha256 ${{ github.workspace }}/nu-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}.sha256
-          cp result/nu-mcp-nix.sha256 ${{ github.workspace }}/nu-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}-nix.sha256
+          cp result/nu-mcp.tgz ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}.tgz
+          cp result/nu-mcp.sha256 ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}.sha256
+          cp result/nu-mcp-nix.sha256 ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}-nix.sha256
 
       - name: Upload build outputs as artifacts
         uses: actions/upload-artifact@v4
         with:
           name: nu-mcp-assets-${{ matrix.nix_system }}
           path: |
-            ${{ github.workspace }}/nu-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}.tgz
-            ${{ github.workspace }}/nu-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}.sha256
-            ${{ github.workspace }}/nu-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}-nix.sha256
+            ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}.tgz
+            ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}.sha256
+            ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}-nix.sha256
 
-  release:
-    needs: [get-version, build]
+  finalize-release:
+    needs:
+      - prep-release
+      - build
     runs-on: ubuntu-latest
     steps:
-      - name: Set up git user for all steps
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      - uses: actions/create-github-app-token@v2
+        id: token
+        with:
+          app-id: ${{ secrets.BOT_ID }}
+          private-key: ${{ secrets.BOT }}
 
-      - name: Checkout main
+      - name: Checkout release branch
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: release/${{ needs.prep-release.outputs.version }}
           fetch-depth: 0
+          token: ${{ steps.token.outputs.token }}
 
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v10
-
-      - name: Create and push release branch
-        run: |
-          git checkout -b release/${{ needs.get-version.outputs.semver }}
-          git push origin release/${{ needs.get-version.outputs.semver }}
+      - name: Setup Nu Tools
+        uses: ck3mp3r/actions/nu-tools@main
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
           path: ./artifacts
 
-      - name: Generate per-arch data files
+      - name: Finalize release
+        shell: nu {0}
         run: |
-          VERSION=${{ needs.get-version.outputs.semver }}
-          mkdir -p data
-          for file in ./artifacts/**/*.tgz; do
-            FILENAME=$(basename "$file")
-            PLATFORM=$(echo "$FILENAME" | sed -E 's/nu-mcp-[0-9.]+-(.+)\.tgz/\1/')
+          use nu-tools *
+          setup-git-user
 
-            SHA256_FILE="${file%.tgz}-nix.sha256"
-            SHA=$(cat "$SHA256_FILE")
+          let version = "${{ needs.prep-release.outputs.version }}"
 
-            URL="https://github.com/${{ github.repository }}/releases/download/v$VERSION/$FILENAME"
+          # Generate platform data and commit
+          generate-platform-data-for $version "nu-mcp" "./artifacts" | commit-files $"Add platform data for release ($version)"
 
-            cat > data/${PLATFORM}.json <<EOF
-          {
-            "url": "$URL",
-            "hash": "$SHA"
-          }
-          EOF
-          done
+          # Create release and upload artifacts using gh CLI
+          create-github-release $version
+          glob "./artifacts/**/*.*" | upload-release-artifacts $version
 
-      - name: Update Cargo.toml version and refresh Cargo.lock if needed
-        run: |
-          VERSION=${{ needs.get-version.outputs.semver }}
-          CURRENT=$(awk -F' *= *' '/^version *=/ {gsub(/"/, "", $2); print $2; exit}' Cargo.toml)
-          if [ "$CURRENT" != "$VERSION" ]; then
-            sed -i.bak -E "s/^version *= *\"[^\"]+\"/version = \"$VERSION\"/" Cargo.toml
-            rm Cargo.toml.bak
-            echo "Updated Cargo.toml version to $VERSION"
-
-            # Update Cargo.lock to reflect the new version using nix develop
-            nix develop --command cargo check
-            echo "Updated Cargo.lock with new version"
-          else
-            echo "Cargo.toml version already $VERSION"
-          fi
-
-      - name: Commit data and Cargo.toml to release branch
-        run: |
-          git add data Cargo.toml
-          git commit -m "Release ${{ needs.get-version.outputs.semver }}: update per-arch data and Cargo.toml" || echo "No changes to commit"
-          git push origin HEAD
-
-      - name: Create GitHub Release and Upload Artifacts
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ needs.get-version.outputs.semver }}
-          name: "Release v${{ needs.get-version.outputs.semver }}"
-          draft: false
-          prerelease: false
-          update_existing: true
-          files: ./artifacts/**/*.*
+          # Merge and cleanup
+          merge-and-cleanup $version
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout main for merge
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Merge release branch to main
-        run: |
-          git fetch origin release/${{ needs.get-version.outputs.semver }}
-          git merge --squash origin/release/${{ needs.get-version.outputs.semver }}
-          git commit -m "Update per-arch data and Cargo.toml for release ${{ needs.get-version.outputs.semver }}"
-          git push origin main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Delete release branch
-        run: |
-          git push origin --delete release/${{ needs.get-version.outputs.semver }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.token.outputs.token }}
