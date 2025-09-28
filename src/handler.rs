@@ -17,7 +17,7 @@ pub struct NushellTool {
 }
 
 impl ServerHandler for NushellTool {
-    fn get_info(&self) -> ServerInfo {
+    fn get_info(&self) -> InitializeResult {
         let mut instructions = String::from("MCP server exposing Nushell commands.\n");
 
         instructions.push_str("Allowed commands (always permitted):\n");
@@ -43,9 +43,17 @@ impl ServerHandler for NushellTool {
             if self.config.allow_sudo { "yes" } else { "no" }
         ));
 
-        ServerInfo {
+        InitializeResult {
+            protocol_version: ProtocolVersion::LATEST,
+            capabilities: ServerCapabilities {
+                tools: Some(ToolsCapability::default()),
+                ..Default::default()
+            },
+            server_info: Implementation {
+                name: "nu-mcp".to_string(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+            },
             instructions: Some(instructions),
-            ..Default::default()
         }
     }
 
