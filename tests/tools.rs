@@ -2,12 +2,7 @@ use nu_mcp::tools::{discover_tools, execute_extension_tool};
 use std::path::PathBuf;
 
 fn get_test_tools_dir() -> PathBuf {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test/tools");
-    // In some build environments (like Nix), the test directory might not exist
-    if !path.exists() {
-        eprintln!("Warning: test/tools directory not found at {:?}", path);
-    }
-    path
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test/tools")
 }
 
 #[test]
@@ -57,24 +52,18 @@ async fn test_discover_tools_real_scripts() {
     assert!(result.is_ok());
     let tools = result.unwrap();
 
-    // In build environments without test files, we might have 0 tools
-    if tools_dir.exists() && tools_dir.read_dir().is_ok() {
-        // Should find tools from test_simple.nu and test_math.nu 
-        // test_invalid.nu should cause an error and be skipped
-        if tools.len() >= 3 {
-            // Check for specific tools only if we have enough tools
-            let tool_names: Vec<&str> = tools
-                .iter()
-                .map(|t| t.tool_definition.name.as_ref())
-                .collect();
-            assert!(tool_names.contains(&"echo_test"));
-            assert!(tool_names.contains(&"add_numbers"));
-            assert!(tool_names.contains(&"multiply_numbers"));
-        }
-    } else {
-        // In environments without test files, just verify the function works
-        assert!(tools.is_empty() || tools.len() >= 0);
-    }
+    // Should find tools from test_simple.nu and test_math.nu 
+    // test_invalid.nu should cause an error and be skipped
+    assert!(tools.len() >= 3); // At least echo_test, add_numbers, multiply_numbers
+
+    // Check for specific tools
+    let tool_names: Vec<&str> = tools
+        .iter()
+        .map(|t| t.tool_definition.name.as_ref())
+        .collect();
+    assert!(tool_names.contains(&"echo_test"));
+    assert!(tool_names.contains(&"add_numbers"));
+    assert!(tool_names.contains(&"multiply_numbers"));
 }
 
 #[tokio::test]
@@ -156,10 +145,7 @@ async fn test_execute_tool_unknown_tool() {
         .await
         .expect("Failed to discover tools");
 
-    if tools.is_empty() {
-        // Skip test in environments without test files
-        return;
-    }
+    assert!(!tools.is_empty(), "No tools discovered for testing");
     
     let any_tool = &tools[0];
     let result = execute_extension_tool(any_tool, "nonexistent_tool", "{}").await;
