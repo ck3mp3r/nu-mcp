@@ -4,32 +4,104 @@ This project exposes Nushell as an MCP server using the official Rust SDK (`rmcp
 
 ## Features
 - Exposes a tool to run arbitrary Nushell commands via MCP
+- Extensible tool system via Nushell scripts
 - Uses the official Model Context Protocol Rust SDK
 - Highly configurable: supports allowed/denied command lists and sudo control
+- Security filters for safe command execution
+
+## Operating Modes
+
+### Core Mode (Default)
+Provides the `run_nushell` tool for executing arbitrary Nushell commands.
+
+### Extension Mode
+Load additional tools from Nushell scripts in a specified directory. Each `.nu` file should implement:
+- `main list-tools` - Return JSON array of tool definitions
+- `main call-tool <tool_name> <args>` - Execute the specified tool
+
+### Hybrid Mode
+Combine both core and extension tools by using `--tools-dir` with `--enable-run-nushell`.
 
 ## Configuration
 
 The `nu-mcp` server is configured via command-line arguments or by passing arguments as part of a process launch configuration.
 
 ### Options
-- `--denied-cmds=CMD1,CMD2,...`  
+
+#### Core Tool Options
+- `--denied-cmds=CMD1,CMD2,...`
   Comma-separated list of denied commands (default: `rm,shutdown,reboot,poweroff,halt,mkfs,dd,chmod,chown`)
-- `--allowed-cmds=CMD1,CMD2,...`  
+- `--allowed-cmds=CMD1,CMD2,...`
   Comma-separated list of allowed commands (takes precedence over denied)
-- `--allow-sudo`  
+- `--allow-sudo`
   Allow use of `sudo` (default: false)
 
-### Example YAML Process Configuration
+#### Extension System Options
+- `--tools-dir=PATH`
+  Directory containing `.nu` extension scripts
+- `--enable-run-nushell`
+  Keep `run_nushell` tool available when using extensions (default: disabled with `--tools-dir`)
 
-If you want to launch `nu-mcp` as a subprocess from a supervisor or orchestrator, you might use a YAML like:
+#### Security Filter Options (for `run_nushell` only)
+- `-P, --disable-run-nushell-path-traversal-check`
+  Disable path traversal protection
+- `-S, --disable-run-nushell-system-dir-check`
+  Disable system directory access protection
 
+### Example Configurations
+
+#### Basic Core Mode
 ```yaml
-nu-mcp:
+nu-mcp-core:
   command: "nu-mcp"
   args:
     - "--denied-cmds=rm,reboot"
-    - "--allowed-cmds=ls,cat"
+    - "--allowed-cmds=ls,cat,echo"
     - "--allow-sudo"
+```
+
+#### Extension Mode Only
+```yaml
+nu-mcp-tools:
+  command: "nu-mcp"
+  args:
+    - "--tools-dir=/path/to/tools"
+```
+
+#### Hybrid Mode
+```yaml
+nu-mcp-hybrid:
+  command: "nu-mcp"
+  args:
+    - "--tools-dir=/path/to/tools"
+    - "--enable-run-nushell"
+    - "--allowed-cmds=ls,cat,echo"
+```
+
+#### Multiple Specialized Instances
+You can run multiple instances with different tool sets:
+
+```yaml
+# Weather and location services
+nu-mcp-weather:
+  command: "nu-mcp"
+  args:
+    - "--tools-dir=/opt/mcp-tools/weather"
+
+# Financial data services
+nu-mcp-finance:
+  command: "nu-mcp"
+  args:
+    - "--tools-dir=/opt/mcp-tools/finance"
+
+# Development tools with core access
+nu-mcp-dev:
+  command: "nu-mcp"
+  args:
+    - "--tools-dir=/opt/mcp-tools/dev"
+    - "--enable-run-nushell"
+    - "--allowed-cmds=git,cargo,npm,docker"
+    - "-P"  # Allow file access for development
 ```
 
 ## Installation
@@ -74,7 +146,67 @@ You can now use `pkgs.nu-mcp` in your own packages, devShells, or CI.
 - The code is modular and fully async.
 - Tests are in `tests/filter.rs`.
 
+## Creating Extension Tools
+
+Extension tools are Nushell scripts (`.nu` files) placed in the tools directory. Each script must implement these functions:
+
+### Required Functions
+
+```nushell
+# List available MCP tools
+def "main list-tools" [] {
+    [
+        {
+            name: "tool_name",
+            description: "Tool description",
+            input_schema: {
+                type: "object",
+                properties: {
+                    param: {
+                        type: "string",
+                        description: "Parameter description"
+                    }
+                },
+                required: ["param"]
+            }
+        }
+    ] | to json
+}
+
+# Execute a tool
+def "main call-tool" [
+    tool_name: string
+    args: string = "{}"
+] {
+    let parsed_args = $args | from json
+    match $tool_name {
+        "tool_name" => { your_function ($parsed_args | get param) }
+        _ => { error make {msg: $"Unknown tool: ($tool_name)"} }
+    }
+}
+```
+
+### Example Tool Structure
+
+See the included example tools:
+- `tools/weather.nu` - Weather data using Open-Meteo API
+- `tools/ticker.nu` - Stock prices using Yahoo Finance API
+
 ## Security Notes
-- By default, dangerous commands are denied.
-- Allowed commands always take precedence over denied commands.
-- Sudo is disabled by default for safety.
+- By default, dangerous commands are denied for `run_nushell`
+- Allowed commands always take precedence over denied commands
+- Sudo is disabled by default for safety
+- Security filters only apply to the `run_nushell` tool, not extensions
+- Extensions run in the same security context as the server process
+
+## Disclaimer
+
+**USE AT YOUR OWN RISK**: This software is provided "as is" without warranty of any kind. The author(s) accept no responsibility or liability for any damage, data loss, security breaches, or other issues that may result from using this software. Users are solely responsible for:
+
+- Reviewing and understanding the security implications before deployment
+- Properly configuring access controls and command restrictions
+- Testing thoroughly in non-production environments
+- Monitoring and securing their systems when running this software
+- Any consequences resulting from the execution of commands or scripts
+
+By using this software, you acknowledge that you understand these risks and agree to use it at your own discretion and responsibility.
