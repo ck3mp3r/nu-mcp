@@ -54,6 +54,9 @@ impl ServerHandler for NushellTool {
             server_info: Implementation {
                 name: "nu-mcp".to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
+                title: Some("Nu MCP Server".to_string()),
+                website_url: Some("https://github.com/ck3mp3r/nu-mcp".to_string()),
+                icons: None,
             },
             instructions: Some(instructions),
         }
@@ -104,6 +107,9 @@ impl ServerHandler for NushellTool {
                 description: Some("Run a Nushell command and return its output".into()),
                 input_schema: Arc::new(schema),
                 annotations: None,
+                title: Some("Run Nushell Command".to_string()),
+                output_schema: None,
+                icons: None,
             });
         }
 

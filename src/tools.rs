@@ -70,6 +70,9 @@ async fn discover_tools_from_script(
             description: def.description.map(|d| d.into()),
             input_schema: Arc::new(def.input_schema),
             annotations: None,
+            title: None,
+            output_schema: None,
+            icons: None,
         };
 
         extension_tools.push(ExtensionTool {
