@@ -72,6 +72,7 @@
           system
           systems
           ;
+        nativeBuildInputs = [pkgs.nushell];
         packageName = "nu-mcp";
         archiveAndHash = true;
       };
