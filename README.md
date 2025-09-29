@@ -15,12 +15,14 @@ This project exposes Nushell as an MCP server using the official Rust SDK (`rmcp
 Provides the `run_nushell` tool for executing arbitrary Nushell commands.
 
 ### Extension Mode
-Load additional tools from Nushell scripts in a specified directory. Each `.nu` file should implement:
+Load additional tools from Nushell scripts in a specified directory using `--tools-dir`. Each `.nu` file should implement:
 - `main list-tools` - Return JSON array of tool definitions
 - `main call-tool <tool_name> <args>` - Execute the specified tool
 
+**Key Behavior**: When `--tools-dir` is used, the `run_nushell` tool is automatically disabled by default. This design prevents conflicts when running multiple specialized MCP server instances and provides a cleaner tool interface focused on the specific extensions.
+
 ### Hybrid Mode
-Combine both core and extension tools by using `--tools-dir` with `--enable-run-nushell`.
+Combine both core and extension tools by using `--tools-dir` with `--enable-run-nushell`. This gives you access to both the generic `run_nushell` command execution and your custom extension tools in a single server instance.
 
 ## Configuration
 
@@ -38,9 +40,9 @@ The `nu-mcp` server is configured via command-line arguments or by passing argum
 
 #### Extension System Options
 - `--tools-dir=PATH`
-  Directory containing `.nu` extension scripts
+  Directory containing `.nu` extension scripts. When specified, the server automatically discovers and loads all `.nu` files in this directory as MCP tools. **Important**: Using this flag automatically disables the `run_nushell` tool by default to prevent conflicts between multiple MCP server instances and avoid confusion when the same server provides both generic command execution and specific tools.
 - `--enable-run-nushell`
-  Keep `run_nushell` tool available when using extensions (default: disabled with `--tools-dir`)
+  Explicitly re-enable the `run_nushell` tool when using `--tools-dir`. This creates a hybrid mode where both extension tools and generic nushell command execution are available. Use with caution in multi-instance setups to avoid tool name conflicts.
 
 #### Security Filter Options (for `run_nushell` only)
 - `-P, --disable-run-nushell-path-traversal-check`
@@ -79,7 +81,7 @@ nu-mcp-hybrid:
 ```
 
 #### Multiple Specialized Instances
-You can run multiple instances with different tool sets:
+You can run multiple instances with different tool sets. This approach is recommended for organizing tools by domain and avoiding conflicts:
 
 ```yaml
 # Weather and location services
@@ -103,6 +105,15 @@ nu-mcp-dev:
     - "--allowed-cmds=git,cargo,npm,docker"
     - "-P"  # Allow file access for development
 ```
+
+**Why Multiple Instances?**
+- **Tool Organization**: Group related functionality (weather, finance, development)
+- **Conflict Avoidance**: Each instance provides distinct tools without name collisions
+- **Security Isolation**: Different instances can have different security policies
+- **Clear Interface**: Clients see focused tool sets rather than everything mixed together
+- **Scalability**: Easy to add new tool categories without affecting existing ones
+
+**Note**: The `run_nushell` tool is automatically disabled in extension mode to prevent multiple instances from providing identical generic command execution tools, which would confuse MCP clients about which instance to use.
 
 ## Installation
 
