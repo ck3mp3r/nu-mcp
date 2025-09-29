@@ -8,8 +8,10 @@ fn test_get_info_includes_allowed_and_denied() {
         allowed_commands: vec!["ls".into(), "cat".into()],
         denied_commands: vec!["rm".into(), "shutdown".into()],
         allow_sudo: true,
+        tools_dir: None,
+        enable_run_nushell: false,
     };
-    let tool = NushellTool { config };
+    let tool = NushellTool { config, extensions: vec![] };
     let info = tool.get_info();
     let instructions = info.instructions.unwrap();
     assert!(instructions.contains("ls"));
@@ -25,8 +27,10 @@ fn test_get_info_empty_lists() {
         allowed_commands: vec![],
         denied_commands: vec![],
         allow_sudo: false,
+        tools_dir: None,
+        enable_run_nushell: false,
     };
-    let tool = NushellTool { config };
+    let tool = NushellTool { config, extensions: vec![] };
     let info = tool.get_info();
     let instructions = info.instructions.unwrap();
     assert!(instructions.contains("(none specified)"));
