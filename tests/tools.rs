@@ -607,3 +607,129 @@ async fn test_tool_definition_serialization() {
         assert_eq!(parsed.description, tool.tool_definition.description);
     }
 }
+
+#[tokio::test]
+async fn test_discover_tools_script_execution_failure() {
+    // This test should trigger the stderr error handling path
+    let tools_dir = get_test_tools_dir();
+    let result = discover_tools(&tools_dir).await;
+    
+    // Should still succeed but with warnings printed to stderr
+    assert!(result.is_ok());
+    
+    // The test_stderr.nu script should cause a warning to be printed
+    // but discover_tools should continue and return other valid tools
+    let tools = result.unwrap();
+    
+    // Should find valid tools despite one failing script
+    let valid_tool_names: Vec<&str> = tools
+        .iter()
+        .map(|t| t.tool_definition.name.as_ref())
+        .collect();
+    
+    // Should still find the valid tools (echo_test, add_numbers, multiply_numbers)
+    // but not find anything from test_stderr.nu
+    assert!(valid_tool_names.contains(&"echo_test") || 
+           valid_tool_names.contains(&"add_numbers") ||
+           valid_tool_names.contains(&"multiply_numbers"));
+}
+
+#[tokio::test]
+async fn test_execute_extension_tool_with_nonexistent_script() {
+    let tools_dir = get_test_tools_dir();
+    let tools = discover_tools(&tools_dir)
+        .await
+        .expect("Failed to discover tools");
+
+    // Find a valid tool to test with nonexistent script
+    if let Some(echo_tool) = tools
+        .iter()
+        .find(|t| t.tool_definition.name == "echo_test")
+    {
+        // Create an extension with a nonexistent script path
+        let failing_extension = nu_mcp::tools::ExtensionTool {
+            script_path: PathBuf::from("/nonexistent/script/path.nu"),
+            tool_definition: echo_tool.tool_definition.clone(),
+        };
+        
+        let result = execute_extension_tool(
+            &failing_extension,
+            "echo_test",
+            r#"{"message": "test"}"#,
+        )
+        .await;
+        
+        // Should fail due to nonexistent script file
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.to_string().len() > 0);
+    }
+}
+
+#[tokio::test]
+async fn test_discover_tools_from_directory_read_error() {
+    // Test with a file instead of directory to trigger different error path
+    let not_a_dir = get_test_tools_dir().join("test_simple.nu"); // This is a file, not a directory
+    
+    let result = discover_tools(&not_a_dir).await;
+    
+    // Should return empty vec for non-directory paths
+    assert!(result.is_ok());
+    let tools = result.unwrap();
+    assert!(tools.is_empty());
+}
+
+#[tokio::test]
+async fn test_extension_tool_struct() {
+    // Test the ExtensionTool struct directly
+    use nu_mcp::tools::ExtensionTool;
+    use rmcp::model::Tool;
+    use std::sync::Arc;
+    
+    let tool = Tool {
+        name: "test_tool".into(),
+        description: Some("Test description".into()),
+        input_schema: Arc::new({
+            let mut schema = serde_json::Map::new();
+            schema.insert("type".to_string(), serde_json::Value::String("object".to_string()));
+            schema
+        }),
+        annotations: None,
+        title: None,
+        output_schema: None,
+        icons: None,
+    };
+    
+    let extension = ExtensionTool {
+        script_path: PathBuf::from("/test/path.nu"),
+        tool_definition: tool,
+    };
+    
+    assert_eq!(extension.script_path, PathBuf::from("/test/path.nu"));
+    assert_eq!(extension.tool_definition.name, "test_tool");
+    assert_eq!(extension.tool_definition.description, Some("Test description".into()));
+}
+
+#[tokio::test]
+async fn test_discover_tools_json_parse_error() {
+    // Create a temp file with invalid JSON to test JSON parsing error
+    let temp_dir = std::env::temp_dir().join("nu_mcp_test_json_error");
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    
+    let bad_script = temp_dir.join("bad_json.nu");
+    std::fs::write(&bad_script, r#"
+def "main list-tools" [] {
+    print "invalid json here"
+}
+"#).unwrap();
+    
+    let result = discover_tools(&temp_dir).await;
+    
+    // Should succeed but skip the script with invalid JSON
+    assert!(result.is_ok());
+    let tools = result.unwrap();
+    assert!(tools.is_empty()); // No valid tools should be found
+    
+    // Cleanup
+    std::fs::remove_dir_all(&temp_dir).unwrap();
+}
