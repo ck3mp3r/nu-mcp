@@ -143,14 +143,13 @@ impl ServerHandler for NushellTool {
                                      command.contains("wss:");
                     
                     // Check path traversal protection (unless disabled)
-                    if !config.disable_run_nushell_path_traversal_check {
-                        if command.contains("../") ||
+                    if !config.disable_run_nushell_path_traversal_check
+                        && (command.contains("../") ||
                            command.contains("..\\") ||
                            command.contains(".. ") ||
-                           command.contains(" ..") {
+                           command.contains(" ..")) {
                             return false;
                         }
-                    }
                     
                     // Check system directory protection (unless disabled or URL)
                     if !config.disable_run_nushell_system_dir_check && !contains_url {
