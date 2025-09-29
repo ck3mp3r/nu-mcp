@@ -11,9 +11,11 @@ pub struct ExtensionTool {
 }
 
 /// Discover tools from nushell scripts in the given directory
-pub async fn discover_tools(tools_dir: &PathBuf) -> Result<Vec<ExtensionTool>, Box<dyn std::error::Error>> {
+pub async fn discover_tools(
+    tools_dir: &PathBuf,
+) -> Result<Vec<ExtensionTool>, Box<dyn std::error::Error>> {
     let mut extension_tools = Vec::new();
-    
+
     // Check if directory exists
     if !tools_dir.exists() || !tools_dir.is_dir() {
         return Ok(extension_tools);
@@ -21,24 +23,30 @@ pub async fn discover_tools(tools_dir: &PathBuf) -> Result<Vec<ExtensionTool>, B
 
     // Read directory entries
     let mut dir = tokio::fs::read_dir(tools_dir).await?;
-    
+
     while let Some(entry) = dir.next_entry().await? {
         let path = entry.path();
-        
+
         // Only process .nu files
         if path.extension().and_then(|s| s.to_str()) == Some("nu") {
             match discover_tools_from_script(&path).await {
                 Ok(mut tools) => extension_tools.append(&mut tools),
-                Err(e) => eprintln!("Warning: Failed to discover tools from {}: {}", path.display(), e),
+                Err(e) => eprintln!(
+                    "Warning: Failed to discover tools from {}: {}",
+                    path.display(),
+                    e
+                ),
             }
         }
     }
-    
+
     Ok(extension_tools)
 }
 
 /// Discover tools from a single nushell script
-async fn discover_tools_from_script(script_path: &PathBuf) -> Result<Vec<ExtensionTool>, Box<dyn std::error::Error>> {
+async fn discover_tools_from_script(
+    script_path: &PathBuf,
+) -> Result<Vec<ExtensionTool>, Box<dyn std::error::Error>> {
     // Execute the script with list-tools subcommand
     let output = Command::new("nu")
         .arg(script_path)
@@ -53,9 +61,9 @@ async fn discover_tools_from_script(script_path: &PathBuf) -> Result<Vec<Extensi
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let tool_definitions: Vec<ToolDefinition> = serde_json::from_str(&stdout)?;
-    
+
     let mut extension_tools = Vec::new();
-    
+
     for def in tool_definitions {
         let tool = Tool {
             name: def.name.into(),
@@ -63,13 +71,13 @@ async fn discover_tools_from_script(script_path: &PathBuf) -> Result<Vec<Extensi
             input_schema: Arc::new(def.input_schema),
             annotations: None,
         };
-        
+
         extension_tools.push(ExtensionTool {
             script_path: script_path.clone(),
             tool_definition: tool,
         });
     }
-    
+
     Ok(extension_tools)
 }
 

@@ -1,5 +1,5 @@
 use crate::filter::{Config, is_command_allowed};
-use crate::tools::{ExtensionTool, execute_extension_tool, discover_tools};
+use crate::tools::{ExtensionTool, discover_tools, execute_extension_tool};
 use rmcp::{
     RoleServer, ServiceExt,
     handler::server::ServerHandler,
@@ -75,10 +75,10 @@ impl ServerHandler for NushellTool {
         // - If no tools directory: include by default
         // - If tools directory exists: only include if explicitly enabled
         let should_include_run_nushell = match &self.config.tools_dir {
-            None => true,  // No tools dir = include run_nushell by default
-            Some(_) => self.config.enable_run_nushell,  // Tools dir exists = only if explicitly enabled
+            None => true, // No tools dir = include run_nushell by default
+            Some(_) => self.config.enable_run_nushell, // Tools dir exists = only if explicitly enabled
         };
-        
+
         if should_include_run_nushell {
             // Create the input schema for run_nushell tool
             let mut schema = Map::new();
@@ -135,44 +135,50 @@ impl ServerHandler for NushellTool {
                 // Validate command for security (run_nushell tool only)
                 let is_command_safe = |command: &str, config: &Config| -> bool {
                     // Allow URLs by checking for protocol schemes
-                    let contains_url = command.contains("://") || 
-                                     command.contains("http:") || 
-                                     command.contains("https:") ||
-                                     command.contains("ftp:") ||
-                                     command.contains("ws:") ||
-                                     command.contains("wss:");
-                    
+                    let contains_url = command.contains("://")
+                        || command.contains("http:")
+                        || command.contains("https:")
+                        || command.contains("ftp:")
+                        || command.contains("ws:")
+                        || command.contains("wss:");
+
                     // Check path traversal protection (unless disabled)
                     if !config.disable_run_nushell_path_traversal_check
-                        && (command.contains("../") ||
-                           command.contains("..\\") ||
-                           command.contains(".. ") ||
-                           command.contains(" ..")) {
-                            return false;
-                        }
-                    
+                        && (command.contains("../")
+                            || command.contains("..\\")
+                            || command.contains(".. ")
+                            || command.contains(" .."))
+                    {
+                        return false;
+                    }
+
                     // Check system directory protection (unless disabled or URL)
                     if !config.disable_run_nushell_system_dir_check && !contains_url {
                         // Reject absolute paths starting with /
                         if command.starts_with('/') {
                             return false;
                         }
-                        
+
                         // Reject references to sensitive system directories (without trailing slash)
-                        let sensitive_dirs = ["/etc", "/root", "/home", "/usr", "/var", "/sys", "/proc", "/bin", "/sbin", "/boot"];
+                        let sensitive_dirs = [
+                            "/etc", "/root", "/home", "/usr", "/var", "/sys", "/proc", "/bin",
+                            "/sbin", "/boot",
+                        ];
                         for dir in &sensitive_dirs {
                             if command.contains(&format!(" {}", dir)) ||  // " /etc"
-                               command.ends_with(dir) {                  // "ls /etc"
+                               command.ends_with(dir)
+                            {
+                                // "ls /etc"
                                 return false;
                             }
                         }
-                        
+
                         // Reject Windows absolute paths
                         if command.contains(":\\") {
                             return false;
                         }
                     }
-                    
+
                     true
                 };
 
@@ -207,7 +213,11 @@ impl ServerHandler for NushellTool {
             }
             tool_name => {
                 // Look for extension tool
-                if let Some(extension) = self.extensions.iter().find(|e| e.tool_definition.name.as_ref() == tool_name) {
+                if let Some(extension) = self
+                    .extensions
+                    .iter()
+                    .find(|e| e.tool_definition.name.as_ref() == tool_name)
+                {
                     // Convert arguments to JSON string
                     let args_json = match &request.arguments {
                         Some(args) => serde_json::to_string(args)
@@ -217,12 +227,8 @@ impl ServerHandler for NushellTool {
 
                     // Execute extension tool
                     match execute_extension_tool(extension, tool_name, &args_json).await {
-                        Ok(output) => {
-                            Ok(CallToolResult::success(vec![Content::text(output)]))
-                        }
-                        Err(e) => {
-                            Err(ErrorData::internal_error(e.to_string(), None))
-                        }
+                        Ok(output) => Ok(CallToolResult::success(vec![Content::text(output)])),
+                        Err(e) => Err(ErrorData::internal_error(e.to_string(), None)),
                     }
                 } else {
                     Err(ErrorData::invalid_request(
