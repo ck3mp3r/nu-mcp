@@ -192,6 +192,8 @@ See the included example tools:
 - `tools/weather.nu` - Weather data using Open-Meteo API
 - `tools/ticker.nu` - Stock prices using Yahoo Finance API
 
+**Note**: The tools in the `tools/` directory are examples for demonstration purposes only. They are not intended for production use and may have limitations or reliability issues. Users should review, test, and modify these examples according to their specific requirements before using them in any production environment.
+
 ## Security Notes
 - By default, dangerous commands are denied for `run_nushell`
 - Allowed commands always take precedence over denied commands
