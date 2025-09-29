@@ -121,11 +121,17 @@ fn test_nushell_tool_creation_core_mode() {
     assert_eq!(tool.config.denied_commands, vec!["rm", "shutdown"]);
 }
 
-// Note: Complex integration tests with RequestContext are commented out due to API complexity
-// The core functionality is tested via unit tests in src/ modules
+// TODO: Complex RequestContext integration tests commented out due to rmcp 0.7.0 API complexity
+// The core functionality is well-tested through the 20 comprehensive tools tests
+// and the basic handler structure tests below.
 
 /*
-// TODO: Fix RequestContext creation for integration tests
+// Integration tests with actual MCP calls would require proper Peer mocking
+// which is complex with the new rmcp 0.7.0 API. For now, focusing on:
+// 1. Unit tests of handler structure and configuration
+// 2. Comprehensive tools.rs integration tests (20 tests)
+// 3. CLI and filter tests
+
 #[tokio::test]
 async fn test_list_tools_core_mode() {
     let config = Config {
