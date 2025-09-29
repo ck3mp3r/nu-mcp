@@ -1,9 +1,10 @@
 use crate::filter::{Config, is_command_allowed};
+use crate::tools::{ExtensionTool, execute_extension_tool, discover_tools};
 use rmcp::{
     RoleServer, ServiceExt,
     handler::server::ServerHandler,
     model::*,
-    serde_json::{Map, Value},
+    serde_json::{self, Map, Value},
     service::RequestContext,
     transport,
 };
@@ -14,6 +15,7 @@ use tokio::process::Command;
 #[derive(Clone)]
 pub struct NushellTool {
     pub config: Config,
+    pub extensions: Vec<ExtensionTool>,
 }
 
 impl ServerHandler for NushellTool {
@@ -62,31 +64,48 @@ impl ServerHandler for NushellTool {
         _request: Option<PaginatedRequestParam>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
-        // Create the input schema manually
-        let mut schema = Map::new();
-        schema.insert("type".to_string(), Value::String("object".to_string()));
+        let mut tools = Vec::new();
 
-        let mut properties = Map::new();
-        let mut command_prop = Map::new();
-        command_prop.insert("type".to_string(), Value::String("string".to_string()));
-        command_prop.insert(
-            "description".to_string(),
-            Value::String("The Nushell command to execute".to_string()),
-        );
-        properties.insert("command".to_string(), Value::Object(command_prop));
+        // Add extension tools
+        for extension in &self.extensions {
+            tools.push(extension.tool_definition.clone());
+        }
 
-        schema.insert("properties".to_string(), Value::Object(properties));
-        schema.insert(
-            "required".to_string(),
-            Value::Array(vec![Value::String("command".to_string())]),
-        );
+        // Add run_nushell tool based on configuration:
+        // - If no tools directory: include by default
+        // - If tools directory exists: only include if explicitly enabled
+        let should_include_run_nushell = match &self.config.tools_dir {
+            None => true,  // No tools dir = include run_nushell by default
+            Some(_) => self.config.enable_run_nushell,  // Tools dir exists = only if explicitly enabled
+        };
+        
+        if should_include_run_nushell {
+            // Create the input schema for run_nushell tool
+            let mut schema = Map::new();
+            schema.insert("type".to_string(), Value::String("object".to_string()));
 
-        let tools = vec![Tool {
-            name: "run_nushell".into(),
-            description: Some("Run a Nushell command and return its output".into()),
-            input_schema: Arc::new(schema),
-            annotations: None,
-        }];
+            let mut properties = Map::new();
+            let mut command_prop = Map::new();
+            command_prop.insert("type".to_string(), Value::String("string".to_string()));
+            command_prop.insert(
+                "description".to_string(),
+                Value::String("The Nushell command to execute".to_string()),
+            );
+            properties.insert("command".to_string(), Value::Object(command_prop));
+
+            schema.insert("properties".to_string(), Value::Object(properties));
+            schema.insert(
+                "required".to_string(),
+                Value::Array(vec![Value::String("command".to_string())]),
+            );
+
+            tools.push(Tool {
+                name: "run_nushell".into(),
+                description: Some("Run a Nushell command and return its output".into()),
+                input_schema: Arc::new(schema),
+                annotations: None,
+            });
+        }
 
         Ok(ListToolsResult {
             tools,
@@ -163,16 +182,45 @@ impl ServerHandler for NushellTool {
 
                 Ok(CallToolResult::success(content))
             }
-            _ => Err(ErrorData::invalid_request(
-                format!("Unknown tool: {}", request.name),
-                None,
-            )),
+            tool_name => {
+                // Look for extension tool
+                if let Some(extension) = self.extensions.iter().find(|e| e.tool_definition.name.as_ref() == tool_name) {
+                    // Convert arguments to JSON string
+                    let args_json = match &request.arguments {
+                        Some(args) => serde_json::to_string(args)
+                            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?,
+                        None => "{}".to_string(),
+                    };
+
+                    // Execute extension tool
+                    match execute_extension_tool(extension, tool_name, &args_json).await {
+                        Ok(output) => {
+                            Ok(CallToolResult::success(vec![Content::text(output)]))
+                        }
+                        Err(e) => {
+                            Err(ErrorData::internal_error(e.to_string(), None))
+                        }
+                    }
+                } else {
+                    Err(ErrorData::invalid_request(
+                        format!("Unknown tool: {}", request.name),
+                        None,
+                    ))
+                }
+            }
         }
     }
 }
 
 pub async fn run_server(config: Config) -> Result<(), Box<dyn std::error::Error>> {
-    let tool = NushellTool { config };
+    // Discover extension tools if tools_dir is provided
+    let extensions = if let Some(ref tools_dir) = config.tools_dir {
+        discover_tools(tools_dir).await?
+    } else {
+        Vec::new()
+    };
+
+    let tool = NushellTool { config, extensions };
     let service = tool.serve(transport::stdio()).await?;
     service.waiting().await?;
     Ok(())

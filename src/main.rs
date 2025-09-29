@@ -1,9 +1,11 @@
 mod filter;
 mod handler;
+mod tools;
 
 use clap::Parser;
 use filter::Config;
 use handler::run_server;
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -19,6 +21,14 @@ struct Cli {
     /// Allow sudo (default: false)
     #[arg(long, default_value_t = false)]
     allow_sudo: bool,
+
+    /// Directory containing nushell tool scripts
+    #[arg(long)]
+    tools_dir: Option<PathBuf>,
+
+    /// Enable the default run_nushell tool when using tools-dir
+    #[arg(long, default_value_t = false)]
+    enable_run_nushell: bool,
 }
 
 #[tokio::main]
@@ -41,6 +51,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         denied_commands: cli.denied_cmds.unwrap_or(default_denied),
         allowed_commands: cli.allowed_cmds.unwrap_or_default(),
         allow_sudo: cli.allow_sudo,
+        tools_dir: cli.tools_dir,
+        enable_run_nushell: cli.enable_run_nushell,
     };
 
     run_server(config).await

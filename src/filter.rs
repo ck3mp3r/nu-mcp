@@ -3,6 +3,8 @@ pub struct Config {
     pub denied_commands: Vec<String>,
     pub allowed_commands: Vec<String>,
     pub allow_sudo: bool,
+    pub tools_dir: Option<std::path::PathBuf>,
+    pub enable_run_nushell: bool,
 }
 
 pub fn is_command_allowed(config: &Config, command: &str) -> Result<(), String> {
