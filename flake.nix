@@ -46,12 +46,17 @@
     flake-utils.lib.eachSystem systems (system: let
       pkgs = import nixpkgs {inherit system overlays;};
     in {
-      devShells.default = pkgs.devshell.mkShell {
-        packages = [fenix.packages.${system}.stable.toolchain];
-        imports = [
-          (pkgs.devshell.importTOML ./devshell.toml)
-          "${devshell}/extra/git/hooks.nix"
-        ];
+      devShells = {
+        ci = pkgs.devshell.mkShell {
+          packages = [fenix.packages.${system}.stable.toolchain pkgs.nushell];
+        };
+        default = pkgs.devshell.mkShell {
+          packages = [fenix.packages.${system}.stable.toolchain];
+          imports = [
+            (pkgs.devshell.importTOML ./devshell.toml)
+            "${devshell}/extra/git/hooks.nix"
+          ];
+        };
       };
       formatter = pkgs.alejandra;
       packages = rustix.lib.rust.buildPackages {
@@ -67,6 +72,7 @@
           system
           systems
           ;
+        packageName = "nu-mcp";
         archiveAndHash = true;
       };
     })

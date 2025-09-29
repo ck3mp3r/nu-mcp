@@ -132,28 +132,52 @@ impl ServerHandler for NushellTool {
                     return Err(ErrorData::invalid_request(msg, None));
                 }
 
-                // Validate command for security
-                fn is_command_safe(command: &str) -> bool {
-                    // Reject absolute paths (Unix)
-                    if command.contains(" /") || command.starts_with('/') {
-                        return false;
+                // Validate command for security (run_nushell tool only)
+                let is_command_safe = |command: &str, config: &Config| -> bool {
+                    // Allow URLs by checking for protocol schemes
+                    let contains_url = command.contains("://") || 
+                                     command.contains("http:") || 
+                                     command.contains("https:") ||
+                                     command.contains("ftp:") ||
+                                     command.contains("ws:") ||
+                                     command.contains("wss:");
+                    
+                    // Check path traversal protection (unless disabled)
+                    if !config.disable_run_nushell_path_traversal_check {
+                        if command.contains("../") ||
+                           command.contains("..\\") ||
+                           command.contains(".. ") ||
+                           command.contains(" ..") {
+                            return false;
+                        }
                     }
-                    // Reject absolute paths (Windows)
-                    if command.contains(":\\") || command.contains(":/") {
-                        return false;
+                    
+                    // Check system directory protection (unless disabled or URL)
+                    if !config.disable_run_nushell_system_dir_check && !contains_url {
+                        // Reject absolute paths starting with /
+                        if command.starts_with('/') {
+                            return false;
+                        }
+                        
+                        // Reject references to sensitive system directories (without trailing slash)
+                        let sensitive_dirs = ["/etc", "/root", "/home", "/usr", "/var", "/sys", "/proc", "/bin", "/sbin", "/boot"];
+                        for dir in &sensitive_dirs {
+                            if command.contains(&format!(" {}", dir)) ||  // " /etc"
+                               command.ends_with(dir) {                  // "ls /etc"
+                                return false;
+                            }
+                        }
+                        
+                        // Reject Windows absolute paths
+                        if command.contains(":\\") {
+                            return false;
+                        }
                     }
-                    // Reject parent directory traversal
-                    if command.contains("../")
-                        || command.contains("..\\")
-                        || command.contains(".. ")
-                        || command.contains(" ..")
-                    {
-                        return false;
-                    }
+                    
                     true
-                }
+                };
 
-                if !is_command_safe(command) {
+                if !is_command_safe(command, &self.config) {
                     return Err(ErrorData::invalid_request(
                         "Command contains forbidden path traversal or absolute path".to_string(),
                         None,

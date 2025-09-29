@@ -10,6 +10,8 @@ fn test_get_info_includes_allowed_and_denied() {
         allow_sudo: true,
         tools_dir: None,
         enable_run_nushell: false,
+        disable_run_nushell_path_traversal_check: false,
+        disable_run_nushell_system_dir_check: false,
     };
     let tool = NushellTool { config, extensions: vec![] };
     let info = tool.get_info();
@@ -29,6 +31,8 @@ fn test_get_info_empty_lists() {
         allow_sudo: false,
         tools_dir: None,
         enable_run_nushell: false,
+        disable_run_nushell_path_traversal_check: false,
+        disable_run_nushell_system_dir_check: false,
     };
     let tool = NushellTool { config, extensions: vec![] };
     let info = tool.get_info();

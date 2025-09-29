@@ -29,6 +29,14 @@ struct Cli {
     /// Enable the default run_nushell tool when using tools-dir
     #[arg(long, default_value_t = false)]
     enable_run_nushell: bool,
+
+    /// Disable path traversal protection for run_nushell tool (allows ../ patterns)
+    #[arg(long, short = 'P', default_value_t = false)]
+    disable_run_nushell_path_traversal_check: bool,
+
+    /// Disable system directory access protection for run_nushell tool
+    #[arg(long, short = 'S', default_value_t = false)]
+    disable_run_nushell_system_dir_check: bool,
 }
 
 #[tokio::main]
@@ -53,6 +61,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         allow_sudo: cli.allow_sudo,
         tools_dir: cli.tools_dir,
         enable_run_nushell: cli.enable_run_nushell,
+        disable_run_nushell_path_traversal_check: cli.disable_run_nushell_path_traversal_check,
+        disable_run_nushell_system_dir_check: cli.disable_run_nushell_system_dir_check,
     };
 
     run_server(config).await
