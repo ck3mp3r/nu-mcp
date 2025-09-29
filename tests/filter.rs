@@ -5,6 +5,10 @@ fn default_config() -> Config {
         denied_commands: vec!["rm".into(), "shutdown".into()],
         allowed_commands: vec!["ls".into()],
         allow_sudo: false,
+        tools_dir: None,
+        enable_run_nushell: false,
+        disable_run_nushell_path_traversal_check: false,
+        disable_run_nushell_system_dir_check: false,
     }
 }
 
