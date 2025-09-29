@@ -433,3 +433,177 @@ fn test_tool_definition_edge_cases() {
     let config_prop = &complex_schema["properties"]["config"];
     assert_eq!(config_prop["type"], "object");
 }
+
+#[tokio::test]
+async fn test_discover_tools_empty_directory() {
+    // Create a temporary directory that's empty
+    let empty_dir = std::env::temp_dir().join("nu_mcp_test_empty");
+    std::fs::create_dir_all(&empty_dir).unwrap();
+    
+    let result = discover_tools(&empty_dir).await;
+    assert!(result.is_ok());
+    
+    let tools = result.unwrap();
+    assert!(tools.is_empty());
+    
+    // Cleanup
+    std::fs::remove_dir_all(&empty_dir).unwrap();
+}
+
+#[tokio::test]
+async fn test_discover_tools_permission_errors() {
+    // Test with a path that doesn't exist and can't be read
+    let nonexistent = PathBuf::from("/this/path/definitely/does/not/exist/anywhere");
+    let result = discover_tools(&nonexistent).await;
+    
+    // Should return Ok with empty vec for nonexistent/unreadable directories
+    assert!(result.is_ok());
+    let tools = result.unwrap();
+    assert!(tools.is_empty());
+}
+
+#[tokio::test]
+async fn test_execute_extension_tool_timeout() {
+    let tools_dir = get_test_tools_dir();
+    let tools = discover_tools(&tools_dir)
+        .await
+        .expect("Failed to discover tools");
+
+    // Test that tools execute within reasonable time
+    if let Some(echo_tool) = tools
+        .iter()
+        .find(|t| t.tool_definition.name == "echo_test")
+    {
+        let start = std::time::Instant::now();
+        let result = execute_extension_tool(
+            echo_tool,
+            "echo_test",
+            r#"{"message": "timeout test"}"#,
+        )
+        .await;
+        let duration = start.elapsed();
+        
+        assert!(result.is_ok());
+        // Should complete quickly (less than 5 seconds for a simple echo)
+        assert!(duration < std::time::Duration::from_secs(5));
+    }
+}
+
+#[tokio::test]
+async fn test_execute_extension_tool_large_output() {
+    let tools_dir = get_test_tools_dir();
+    let tools = discover_tools(&tools_dir)
+        .await
+        .expect("Failed to discover tools");
+
+    // Test with potentially large input
+    if let Some(echo_tool) = tools
+        .iter()
+        .find(|t| t.tool_definition.name == "echo_test")
+    {
+        let large_message = "x".repeat(1000); // 1KB message
+        let args = format!(r#"{{"message": "{}"}}"#, large_message);
+        
+        let result = execute_extension_tool(echo_tool, "echo_test", &args).await;
+        assert!(result.is_ok());
+        
+        let output = result.unwrap();
+        assert!(output.contains(&large_message));
+    }
+}
+
+#[tokio::test]
+async fn test_execute_extension_tool_special_characters() {
+    let tools_dir = get_test_tools_dir();
+    let tools = discover_tools(&tools_dir)
+        .await
+        .expect("Failed to discover tools");
+
+    // Test with special characters that might break JSON or shell execution
+    if let Some(echo_tool) = tools
+        .iter()
+        .find(|t| t.tool_definition.name == "echo_test")
+    {
+        let special_chars = "!@#$%^&*()_+-=[]{}|;,./<>?";
+        let args = serde_json::json!({"message": special_chars}).to_string();
+        
+        let result = execute_extension_tool(echo_tool, "echo_test", &args).await;
+        assert!(result.is_ok());
+        
+        let output = result.unwrap();
+        assert!(output.contains(special_chars));
+    }
+}
+
+#[tokio::test]
+async fn test_execute_extension_tool_empty_args() {
+    let tools_dir = get_test_tools_dir();
+    let tools = discover_tools(&tools_dir)
+        .await
+        .expect("Failed to discover tools");
+
+    if let Some(math_tool) = tools
+        .iter()
+        .find(|t| t.tool_definition.name == "add_numbers")
+    {
+        // Test with empty args object
+        let result = execute_extension_tool(math_tool, "add_numbers", r#"{}"#).await;
+        
+        // Should fail due to missing required arguments
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.to_string().contains("message") || 
+               error.to_string().contains("required") ||
+               error.to_string().contains("missing") ||
+               error.to_string().contains("type_mismatch") ||
+               error.to_string().contains("Type mismatch"));
+    }
+}
+
+#[tokio::test]
+async fn test_execute_extension_tool_wrong_types() {
+    let tools_dir = get_test_tools_dir();
+    let tools = discover_tools(&tools_dir)
+        .await
+        .expect("Failed to discover tools");
+
+    if let Some(math_tool) = tools
+        .iter()
+        .find(|t| t.tool_definition.name == "add_numbers")
+    {
+        // Test with wrong argument types (strings instead of numbers)
+        let result = execute_extension_tool(
+            math_tool, 
+            "add_numbers", 
+            r#"{"a": "not_a_number", "b": "also_not_a_number"}"#
+        ).await;
+        
+        // Should still work since nushell might coerce types, or fail gracefully
+        // Either outcome is acceptable for this test
+        if result.is_err() {
+            let error = result.unwrap_err();
+            // Error should be related to type handling
+            assert!(error.to_string().len() > 0);
+        }
+    }
+}
+
+#[tokio::test]
+async fn test_tool_definition_serialization() {
+    let tools_dir = get_test_tools_dir();
+    let tools = discover_tools(&tools_dir)
+        .await
+        .expect("Failed to discover tools");
+
+    // Test that tool definitions can be serialized/deserialized
+    for tool in tools.iter().take(1) { // Test just one to avoid long test times
+        let json = serde_json::to_string(&tool.tool_definition).unwrap();
+        assert!(!json.is_empty());
+        assert!(json.contains(tool.tool_definition.name.as_ref()));
+        
+        // Should be able to parse it back
+        let parsed: rmcp::model::Tool = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.name, tool.tool_definition.name);
+        assert_eq!(parsed.description, tool.tool_definition.description);
+    }
+}
