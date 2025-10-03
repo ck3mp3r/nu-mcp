@@ -1,4 +1,4 @@
-use nu_mcp::filter::{Config, is_command_allowed};
+use crate::filter::{Config, is_command_allowed};
 
 fn default_config() -> Config {
     Config {

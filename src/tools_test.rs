@@ -1,4 +1,4 @@
-use nu_mcp::tools::{discover_tools, execute_extension_tool};
+use crate::tools::{discover_tools, execute_extension_tool};
 use std::path::PathBuf;
 
 fn get_test_tools_dir() -> PathBuf {
@@ -647,7 +647,7 @@ async fn test_execute_extension_tool_with_nonexistent_script() {
         .find(|t| t.tool_definition.name == "echo_test")
     {
         // Create an extension with a nonexistent script path
-        let failing_extension = nu_mcp::tools::ExtensionTool {
+        let failing_extension = crate::tools::ExtensionTool {
             script_path: PathBuf::from("/nonexistent/script/path.nu"),
             tool_definition: echo_tool.tool_definition.clone(),
         };
@@ -682,7 +682,7 @@ async fn test_discover_tools_from_directory_read_error() {
 #[tokio::test]
 async fn test_extension_tool_struct() {
     // Test the ExtensionTool struct directly
-    use nu_mcp::tools::ExtensionTool;
+    use crate::tools::ExtensionTool;
     use rmcp::model::Tool;
     use std::sync::Arc;
     
