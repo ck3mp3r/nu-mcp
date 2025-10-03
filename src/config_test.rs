@@ -1,4 +1,4 @@
-use nu_mcp::filter::Config;
+use crate::filter::Config;
 use std::path::PathBuf;
 
 // Test CLI argument parsing and config creation

@@ -1,5 +1,5 @@
-use nu_mcp::filter::Config;
-use nu_mcp::handler::NushellTool;
+use crate::filter::Config;
+use crate::handler::NushellTool;
 use rmcp::handler::server::ServerHandler;
 use std::path::PathBuf;
 
