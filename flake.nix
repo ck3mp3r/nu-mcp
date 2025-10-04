@@ -59,23 +59,42 @@
         };
       };
       formatter = pkgs.alejandra;
-      packages = rustix.lib.rust.buildPackages {
-        inherit
-          cargoLock
-          cargoToml
-          fenix
-          installData
-          nixpkgs
-          overlays
-          pkgs
-          src
-          system
-          systems
-          ;
-        nativeBuildInputs = [pkgs.nushell];
-        packageName = "nu-mcp";
-        archiveAndHash = true;
-      };
+      packages =
+        rustix.lib.rust.buildPackages {
+          inherit
+            cargoLock
+            cargoToml
+            fenix
+            installData
+            nixpkgs
+            overlays
+            pkgs
+            src
+            system
+            systems
+            ;
+          nativeBuildInputs = [pkgs.nushell];
+          packageName = "nu-mcp";
+          archiveAndHash = true;
+        }
+        // {
+          example-tools = pkgs.stdenv.mkDerivation {
+            pname = "example-tools";
+            version = cargoToml.package.version;
+            src = ./tools;
+
+            installPhase = ''
+              mkdir -p $out/nushell/tools/examples
+              cp -r * $out/nushell/tools/examples/
+            '';
+
+            meta = with pkgs.lib; {
+              description = "Example Nushell tools collection";
+              license = licenses.mit;
+              platforms = platforms.all;
+            };
+          };
+        };
     })
     // {
       overlays.default = final: prev: {
