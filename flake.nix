@@ -78,7 +78,7 @@
           archiveAndHash = true;
         }
         // {
-          example-tools = pkgs.stdenv.mkDerivation {
+          mcp-example-tools = pkgs.stdenv.mkDerivation {
             pname = "example-tools";
             version = cargoToml.package.version;
             src = ./tools;
