@@ -583,7 +583,7 @@ async fn test_execute_extension_tool_wrong_types() {
         if result.is_err() {
             let error = result.unwrap_err();
             // Error should be related to type handling
-            assert!(error.to_string().len() > 0);
+            assert!(!error.to_string().is_empty());
         }
     }
 }
@@ -662,7 +662,7 @@ async fn test_execute_extension_tool_with_nonexistent_script() {
         // Should fail due to nonexistent script file
         assert!(result.is_err());
         let error = result.unwrap_err();
-        assert!(error.to_string().len() > 0);
+        assert!(!error.to_string().is_empty());
     }
 }
 

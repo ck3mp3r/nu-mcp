@@ -31,7 +31,7 @@ struct Args {
 
 #[test]
 fn test_default_args() {
-    let args = Args::try_parse_from(&["nu-mcp"]).expect("Failed to parse default args");
+    let args = Args::try_parse_from(["nu-mcp"]).expect("Failed to parse default args");
 
     assert!(args.denied_cmds.is_empty());
     assert!(args.allowed_cmds.is_empty());
@@ -44,7 +44,7 @@ fn test_default_args() {
 
 #[test]
 fn test_denied_commands_parsing() {
-    let args = Args::try_parse_from(&["nu-mcp", "--denied-cmds", "rm,shutdown,reboot"])
+    let args = Args::try_parse_from(["nu-mcp", "--denied-cmds", "rm,shutdown,reboot"])
         .expect("Failed to parse denied commands");
 
     assert_eq!(args.denied_cmds, vec!["rm", "shutdown", "reboot"]);
@@ -52,7 +52,7 @@ fn test_denied_commands_parsing() {
 
 #[test]
 fn test_allowed_commands_parsing() {
-    let args = Args::try_parse_from(&["nu-mcp", "--allowed-cmds", "ls,cat,echo"])
+    let args = Args::try_parse_from(["nu-mcp", "--allowed-cmds", "ls,cat,echo"])
         .expect("Failed to parse allowed commands");
 
     assert_eq!(args.allowed_cmds, vec!["ls", "cat", "echo"]);
@@ -61,14 +61,14 @@ fn test_allowed_commands_parsing() {
 #[test]
 fn test_allow_sudo_flag() {
     let args =
-        Args::try_parse_from(&["nu-mcp", "--allow-sudo"]).expect("Failed to parse allow-sudo flag");
+        Args::try_parse_from(["nu-mcp", "--allow-sudo"]).expect("Failed to parse allow-sudo flag");
 
     assert!(args.allow_sudo);
 }
 
 #[test]
 fn test_tools_dir_flag() {
-    let args = Args::try_parse_from(&["nu-mcp", "--tools-dir", "/path/to/tools"])
+    let args = Args::try_parse_from(["nu-mcp", "--tools-dir", "/path/to/tools"])
         .expect("Failed to parse tools-dir flag");
 
     assert_eq!(args.tools_dir, Some(PathBuf::from("/path/to/tools")));
@@ -76,7 +76,7 @@ fn test_tools_dir_flag() {
 
 #[test]
 fn test_enable_run_nushell_flag() {
-    let args = Args::try_parse_from(&["nu-mcp", "--enable-run-nushell"])
+    let args = Args::try_parse_from(["nu-mcp", "--enable-run-nushell"])
         .expect("Failed to parse enable-run-nushell flag");
 
     assert!(args.enable_run_nushell);
@@ -84,7 +84,7 @@ fn test_enable_run_nushell_flag() {
 
 #[test]
 fn test_security_filter_short_flags() {
-    let args = Args::try_parse_from(&["nu-mcp", "-P", "-S"])
+    let args = Args::try_parse_from(["nu-mcp", "-P", "-S"])
         .expect("Failed to parse security filter short flags");
 
     assert!(args.disable_run_nushell_path_traversal_check);
@@ -93,7 +93,7 @@ fn test_security_filter_short_flags() {
 
 #[test]
 fn test_security_filter_long_flags() {
-    let args = Args::try_parse_from(&[
+    let args = Args::try_parse_from([
         "nu-mcp",
         "--disable-run-nushell-path-traversal-check",
         "--disable-run-nushell-system-dir-check",
@@ -106,7 +106,7 @@ fn test_security_filter_long_flags() {
 
 #[test]
 fn test_all_flags_combined() {
-    let args = Args::try_parse_from(&[
+    let args = Args::try_parse_from([
         "nu-mcp",
         "--denied-cmds",
         "rm,shutdown",
@@ -132,7 +132,7 @@ fn test_all_flags_combined() {
 
 #[test]
 fn test_extension_mode_typical_usage() {
-    let args = Args::try_parse_from(&["nu-mcp", "--tools-dir", "/opt/mcp-tools/weather"])
+    let args = Args::try_parse_from(["nu-mcp", "--tools-dir", "/opt/mcp-tools/weather"])
         .expect("Failed to parse extension mode args");
 
     assert_eq!(
@@ -144,7 +144,7 @@ fn test_extension_mode_typical_usage() {
 
 #[test]
 fn test_hybrid_mode_typical_usage() {
-    let args = Args::try_parse_from(&[
+    let args = Args::try_parse_from([
         "nu-mcp",
         "--tools-dir",
         "/opt/mcp-tools/dev",
@@ -163,7 +163,7 @@ fn test_hybrid_mode_typical_usage() {
 
 #[test]
 fn test_invalid_flag_fails() {
-    let result = Args::try_parse_from(&["nu-mcp", "--invalid-flag"]);
+    let result = Args::try_parse_from(["nu-mcp", "--invalid-flag"]);
 
     assert!(result.is_err());
 }
