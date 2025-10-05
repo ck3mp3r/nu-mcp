@@ -131,6 +131,14 @@ Or, if you have a local checkout:
 nix profile install path:/absolute/path/to/nu-mcp
 ```
 
+### Installing Example Tools
+
+Example tools are available as a separate package and will be installed to `~/.nix-profile/share/nushell/mcp-tools/examples`:
+
+```sh
+nix profile install github:ck3mp3r/nu-mcp#mcp-example-tools
+```
+
 ### As an overlay in your own flake
 
 Add this flake as an input and overlay in your `flake.nix`:

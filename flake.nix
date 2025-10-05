@@ -84,8 +84,8 @@
             src = ./tools;
 
             installPhase = ''
-              mkdir -p $out/nushell/tools/examples
-              cp -r * $out/nushell/tools/examples/
+              mkdir -p $out/share/nushell/mcp-tools/examples
+              cp -r * $out/share/nushell/mcp-tools/examples/
             '';
 
             meta = with pkgs.lib; {
