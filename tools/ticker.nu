@@ -1,5 +1,3 @@
-#!/usr/bin/env nu
-
 # Ticker tool for nu-mcp - provides stock price information
 
 # Default main command
