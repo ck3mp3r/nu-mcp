@@ -1,5 +1,3 @@
-#!/usr/bin/env nu
-
 # Weather tool for nu-mcp - provides weather information tools
 
 # Default main command
