@@ -30,25 +30,15 @@ The `nu-mcp` server is configured via command-line arguments or by passing argum
 
 ### Options
 
-#### Core Tool Options
-- `--denied-cmds=CMD1,CMD2,...`
-  Comma-separated list of denied commands (default: `rm,shutdown,reboot,poweroff,halt,mkfs,dd,chmod,chown`)
-- `--allowed-cmds=CMD1,CMD2,...`
-  Comma-separated list of allowed commands (takes precedence over denied)
-- `--allow-sudo`
-  Allow use of `sudo` (default: false)
-
 #### Extension System Options
 - `--tools-dir=PATH`
   Directory containing `.nu` extension scripts. When specified, the server automatically discovers and loads all `.nu` files in this directory as MCP tools. **Important**: Using this flag automatically disables the `run_nushell` tool by default to prevent conflicts between multiple MCP server instances and avoid confusion when the same server provides both generic command execution and specific tools.
 - `--enable-run-nushell`
   Explicitly re-enable the `run_nushell` tool when using `--tools-dir`. This creates a hybrid mode where both extension tools and generic nushell command execution are available. Use with caution in multi-instance setups to avoid tool name conflicts.
 
-#### Security Filter Options (for `run_nushell` only)
-- `-P, --disable-run-nushell-path-traversal-check`
-  Disable path traversal protection
-- `-S, --disable-run-nushell-system-dir-check`
-  Disable system directory access protection
+#### Security Options
+- `--sandbox-dir=PATH`
+  Directory to sandbox nushell execution (default: current working directory). Commands are restricted to this directory and cannot access parent directories or absolute paths outside the sandbox.
 
 ### Example Configurations
 
@@ -57,9 +47,7 @@ The `nu-mcp` server is configured via command-line arguments or by passing argum
 nu-mcp-core:
   command: "nu-mcp"
   args:
-    - "--denied-cmds=rm,reboot"
-    - "--allowed-cmds=ls,cat,echo"
-    - "--allow-sudo"
+    - "--sandbox-dir=/safe/workspace"
 ```
 
 #### Extension Mode Only
@@ -68,6 +56,7 @@ nu-mcp-tools:
   command: "nu-mcp"
   args:
     - "--tools-dir=/path/to/tools"
+    - "--sandbox-dir=/safe/workspace"
 ```
 
 #### Hybrid Mode
@@ -77,11 +66,11 @@ nu-mcp-hybrid:
   args:
     - "--tools-dir=/path/to/tools"
     - "--enable-run-nushell"
-    - "--allowed-cmds=ls,cat,echo"
+    - "--sandbox-dir=/safe/workspace"
 ```
 
 #### Multiple Specialized Instances
-You can run multiple instances with different tool sets. This approach is recommended for organizing tools by domain and avoiding conflicts:
+You can run multiple instances with different tool sets and sandbox directories. This approach is recommended for organizing tools by domain and avoiding conflicts:
 
 ```yaml
 # Weather and location services
@@ -89,27 +78,28 @@ nu-mcp-weather:
   command: "nu-mcp"
   args:
     - "--tools-dir=/opt/mcp-tools/weather"
+    - "--sandbox-dir=/tmp/weather-workspace"
 
 # Financial data services
 nu-mcp-finance:
   command: "nu-mcp"
   args:
     - "--tools-dir=/opt/mcp-tools/finance"
+    - "--sandbox-dir=/tmp/finance-workspace"
 
-# Development tools with core access
+# Development tools with sandbox access
 nu-mcp-dev:
   command: "nu-mcp"
   args:
     - "--tools-dir=/opt/mcp-tools/dev"
     - "--enable-run-nushell"
-    - "--allowed-cmds=git,cargo,npm,docker"
-    - "-P"  # Allow file access for development
+    - "--sandbox-dir=/workspace/project"
 ```
 
 **Why Multiple Instances?**
 - **Tool Organization**: Group related functionality (weather, finance, development)
 - **Conflict Avoidance**: Each instance provides distinct tools without name collisions
-- **Security Isolation**: Different instances can have different security policies
+- **Security Isolation**: Different instances can have different sandbox directories
 - **Clear Interface**: Clients see focused tool sets rather than everything mixed together
 - **Scalability**: Easy to add new tool categories without affecting existing ones
 
@@ -214,18 +204,18 @@ See the included example tools:
 **Note**: The tools in the `tools/` directory are examples for demonstration purposes only. They are not intended for production use and may have limitations or reliability issues. Users should review, test, and modify these examples according to their specific requirements before using them in any production environment.
 
 ## Security Notes
-- By default, dangerous commands are denied for `run_nushell`
-- Allowed commands always take precedence over denied commands
-- Sudo is disabled by default for safety
-- Security filters only apply to the `run_nushell` tool, not extensions
+- Commands execute within a directory sandbox (configurable with `--sandbox-dir`)
+- Path traversal patterns (`../`) are blocked to prevent escaping the sandbox
+- Absolute paths outside the sandbox directory are blocked
 - Extensions run in the same security context as the server process
+- The sandbox provides directory isolation but does not restrict system resources, network access, or process spawning
 
 ## Disclaimer
 
 **USE AT YOUR OWN RISK**: This software is provided "as is" without warranty of any kind. The author(s) accept no responsibility or liability for any damage, data loss, security breaches, or other issues that may result from using this software. Users are solely responsible for:
 
 - Reviewing and understanding the security implications before deployment
-- Properly configuring access controls and command restrictions
+- Properly configuring sandbox directories and access controls
 - Testing thoroughly in non-production environments
 - Monitoring and securing their systems when running this software
 - Any consequences resulting from the execution of commands or scripts
