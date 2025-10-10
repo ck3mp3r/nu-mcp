@@ -4,11 +4,11 @@ use rmcp::handler::server::ServerHandler;
 use std::path::PathBuf;
 
 #[test]
-fn test_get_info_includes_jail_info() {
+fn test_get_info_includes_sandbox_info() {
     let config = Config {
         tools_dir: None,
         enable_run_nushell: false,
-        jail_directory: Some(PathBuf::from("/tmp/jail")),
+        sandbox_directory: Some(PathBuf::from("/tmp/sandbox")),
     };
     let tool = NushellTool {
         config,
@@ -16,16 +16,16 @@ fn test_get_info_includes_jail_info() {
     };
     let info = tool.get_info();
     let instructions = info.instructions.unwrap();
-    assert!(instructions.contains("directory jail"));
-    assert!(instructions.contains("/tmp/jail"));
+    assert!(instructions.contains("directory sandbox"));
+    assert!(instructions.contains("/tmp/sandbox"));
 }
 
 #[test]
-fn test_get_info_default_jail() {
+fn test_get_info_default_sandbox() {
     let config = Config {
         tools_dir: None,
         enable_run_nushell: false,
-        jail_directory: None,
+        sandbox_directory: None,
     };
     let tool = NushellTool {
         config,
@@ -41,7 +41,7 @@ fn test_get_info_basic_fields() {
     let config = Config {
         tools_dir: None,
         enable_run_nushell: false,
-        jail_directory: None,
+        sandbox_directory: None,
     };
     let tool = NushellTool {
         config,

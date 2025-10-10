@@ -22,14 +22,14 @@ impl ServerHandler for NushellTool {
     fn get_info(&self) -> InitializeResult {
         let mut instructions = String::from("MCP server exposing Nushell commands.\n");
 
-        instructions.push_str("Security: Commands execute in a directory jail.\n");
+        instructions.push_str("Security: Commands execute in a directory sandbox.\n");
         instructions.push_str("- Path traversal patterns (../) are blocked\n");
-        instructions.push_str("- Absolute paths outside jail are blocked\n");
+        instructions.push_str("- Absolute paths outside sandbox are blocked\n");
         
-        if let Some(jail_dir) = &self.config.jail_directory {
-            instructions.push_str(&format!("- Jail directory: {}\n", jail_dir.display()));
+        if let Some(sandbox_dir) = &self.config.sandbox_directory {
+            instructions.push_str(&format!("- Sandbox directory: {}\n", sandbox_dir.display()));
         } else {
-            instructions.push_str("- Jail directory: current working directory\n");
+            instructions.push_str("- Sandbox directory: current working directory\n");
         }
 
         InitializeResult {
@@ -120,22 +120,22 @@ impl ServerHandler for NushellTool {
                     .and_then(|v| v.as_str())
                     .unwrap_or("version");
 
-                // Determine jail directory (use configured jail_directory or current working directory)
-                let jail_dir = match &self.config.jail_directory {
+                // Determine sandbox directory (use configured sandbox_directory or current working directory)
+                let sandbox_dir = match &self.config.sandbox_directory {
                     Some(dir) => dir.clone(),
                     None => env::current_dir()
                         .map_err(|e| ErrorData::internal_error(e.to_string(), None))?,
                 };
 
                 // Validate command for path safety
-                if let Err(msg) = validate_path_safety(command, &jail_dir) {
+                if let Err(msg) = validate_path_safety(command, &sandbox_dir) {
                     return Err(ErrorData::invalid_request(msg, None));
                 }
 
                 let output = Command::new("nu")
                     .arg("-c")
                     .arg(command)
-                    .current_dir(&jail_dir)
+                    .current_dir(&sandbox_dir)
                     .output()
                     .await
                     .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;

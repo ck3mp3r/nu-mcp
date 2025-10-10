@@ -18,9 +18,9 @@ struct Cli {
     #[arg(long, default_value_t = false)]
     enable_run_nushell: bool,
 
-    /// Directory to jail nushell execution (default: current working directory)
+    /// Directory to sandbox nushell execution (default: current working directory)
     #[arg(long)]
-    jail_dir: Option<PathBuf>,
+    sandbox_dir: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -30,7 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config {
         tools_dir: cli.tools_dir,
         enable_run_nushell: cli.enable_run_nushell,
-        jail_directory: cli.jail_dir,
+        sandbox_directory: cli.sandbox_dir,
     };
 
     run_server(config).await
