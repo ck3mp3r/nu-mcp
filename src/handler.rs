@@ -1,4 +1,4 @@
-use crate::filter::{Config, is_command_allowed};
+use crate::filter::{Config, validate_path_safety};
 use crate::tools::{ExtensionTool, discover_tools, execute_extension_tool};
 use rmcp::{
     RoleServer, ServiceExt,
@@ -22,28 +22,15 @@ impl ServerHandler for NushellTool {
     fn get_info(&self) -> InitializeResult {
         let mut instructions = String::from("MCP server exposing Nushell commands.\n");
 
-        instructions.push_str("Allowed commands (always permitted):\n");
-        if self.config.allowed_commands.is_empty() {
-            instructions.push_str("  (none specified)\n");
+        instructions.push_str("Security: Commands execute in a directory sandbox.\n");
+        instructions.push_str("- Path traversal patterns (../) are blocked\n");
+        instructions.push_str("- Absolute paths outside sandbox are blocked\n");
+        
+        if let Some(sandbox_dir) = &self.config.sandbox_directory {
+            instructions.push_str(&format!("- Sandbox directory: {}\n", sandbox_dir.display()));
         } else {
-            for cmd in &self.config.allowed_commands {
-                instructions.push_str(&format!("  - {cmd}\n"));
-            }
+            instructions.push_str("- Sandbox directory: current working directory\n");
         }
-
-        instructions.push_str("Denied commands (blocked unless in allowed list):\n");
-        if self.config.denied_commands.is_empty() {
-            instructions.push_str("  (none specified)\n");
-        } else {
-            for cmd in &self.config.denied_commands {
-                instructions.push_str(&format!("  - {cmd}\n"));
-            }
-        }
-
-        instructions.push_str(&format!(
-            "Sudo allowed: {}\n",
-            if self.config.allow_sudo { "yes" } else { "no" }
-        ));
 
         InitializeResult {
             protocol_version: ProtocolVersion::LATEST,
@@ -133,76 +120,22 @@ impl ServerHandler for NushellTool {
                     .and_then(|v| v.as_str())
                     .unwrap_or("version");
 
-                // Use testable filter function
-                if let Err(msg) = is_command_allowed(&self.config, command) {
-                    return Err(ErrorData::invalid_request(msg, None));
-                }
-
-                // Validate command for security (run_nushell tool only)
-                let is_command_safe = |command: &str, config: &Config| -> bool {
-                    // Allow URLs by checking for protocol schemes
-                    let contains_url = command.contains("://")
-                        || command.contains("http:")
-                        || command.contains("https:")
-                        || command.contains("ftp:")
-                        || command.contains("ws:")
-                        || command.contains("wss:");
-
-                    // Check path traversal protection (unless disabled)
-                    if !config.disable_run_nushell_path_traversal_check
-                        && (command.contains("../")
-                            || command.contains("..\\")
-                            || command.contains(".. ")
-                            || command.contains(" .."))
-                    {
-                        return false;
-                    }
-
-                    // Check system directory protection (unless disabled or URL)
-                    if !config.disable_run_nushell_system_dir_check && !contains_url {
-                        // Reject absolute paths starting with /
-                        if command.starts_with('/') {
-                            return false;
-                        }
-
-                        // Reject references to sensitive system directories (without trailing slash)
-                        let sensitive_dirs = [
-                            "/etc", "/root", "/home", "/usr", "/var", "/sys", "/proc", "/bin",
-                            "/sbin", "/boot",
-                        ];
-                        for dir in &sensitive_dirs {
-                            if command.contains(&format!(" {}", dir)) ||  // " /etc"
-                               command.ends_with(dir)
-                            {
-                                // "ls /etc"
-                                return false;
-                            }
-                        }
-
-                        // Reject Windows absolute paths
-                        if command.contains(":\\") {
-                            return false;
-                        }
-                    }
-
-                    true
+                // Determine sandbox directory (use configured sandbox_directory or current working directory)
+                let sandbox_dir = match &self.config.sandbox_directory {
+                    Some(dir) => dir.clone(),
+                    None => env::current_dir()
+                        .map_err(|e| ErrorData::internal_error(e.to_string(), None))?,
                 };
 
-                if !is_command_safe(command, &self.config) {
-                    return Err(ErrorData::invalid_request(
-                        "Command contains forbidden path traversal or absolute path".to_string(),
-                        None,
-                    ));
+                // Validate command for path safety
+                if let Err(msg) = validate_path_safety(command, &sandbox_dir) {
+                    return Err(ErrorData::invalid_request(msg, None));
                 }
-
-                // Restrict to current working directory
-                let cwd = env::current_dir()
-                    .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
 
                 let output = Command::new("nu")
                     .arg("-c")
                     .arg(command)
-                    .current_dir(&cwd)
+                    .current_dir(&sandbox_dir)
                     .output()
                     .await
                     .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;

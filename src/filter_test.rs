@@ -1,45 +1,41 @@
-use crate::filter::{Config, is_command_allowed};
+use crate::filter::validate_path_safety;
+use std::path::Path;
 
-fn default_config() -> Config {
-    Config {
-        denied_commands: vec!["rm".into(), "shutdown".into()],
-        allowed_commands: vec!["ls".into()],
-        allow_sudo: false,
-        tools_dir: None,
-        enable_run_nushell: false,
-        disable_run_nushell_path_traversal_check: false,
-        disable_run_nushell_system_dir_check: false,
-    }
+fn default_sandbox_dir() -> &'static Path {
+    Path::new("/tmp/test_sandbox")
 }
 
 #[test]
-fn test_allowed_command() {
-    let config = default_config();
-    assert!(is_command_allowed(&config, "ls -l").is_ok());
+fn test_path_traversal_blocked() {
+    assert!(validate_path_safety("ls ../secret", default_sandbox_dir()).is_err());
+    assert!(validate_path_safety("cd ..", default_sandbox_dir()).is_err());
+    assert!(validate_path_safety("cat ../../etc/passwd", default_sandbox_dir()).is_err());
+    assert!(validate_path_safety("ls ./../../secret", default_sandbox_dir()).is_err());
+    assert!(validate_path_safety("cat ./../../../etc/passwd", default_sandbox_dir()).is_err());
 }
 
 #[test]
-fn test_denied_command() {
-    let config = default_config();
-    assert!(is_command_allowed(&config, "rm -rf /").is_err());
+fn test_relative_paths_allowed() {
+    assert!(validate_path_safety("ls ./foo-bar", default_sandbox_dir()).is_ok());
+    assert!(validate_path_safety("cat ./foo/bar", default_sandbox_dir()).is_ok());
+    assert!(validate_path_safety("cat foo/bar.txt", default_sandbox_dir()).is_ok());
+    assert!(validate_path_safety("echo hello", default_sandbox_dir()).is_ok());
 }
 
 #[test]
-fn test_allowed_overrides_denied() {
-    let mut config = default_config();
-    config.allowed_commands.push("rm".into());
-    assert!(is_command_allowed(&config, "rm -rf /").is_ok());
+fn test_absolute_paths_in_sandbox_allowed() {
+    // Use the current directory as sandbox for testing (it definitely exists)
+    let sandbox_dir = std::env::current_dir().unwrap();
+    let sandbox_subdir = sandbox_dir.join("subdir");
+    // This should be allowed as it's within the sandbox
+    assert!(validate_path_safety(&format!("ls {}", sandbox_subdir.display()), &sandbox_dir).is_ok());
 }
 
 #[test]
-fn test_sudo_denied() {
-    let config = default_config();
-    assert!(is_command_allowed(&config, "sudo ls").is_err());
-}
-
-#[test]
-fn test_sudo_allowed() {
-    let mut config = default_config();
-    config.allow_sudo = true;
-    assert!(is_command_allowed(&config, "sudo ls").is_ok());
+fn test_absolute_paths_outside_sandbox_blocked() {
+    // Use the current directory as sandbox for testing (it definitely exists)
+    let sandbox_dir = std::env::current_dir().unwrap();
+    // These should be blocked as they escape the sandbox
+    assert!(validate_path_safety("ls /etc/passwd", &sandbox_dir).is_err());
+    assert!(validate_path_safety("cat /tmp/other", &sandbox_dir).is_err());
 }
