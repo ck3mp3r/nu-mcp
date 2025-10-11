@@ -12,8 +12,8 @@
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    rustix = {
-      url = "github:ck3mp3r/flakes?dir=rustix";
+    rustnix = {
+      url = "github:ck3mp3r/flakes?dir=rustnix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -21,7 +21,7 @@
   outputs = {
     self,
     nixpkgs,
-    rustix,
+    rustnix,
     flake-utils,
     devshell,
     fenix,
@@ -32,7 +32,7 @@
       devshell.overlays.default
     ];
 
-    systems = ["aarch64-darwin" "x86_64-darwin" "x86_64-linux"];
+    systems = ["aarch64-darwin" "aarch64-linux" "x86_64-linux"];
     dataDir = ./data;
     installData = builtins.listToAttrs (map (system: {
         name = system;
@@ -60,7 +60,7 @@
       };
       formatter = pkgs.alejandra;
       packages =
-        rustix.lib.rust.buildPackages {
+        rustnix.lib.rust.buildPackages {
           inherit
             cargoLock
             cargoToml
