@@ -24,4 +24,4 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@main
 
       - name: Run tests in Nix develop shell
-        run: nix build .#x86_64-linux
+        run: nix build .#nu-mcp
