@@ -49,8 +49,8 @@ jobs:
             nix_system: x86_64-linux
           - os: macos-14
             nix_system: aarch64-darwin
-          - os: macos-13
-            nix_system: x86_64-darwin
+          - os: ubuntu-latest
+            nix_system: aarch64-linux
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout release branch
