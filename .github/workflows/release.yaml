@@ -62,7 +62,7 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v20
 
       - name: Build archive for ${{ matrix.nix_system }}
-        run: nix build --system ${{ matrix.nix_system }} .#archive --print-build-logs
+        run: nix build .#archive --print-build-logs
 
       - name: Copy build outputs for uniqueness
         run: |
