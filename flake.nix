@@ -25,9 +25,9 @@
       perSystem = {
         config,
         system,
-        pkgs,
         ...
       }: let
+        supportedTargets = ["aarch64-darwin" "aarch64-linux" "x86_64-linux"];
         overlays = [
           inputs.fenix.overlays.default
           inputs.devshell.overlays.default
@@ -45,7 +45,7 @@
         };
 
         # Build regular packages (no archives)
-        regularPackages = inputs.rustnix.lib.rust.buildPackage {
+        regularPackages = inputs.rustnix.lib.rust.buildTargetOutputs {
           inherit
             cargoToml
             cargoLock
@@ -53,6 +53,7 @@
             pkgs
             system
             installData
+            supportedTargets
             ;
           fenix = inputs.fenix;
           nixpkgs = inputs.nixpkgs;
@@ -63,7 +64,7 @@
         };
 
         # Build archive packages (creates archive with system name)
-        archivePackages = inputs.rustnix.lib.rust.buildPackage {
+        archivePackages = inputs.rustnix.lib.rust.buildTargetOutputs {
           inherit
             cargoToml
             cargoLock
@@ -71,6 +72,7 @@
             pkgs
             system
             installData
+            supportedTargets
             ;
           fenix = inputs.fenix;
           nixpkgs = inputs.nixpkgs;
