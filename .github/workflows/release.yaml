@@ -42,6 +42,7 @@ jobs:
 
   build:
     needs: prep-release
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
@@ -49,9 +50,8 @@ jobs:
             nix_system: x86_64-linux
           - os: macos-14
             nix_system: aarch64-darwin
-          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
             nix_system: aarch64-linux
-    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout release branch
         uses: actions/checkout@v4
@@ -61,14 +61,15 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v20
 
-      - name: Build for ${{ matrix.nix_system }}
-        run: nix build .#${{ matrix.nix_system }}
+      - name: Build archive for ${{ matrix.nix_system }}
+        run: nix build --system ${{ matrix.nix_system }} .#archive --print-build-logs
 
       - name: Copy build outputs for uniqueness
         run: |
-          cp result/nu-mcp.tgz ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}.tgz
-          cp result/nu-mcp.sha256 ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}.sha256
-          cp result/nu-mcp-nix.sha256 ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}-nix.sha256
+          # Single-artifact approach: rustnix creates system-named files
+          cp result/nu-mcp-${{ matrix.nix_system }}.tgz ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}.tgz
+          cp result/nu-mcp-${{ matrix.nix_system }}.sha256 ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}.sha256
+          cp result/nu-mcp-${{ matrix.nix_system }}-nix.sha256 ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}-nix.sha256
 
       - name: Upload build outputs as artifacts
         uses: actions/upload-artifact@v4
@@ -125,3 +126,4 @@ jobs:
           merge-and-cleanup $version
         env:
           GITHUB_TOKEN: ${{ steps.token.outputs.token }}
+
