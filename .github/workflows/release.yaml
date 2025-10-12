@@ -126,3 +126,4 @@ jobs:
           merge-and-cleanup $version
         env:
           GITHUB_TOKEN: ${{ steps.token.outputs.token }}
+
