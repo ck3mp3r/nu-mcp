@@ -2,12 +2,9 @@
   description = "Rust Nushell MCP Server with Devshell and Fenix";
 
   inputs = {
-    nixpkgs.url = "github:NixOs/nixpkgs/nixpkgs-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
-    devshell = {
-      url = "github:numtide/devshell";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    nixpkgs.url = "github:NixOs/nixpkgs";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    devshell.url = "github:numtide/devshell";
     fenix = {
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -18,87 +15,127 @@
     };
   };
 
-  outputs = {
+  outputs = inputs @ {
     self,
-    nixpkgs,
-    rustnix,
-    flake-utils,
-    devshell,
-    fenix,
+    flake-parts,
     ...
-  }: let
-    overlays = [
-      fenix.overlays.default
-      devshell.overlays.default
-    ];
+  }:
+    flake-parts.lib.mkFlake {inherit inputs;} {
+      systems = ["aarch64-darwin" "aarch64-linux" "x86_64-linux"];
+      perSystem = {
+        config,
+        system,
+        pkgs,
+        ...
+      }: let
+        overlays = [
+          inputs.fenix.overlays.default
+          inputs.devshell.overlays.default
+        ];
+        pkgs = import inputs.nixpkgs {inherit system overlays;};
 
-    systems = ["aarch64-darwin" "aarch64-linux" "x86_64-linux"];
-    dataDir = ./data;
-    installData = builtins.listToAttrs (map (system: {
-        name = system;
-        value = builtins.fromJSON (builtins.readFile (dataDir + "/${system}.json"));
-      })
-      systems);
-    cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
-    cargoLock = {lockFile = ./Cargo.lock;};
-    src = ./.;
-  in
-    flake-utils.lib.eachSystem systems (system: let
-      pkgs = import nixpkgs {inherit system overlays;};
-    in {
-      devShells = {
-        ci = pkgs.devshell.mkShell {
-          packages = [fenix.packages.${system}.stable.toolchain pkgs.nushell];
+        cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+        cargoLock = {lockFile = ./Cargo.lock;};
+
+        # Install data for pre-built releases
+        installData = {
+          aarch64-darwin = builtins.fromJSON (builtins.readFile ./data/aarch64-darwin.json);
+          aarch64-linux = builtins.fromJSON (builtins.readFile ./data/aarch64-linux.json);
+          x86_64-linux = builtins.fromJSON (builtins.readFile ./data/x86_64-linux.json);
         };
-        default = pkgs.devshell.mkShell {
-          packages = [fenix.packages.${system}.stable.toolchain];
-          imports = [
-            (pkgs.devshell.importTOML ./devshell.toml)
-            "${devshell}/extra/git/hooks.nix"
-          ];
-        };
-      };
-      formatter = pkgs.alejandra;
-      packages =
-        rustnix.lib.rust.buildPackages {
+
+        # Build regular packages (no archives)
+        regularPackages = inputs.rustnix.lib.rust.buildPackage {
           inherit
-            cargoLock
             cargoToml
-            fenix
-            installData
-            nixpkgs
+            cargoLock
             overlays
             pkgs
-            src
             system
-            systems
+            installData
             ;
-          nativeBuildInputs = [pkgs.nushell];
+          fenix = inputs.fenix;
+          nixpkgs = inputs.nixpkgs;
+          src = ./.;
           packageName = "nu-mcp";
+          archiveAndHash = false;
+          nativeBuildInputs = [pkgs.nushell];
+        };
+
+        # Build archive packages (creates archive with system name)
+        archivePackages = inputs.rustnix.lib.rust.buildPackage {
+          inherit
+            cargoToml
+            cargoLock
+            overlays
+            pkgs
+            system
+            installData
+            ;
+          fenix = inputs.fenix;
+          nixpkgs = inputs.nixpkgs;
+          src = ./.;
+          packageName = "archive";
           archiveAndHash = true;
-        }
-        // {
-          mcp-example-tools = pkgs.stdenv.mkDerivation {
-            pname = "example-tools";
-            version = cargoToml.package.version;
-            src = ./tools;
-
-            installPhase = ''
-              mkdir -p $out/share/nushell/mcp-tools/examples
-              cp -r * $out/share/nushell/mcp-tools/examples/
-            '';
-
-            meta = with pkgs.lib; {
-              description = "Example Nushell tools collection";
-              license = licenses.mit;
-              platforms = platforms.all;
-            };
+          nativeBuildInputs = [pkgs.nushell];
+        };
+      in {
+        apps = {
+          default = {
+            type = "app";
+            program = "${config.packages.default}/bin/nu-mcp";
           };
         };
-    })
-    // {
-      overlays.default = final: prev: {
-        nu-mcp = self.packages.${final.system}.default;
+
+        packages =
+          regularPackages
+          // archivePackages
+          // {
+            mcp-example-tools = let
+              cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+            in
+              pkgs.stdenv.mkDerivation {
+                pname = "example-tools";
+                version = cargoToml.package.version;
+                src = ./tools;
+
+                dontBuild = true;
+                dontConfigure = true;
+
+                installPhase = ''
+                  runHook preInstall
+
+                  mkdir -p $out/share/nushell/mcp-tools/examples
+                  cp -r * $out/share/nushell/mcp-tools/examples/
+
+                  runHook postInstall
+                '';
+
+                meta = with pkgs.lib; {
+                  description = "Example Nushell tools collection";
+                  license = licenses.mit;
+                  platforms = platforms.all;
+                };
+              };
+          };
+
+        devShells = {
+          default = pkgs.devshell.mkShell {
+            packages = [inputs.fenix.packages.${system}.stable.toolchain];
+            imports = [
+              (pkgs.devshell.importTOML ./devshell.toml)
+              "${inputs.devshell}/extra/git/hooks.nix"
+            ];
+          };
+        };
+
+        formatter = pkgs.alejandra;
+      };
+
+      flake = {
+        overlays.default = final: prev: {
+          nu-mcp = self.packages.default;
+        };
       };
     };
 }
