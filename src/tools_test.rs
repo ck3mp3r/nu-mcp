@@ -7,30 +7,31 @@ fn get_test_tools_dir() -> PathBuf {
 
 #[test]
 fn test_path_operations() {
-    let script_path = PathBuf::from("/test/path.nu");
+    let module_path = PathBuf::from("/test/path");
+    let mod_file = module_path.join("mod.nu");
 
-    assert_eq!(script_path.extension().unwrap(), "nu");
-    assert_eq!(script_path.file_stem().unwrap(), "path");
+    assert_eq!(mod_file.extension().unwrap(), "nu");
+    assert_eq!(mod_file.file_stem().unwrap(), "mod");
 
-    let parent = script_path.parent().unwrap();
+    let parent = module_path.parent().unwrap();
     assert_eq!(parent, PathBuf::from("/test"));
 }
 
 #[test]
 fn test_path_validation() {
-    let valid_nu_path = PathBuf::from("weather.nu");
-    let invalid_path = PathBuf::from("script.sh");
-    let no_extension = PathBuf::from("README");
+    let valid_module_dir = PathBuf::from("weather");
+    let mod_file = valid_module_dir.join("mod.nu");
+    let invalid_file = PathBuf::from("script.sh");
 
+    assert!(valid_module_dir.file_name().is_some());
     assert_eq!(
-        valid_nu_path.extension().and_then(|s| s.to_str()),
+        mod_file.extension().and_then(|s| s.to_str()),
         Some("nu")
     );
     assert_eq!(
-        invalid_path.extension().and_then(|s| s.to_str()),
+        invalid_file.extension().and_then(|s| s.to_str()),
         Some("sh")
     );
-    assert_eq!(no_extension.extension().and_then(|s| s.to_str()), None);
 }
 
 #[tokio::test]
@@ -52,8 +53,8 @@ async fn test_discover_tools_real_scripts() {
     assert!(result.is_ok());
     let tools = result.unwrap();
 
-    // Should find tools from test_simple.nu and test_math.nu
-    // test_invalid.nu should cause an error and be skipped
+    // Should find tools from simple/mod.nu and math/mod.nu
+    // invalid/mod.nu should cause an error and be skipped
     assert!(tools.len() >= 3); // At least echo_test, add_numbers, multiply_numbers
 
     // Check for specific tools
@@ -74,9 +75,10 @@ async fn test_discover_tools_ignores_non_nu_files() {
     assert!(result.is_ok());
     let tools = result.unwrap();
 
-    // Should not include any tools from .txt files
+    // Should not include any tools from non-directories or directories without mod.nu
     for tool in &tools {
-        assert!(tool.script_path.extension().unwrap() == "nu");
+        let mod_file = tool.module_path.join("mod.nu");
+        assert!(mod_file.exists() && mod_file.extension().unwrap() == "nu");
     }
 }
 
@@ -210,11 +212,12 @@ async fn test_discover_tools_with_empty_tools_script() {
 
     let tools = result.unwrap();
 
-    // test_empty.nu returns empty tools list, so it shouldn't contribute any tools
-    // But other scripts might contribute tools, so we just verify the result is valid
+    // empty/mod.nu returns empty tools list, so it shouldn't contribute any tools
+    // But other modules might contribute tools, so we just verify the result is valid
     for tool in &tools {
         assert!(!tool.tool_definition.name.is_empty());
-        assert!(tool.script_path.extension().unwrap() == "nu");
+        let mod_file = tool.module_path.join("mod.nu");
+        assert!(mod_file.exists() && mod_file.extension().unwrap() == "nu");
     }
 }
 
@@ -226,13 +229,14 @@ async fn test_discover_tools_with_malformed_script() {
 
     let tools = result.unwrap();
 
-    // test_invalid.nu has malformed JSON which should be handled gracefully
-    // The discover_tools function should skip invalid scripts and continue
-    // We should still get valid tools from other scripts
+    // invalid/mod.nu has malformed JSON which should be handled gracefully
+    // The discover_tools function should skip invalid modules and continue
+    // We should still get valid tools from other modules
     for tool in &tools {
         // All discovered tools should be valid
         assert!(!tool.tool_definition.name.is_empty());
-        assert!(tool.script_path.extension().unwrap() == "nu");
+        let mod_file = tool.module_path.join("mod.nu");
+        assert!(mod_file.exists() && mod_file.extension().unwrap() == "nu");
     }
 }
 
@@ -334,16 +338,11 @@ async fn test_discover_tools_with_non_nu_files() {
 
     let tools = result.unwrap();
 
-    // Verify that non-.nu files (like not_a_script.txt) are ignored
+    // Verify that non-directories (like not_a_script.txt) are ignored
     for tool in &tools {
-        assert!(tool.script_path.extension().unwrap() == "nu");
-        assert!(
-            tool.script_path
-                .file_name()
-                .unwrap()
-                .to_string_lossy()
-                .ends_with(".nu")
-        );
+        let mod_file = tool.module_path.join("mod.nu");
+        assert!(tool.module_path.is_dir());
+        assert!(mod_file.exists() && mod_file.extension().unwrap() == "nu");
     }
 }
 
@@ -631,16 +630,16 @@ async fn test_execute_extension_tool_with_nonexistent_script() {
 
     // Find a valid tool to test with nonexistent script
     if let Some(echo_tool) = tools.iter().find(|t| t.tool_definition.name == "echo_test") {
-        // Create an extension with a nonexistent script path
+        // Create an extension with a nonexistent module path
         let failing_extension = crate::tools::ExtensionTool {
-            script_path: PathBuf::from("/nonexistent/script/path.nu"),
+            module_path: PathBuf::from("/nonexistent/module/path"),
             tool_definition: echo_tool.tool_definition.clone(),
         };
 
         let result =
             execute_extension_tool(&failing_extension, "echo_test", r#"{"message": "test"}"#).await;
 
-        // Should fail due to nonexistent script file
+        // Should fail due to nonexistent module file
         assert!(result.is_err());
         let error = result.unwrap_err();
         assert!(!error.to_string().is_empty());
@@ -650,7 +649,7 @@ async fn test_execute_extension_tool_with_nonexistent_script() {
 #[tokio::test]
 async fn test_discover_tools_from_directory_read_error() {
     // Test with a file instead of directory to trigger different error path
-    let not_a_dir = get_test_tools_dir().join("test_simple.nu"); // This is a file, not a directory
+    let not_a_dir = get_test_tools_dir().join("not_a_script.txt"); // This is a file, not a directory
 
     let result = discover_tools(&not_a_dir).await;
 
@@ -685,11 +684,11 @@ async fn test_extension_tool_struct() {
     };
 
     let extension = ExtensionTool {
-        script_path: PathBuf::from("/test/path.nu"),
+        module_path: PathBuf::from("/test/path"),
         tool_definition: tool,
     };
 
-    assert_eq!(extension.script_path, PathBuf::from("/test/path.nu"));
+    assert_eq!(extension.module_path, PathBuf::from("/test/path"));
     assert_eq!(extension.tool_definition.name, "test_tool");
     assert_eq!(
         extension.tool_definition.description,

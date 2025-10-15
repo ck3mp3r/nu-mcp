@@ -10,7 +10,7 @@ use std::path::PathBuf;
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 struct Cli {
-    /// Directory containing nushell tool scripts
+    /// Directory containing nushell tool modules (directories with mod.nu files)
     #[arg(long)]
     tools_dir: Option<PathBuf>,
 
