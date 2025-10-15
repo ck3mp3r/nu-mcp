@@ -43,7 +43,7 @@ capture_pane - Static snapshot of what's currently displayed
 
 ### Individual Tool
 ```bash
-nix profile install github:ck3mp3r/nu-mcp#mcp-tmux-tool
+nix profile install github:ck3mp3r/nu-mcp#tmux-mcp-tools
 ```
 
 ### All Tools

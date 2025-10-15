@@ -76,13 +76,13 @@ Tools are available as individual packages or as a complete collection:
 #### Individual Tools
 ```sh
 # Weather tool only
-nix profile install github:ck3mp3r/nu-mcp#mcp-weather-tool
+nix profile install github:ck3mp3r/nu-mcp#weather-mcp-tools
 
 # Finance tool only  
-nix profile install github:ck3mp3r/nu-mcp#mcp-finance-tool
+nix profile install github:ck3mp3r/nu-mcp#finance-mcp-tools
 
 # Tmux tool only
-nix profile install github:ck3mp3r/nu-mcp#mcp-tmux-tool
+nix profile install github:ck3mp3r/nu-mcp#tmux-mcp-tools
 ```
 
 #### Complete Tool Collection

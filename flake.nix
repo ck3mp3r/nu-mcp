@@ -123,22 +123,22 @@
           // archivePackages
           // {
             # Individual tool packages
-            mcp-weather-tool = mkToolPackage {
-              pname = "mcp-weather-tool";
+            weather-mcp-tools = mkToolPackage {
+              pname = "weather-mcp-tools";
               src = ./tools/weather;
               installPath = "weather";
               description = "Weather MCP tool for nu-mcp - provides current weather and forecasts using Open-Meteo API";
             };
 
-            mcp-finance-tool = mkToolPackage {
-              pname = "mcp-finance-tool";
+            finance-mcp-tools = mkToolPackage {
+              pname = "finance-mcp-tools";
               src = ./tools/finance;
               installPath = "finance";
               description = "Finance MCP tool for nu-mcp - provides stock prices and financial data using Yahoo Finance API";
             };
 
-            mcp-tmux-tool = mkToolPackage {
-              pname = "mcp-tmux-tool";
+            tmux-mcp-tools = mkToolPackage {
+              pname = "tmux-mcp-tools";
               src = ./tools/tmux;
               installPath = "tmux";
               description = "Tmux MCP tool for nu-mcp - provides tmux session and pane management with intelligent command execution";
