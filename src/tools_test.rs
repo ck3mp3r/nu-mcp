@@ -723,3 +723,60 @@ def "main list-tools" [] {
     // Cleanup
     std::fs::remove_dir_all(&temp_dir).unwrap();
 }
+
+#[tokio::test]
+async fn test_discover_tools_direct_module_directory() {
+    let tools_dir = get_test_tools_dir();
+    
+    // Test pointing directly to a module directory (simple/)
+    let simple_module_dir = tools_dir.join("simple");
+    let result = discover_tools(&simple_module_dir).await;
+
+    assert!(result.is_ok());
+    let tools = result.unwrap();
+
+    // Should find the echo_test tool from simple/mod.nu
+    assert!(!tools.is_empty());
+    let tool_names: Vec<&str> = tools
+        .iter()
+        .map(|t| t.tool_definition.name.as_ref())
+        .collect();
+    assert!(tool_names.contains(&"echo_test"));
+
+    // Verify the module path is correct
+    for tool in &tools {
+        assert_eq!(tool.module_path, simple_module_dir);
+    }
+}
+
+#[tokio::test]
+async fn test_discover_tools_direct_module_vs_parent_directory() {
+    let tools_dir = get_test_tools_dir();
+    
+    // Test parent directory discovery (traditional behavior)
+    let parent_result = discover_tools(&tools_dir).await;
+    assert!(parent_result.is_ok());
+    let parent_tools = parent_result.unwrap();
+
+    // Test direct module directory discovery (new behavior)
+    let math_module_dir = tools_dir.join("math");
+    let direct_result = discover_tools(&math_module_dir).await;
+    assert!(direct_result.is_ok());
+    let direct_tools = direct_result.unwrap();
+
+    // Direct module discovery should find only tools from that specific module
+    let direct_tool_names: Vec<&str> = direct_tools
+        .iter()
+        .map(|t| t.tool_definition.name.as_ref())
+        .collect();
+    
+    // Should find math tools when pointing directly to math module
+    assert!(direct_tool_names.contains(&"add_numbers"));
+    assert!(direct_tool_names.contains(&"multiply_numbers"));
+    
+    // Should not find tools from other modules
+    assert!(!direct_tool_names.contains(&"echo_test"));
+
+    // Parent directory discovery should find more tools than direct module discovery
+    assert!(parent_tools.len() >= direct_tools.len());
+}
