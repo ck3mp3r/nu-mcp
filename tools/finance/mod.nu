@@ -1,4 +1,10 @@
-# Ticker tool for nu-mcp - provides stock price information
+# Finance tool for nu-mcp - provides stock price information
+# Uses modular structure with helper modules for better organization
+
+# Import helper modules
+use yahoo_api.nu *
+use utils.nu *
+use formatters.nu *
 
 # Default main command
 def main [] {
@@ -44,71 +50,14 @@ def "main call-tool" [
 
 # Get stock price information for a ticker symbol using Yahoo Finance API
 def get_ticker_price [symbol: string] {
-  let ticker = $symbol | str upcase
-
-  try {
-    # Use Yahoo Finance chart API (no API key required)
-    let url = $"https://query1.finance.yahoo.com/v8/finance/chart/($ticker)"
-    let response = http get $url
-
-    # Check if we got valid data
-    if ($response.chart.result | length) == 0 {
-      $"Error: Ticker symbol '($ticker)' not found. Please check the symbol and try again."
-    } else {
-      let result = $response.chart.result.0
-      let meta = $result.meta
-
-      # Extract stock data
-      let current_price = $meta.regularMarketPrice
-      let prev_close = $meta.previousClose
-      let day_high = $meta.regularMarketDayHigh
-      let day_low = $meta.regularMarketDayLow
-      let volume = $meta.regularMarketVolume
-      let company_name = $meta.longName
-      let exchange = $meta.fullExchangeName
-      let currency = $meta.currency
-      let fifty_two_week_high = $meta.fiftyTwoWeekHigh
-      let fifty_two_week_low = $meta.fiftyTwoWeekLow
-
-      # Calculate change and percentage
-      let change = $current_price - $prev_close
-      let change_percent = ($change / $prev_close) * 100
-
-      # Format the change
-      let change_str = if $change >= 0 {
-        $"+($change | math round --precision 2)"
-      } else {
-        $"($change | math round --precision 2)"
-      }
-
-      let change_percent_str = if $change >= 0 {
-        $"+($change_percent | math round --precision 2)%"
-      } else {
-        $"($change_percent | math round --precision 2)%"
-      }
-
-      # Format volume
-      let volume_str = if $volume > 1000000 {
-        $"($volume / 1000000 | math round --precision 1)M"
-      } else if $volume > 1000 {
-        $"($volume / 1000 | math round --precision 1)K"
-      } else {
-        $"($volume)"
-      }
-
-      $"Stock Quote for ($ticker):
-Company: ($company_name)
-Current Price: ($currency) ($current_price | math round --precision 2)
-Previous Close: ($currency) ($prev_close | math round --precision 2)
-Change: ($change_str) (($change_percent_str))
-Day Range: ($currency) ($day_low) - ($currency) ($day_high)
-52-Week Range: ($currency) ($fifty_two_week_low) - ($currency) ($fifty_two_week_high)
-Volume: ($volume_str)
-Exchange: ($exchange)
-Data from: Yahoo Finance API"
-    }
-  } catch {
-    $"Error: Could not retrieve data for ticker '($ticker)'. Please check the symbol and try again."
+  # Get validated stock data using API module
+  let stock_result = get_validated_stock_info $symbol
+  
+  if not $stock_result.success {
+    return (format_stock_error $symbol $stock_result.error)
   }
+  
+  # Format using formatters module
+  format_stock_quote $stock_result.symbol $stock_result.data
 }
 
