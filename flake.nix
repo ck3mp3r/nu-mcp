@@ -37,6 +37,35 @@
         cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
         cargoLock = {lockFile = ./Cargo.lock;};
 
+        # Helper function to create tool packages
+        mkToolPackage = {
+          pname,
+          src,
+          installPath,
+          description
+        }: pkgs.stdenv.mkDerivation {
+          inherit pname src;
+          version = cargoToml.package.version;
+
+          dontBuild = true;
+          dontConfigure = true;
+
+          installPhase = ''
+            runHook preInstall
+
+            mkdir -p $out/share/nushell/mcp-tools/${installPath}
+            cp -r * $out/share/nushell/mcp-tools/${installPath}/
+
+            runHook postInstall
+          '';
+
+          meta = with pkgs.lib; {
+            inherit description;
+            license = licenses.mit;
+            platforms = platforms.all;
+          };
+        };
+
         # Install data for pre-built releases
         installData = {
           aarch64-darwin = builtins.fromJSON (builtins.readFile ./data/aarch64-darwin.json);
@@ -93,32 +122,35 @@
           regularPackages
           // archivePackages
           // {
-            mcp-example-tools = let
-              cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
-            in
-              pkgs.stdenv.mkDerivation {
-                pname = "example-tools";
-                version = cargoToml.package.version;
-                src = ./tools;
+            # Individual tool packages
+            mcp-weather-tool = mkToolPackage {
+              pname = "mcp-weather-tool";
+              src = ./tools/weather;
+              installPath = "weather";
+              description = "Weather MCP tool for nu-mcp - provides current weather and forecasts using Open-Meteo API";
+            };
 
-                dontBuild = true;
-                dontConfigure = true;
+            mcp-finance-tool = mkToolPackage {
+              pname = "mcp-finance-tool";
+              src = ./tools/finance;
+              installPath = "finance";
+              description = "Finance MCP tool for nu-mcp - provides stock prices and financial data using Yahoo Finance API";
+            };
 
-                installPhase = ''
-                  runHook preInstall
+            mcp-tmux-tool = mkToolPackage {
+              pname = "mcp-tmux-tool";
+              src = ./tools/tmux;
+              installPath = "tmux";
+              description = "Tmux MCP tool for nu-mcp - provides tmux session and pane management with intelligent command execution";
+            };
 
-                  mkdir -p $out/share/nushell/mcp-tools/examples
-                  cp -r * $out/share/nushell/mcp-tools/examples/
-
-                  runHook postInstall
-                '';
-
-                meta = with pkgs.lib; {
-                  description = "Example Nushell tools collection";
-                  license = licenses.mit;
-                  platforms = platforms.all;
-                };
-              };
+            # Combined tools package for convenience
+            mcp-tools = mkToolPackage {
+              pname = "mcp-tools";
+              src = ./tools;
+              installPath = "";
+              description = "Complete MCP tools catalog for nu-mcp - includes weather, finance, tmux, and other useful tools";
+            };
           };
 
         devShells = {

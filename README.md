@@ -35,6 +35,7 @@ The `tools/` directory contains a growing catalog of useful MCP tools:
 
 - **Weather** (`tools/weather/`) - Current weather and forecasts using Open-Meteo API
 - **Finance** (`tools/finance/`) - Stock prices and financial data using Yahoo Finance API
+- **Tmux** (`tools/tmux/`) - Tmux session and pane management with intelligent command execution
 
 ## Configuration
 
@@ -68,13 +69,29 @@ Or, if you have a local checkout:
 nix profile install path:/absolute/path/to/nu-mcp
 ```
 
-### Installing Example Tools
+### Installing Tools
 
-Example tools are available as a separate package and will be installed to `~/.nix-profile/share/nushell/mcp-tools/examples`:
+Tools are available as individual packages or as a complete collection:
 
+#### Individual Tools
 ```sh
-nix profile install github:ck3mp3r/nu-mcp#mcp-example-tools
+# Weather tool only
+nix profile install github:ck3mp3r/nu-mcp#mcp-weather-tool
+
+# Finance tool only  
+nix profile install github:ck3mp3r/nu-mcp#mcp-finance-tool
+
+# Tmux tool only
+nix profile install github:ck3mp3r/nu-mcp#mcp-tmux-tool
 ```
+
+#### Complete Tool Collection
+```sh
+# All available tools
+nix profile install github:ck3mp3r/nu-mcp#mcp-tools
+```
+
+Tools are installed to `~/.nix-profile/share/nushell/mcp-tools/`.
 
 ### As an overlay in your own flake
 
