@@ -15,7 +15,7 @@ This project exposes Nushell as an MCP server using the official Rust SDK (`rmcp
 Provides the `run_nushell` tool for executing arbitrary Nushell commands.
 
 ### Extension Mode
-Load additional tools from Nushell scripts in a specified directory using `--tools-dir`. Each `.nu` file should implement:
+Load additional tools from Nushell modules in a specified directory using `--tools-dir`. Each tool module should be a directory containing a `mod.nu` file that implements:
 - `main list-tools` - Return JSON array of tool definitions
 - `main call-tool <tool_name> <args>` - Execute the specified tool
 
@@ -32,7 +32,7 @@ The `nu-mcp` server is configured via command-line arguments or by passing argum
 
 #### Extension System Options
 - `--tools-dir=PATH`
-  Directory containing `.nu` extension scripts. When specified, the server automatically discovers and loads all `.nu` files in this directory as MCP tools. **Important**: Using this flag automatically disables the `run_nushell` tool by default to prevent conflicts between multiple MCP server instances and avoid confusion when the same server provides both generic command execution and specific tools.
+  Directory containing tool modules. When specified, the server automatically discovers and loads all directories containing `mod.nu` files as MCP tools. **Important**: Using this flag automatically disables the `run_nushell` tool by default to prevent conflicts between multiple MCP server instances and avoid confusion when the same server provides both generic command execution and specific tools.
 - `--enable-run-nushell`
   Explicitly re-enable the `run_nushell` tool when using `--tools-dir`. This creates a hybrid mode where both extension tools and generic nushell command execution are available. Use with caution in multi-instance setups to avoid tool name conflicts.
 
@@ -157,7 +157,7 @@ You can now use `pkgs.nu-mcp` in your own packages, devShells, or CI.
 
 ## Creating Extension Tools
 
-Extension tools are Nushell scripts (`.nu` files) placed in the tools directory. Each script must implement these functions:
+Extension tools are Nushell modules organized as directories with a `mod.nu` entry file in the tools directory. Each module's `mod.nu` file must implement these functions:
 
 ### Required Functions
 
@@ -198,8 +198,20 @@ def "main call-tool" [
 ### Example Tool Structure
 
 See the included example tools:
-- `tools/weather.nu` - Weather data using Open-Meteo API
-- `tools/ticker.nu` - Stock prices using Yahoo Finance API
+- `tools/weather/mod.nu` - Weather data using Open-Meteo API
+- `tools/finance/mod.nu` - Stock prices using Yahoo Finance API
+
+Tool modules can contain additional helper files alongside `mod.nu`:
+```
+tools/
+├── weather/
+│   ├── mod.nu          # Entry point implementing list-tools/call-tool
+│   ├── geocoding.nu    # Helper module for location services
+│   └── api.nu          # Helper module for API interactions
+└── finance/
+    ├── mod.nu          # Entry point
+    └── utils.nu        # Shared utilities
+```
 
 **Note**: The tools in the `tools/` directory are examples for demonstration purposes only. They are not intended for production use and may have limitations or reliability issues. Users should review, test, and modify these examples according to their specific requirements before using them in any production environment.
 

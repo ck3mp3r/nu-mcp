@@ -6,11 +6,11 @@ use tokio::process::Command;
 
 #[derive(Debug, Clone)]
 pub struct ExtensionTool {
-    pub script_path: PathBuf,
+    pub module_path: PathBuf,
     pub tool_definition: Tool,
 }
 
-/// Discover tools from nushell scripts in the given directory
+/// Discover tools from nushell modules in the given directory
 pub async fn discover_tools(
     tools_dir: &PathBuf,
 ) -> Result<Vec<ExtensionTool>, Box<dyn std::error::Error>> {
@@ -27,15 +27,18 @@ pub async fn discover_tools(
     while let Some(entry) = dir.next_entry().await? {
         let path = entry.path();
 
-        // Only process .nu files
-        if path.extension().and_then(|s| s.to_str()) == Some("nu") {
-            match discover_tools_from_script(&path).await {
-                Ok(mut tools) => extension_tools.append(&mut tools),
-                Err(e) => eprintln!(
-                    "Warning: Failed to discover tools from {}: {}",
-                    path.display(),
-                    e
-                ),
+        // Only process directories
+        if path.is_dir() {
+            let mod_file = path.join("mod.nu");
+            if mod_file.exists() {
+                match discover_tools_from_module(&path).await {
+                    Ok(mut tools) => extension_tools.append(&mut tools),
+                    Err(e) => eprintln!(
+                        "Warning: Failed to discover tools from {}: {}",
+                        path.display(),
+                        e
+                    ),
+                }
             }
         }
     }
@@ -43,20 +46,22 @@ pub async fn discover_tools(
     Ok(extension_tools)
 }
 
-/// Discover tools from a single nushell script
-async fn discover_tools_from_script(
-    script_path: &PathBuf,
+/// Discover tools from a nushell module
+async fn discover_tools_from_module(
+    module_path: &PathBuf,
 ) -> Result<Vec<ExtensionTool>, Box<dyn std::error::Error>> {
-    // Execute the script with list-tools subcommand
+    let mod_file = module_path.join("mod.nu");
+    
+    // Execute the mod.nu file with list-tools subcommand
     let output = Command::new("nu")
-        .arg(script_path)
+        .arg(&mod_file)
         .arg("list-tools")
         .output()
         .await?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Script execution failed: {}", stderr).into());
+        return Err(format!("Module execution failed: {}", stderr).into());
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -76,7 +81,7 @@ async fn discover_tools_from_script(
         };
 
         extension_tools.push(ExtensionTool {
-            script_path: script_path.clone(),
+            module_path: module_path.clone(),
             tool_definition: tool,
         });
     }
@@ -90,8 +95,10 @@ pub async fn execute_extension_tool(
     tool_name: &str,
     args: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
+    let mod_file = extension.module_path.join("mod.nu");
+    
     let output = Command::new("nu")
-        .arg(&extension.script_path)
+        .arg(&mod_file)
         .arg("call-tool")
         .arg(tool_name)
         .arg(args)
