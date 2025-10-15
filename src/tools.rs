@@ -21,7 +21,22 @@ pub async fn discover_tools(
         return Ok(extension_tools);
     }
 
-    // Read directory entries
+    // Check if the tools_dir itself is a module directory (contains mod.nu)
+    let mod_file = tools_dir.join("mod.nu");
+    if mod_file.exists() {
+        // The tools_dir is itself a module directory, process it directly
+        match discover_tools_from_module(tools_dir).await {
+            Ok(mut tools) => extension_tools.append(&mut tools),
+            Err(e) => eprintln!(
+                "Warning: Failed to discover tools from {}: {}",
+                tools_dir.display(),
+                e
+            ),
+        }
+        return Ok(extension_tools);
+    }
+
+    // Otherwise, treat tools_dir as a parent directory containing module subdirectories
     let mut dir = tokio::fs::read_dir(tools_dir).await?;
 
     while let Some(entry) = dir.next_entry().await? {
