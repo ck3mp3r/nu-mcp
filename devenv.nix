@@ -38,8 +38,14 @@
   };
 
   git-hooks.hooks = {
-    rustfmt.enable = true;
-    clippy.enable = true;
+    rustfmt = {
+      enable = true;
+      packageOverrides.rustfmt = inputs.fenix.packages.${pkgs.system}.stable.rustfmt;
+    };
+    clippy = {
+      enable = true;
+      packageOverrides.clippy = inputs.fenix.packages.${pkgs.system}.stable.clippy;
+    };
   };
 
   enterShell = ''
