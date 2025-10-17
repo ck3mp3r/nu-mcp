@@ -24,10 +24,7 @@ fn test_path_validation() {
     let invalid_file = PathBuf::from("script.sh");
 
     assert!(valid_module_dir.file_name().is_some());
-    assert_eq!(
-        mod_file.extension().and_then(|s| s.to_str()),
-        Some("nu")
-    );
+    assert_eq!(mod_file.extension().and_then(|s| s.to_str()), Some("nu"));
     assert_eq!(
         invalid_file.extension().and_then(|s| s.to_str()),
         Some("sh")
@@ -727,7 +724,7 @@ def "main list-tools" [] {
 #[tokio::test]
 async fn test_discover_tools_direct_module_directory() {
     let tools_dir = get_test_tools_dir();
-    
+
     // Test pointing directly to a module directory (simple/)
     let simple_module_dir = tools_dir.join("simple");
     let result = discover_tools(&simple_module_dir).await;
@@ -752,7 +749,7 @@ async fn test_discover_tools_direct_module_directory() {
 #[tokio::test]
 async fn test_discover_tools_direct_module_vs_parent_directory() {
     let tools_dir = get_test_tools_dir();
-    
+
     // Test parent directory discovery (traditional behavior)
     let parent_result = discover_tools(&tools_dir).await;
     assert!(parent_result.is_ok());
@@ -769,11 +766,11 @@ async fn test_discover_tools_direct_module_vs_parent_directory() {
         .iter()
         .map(|t| t.tool_definition.name.as_ref())
         .collect();
-    
+
     // Should find math tools when pointing directly to math module
     assert!(direct_tool_names.contains(&"add_numbers"));
     assert!(direct_tool_names.contains(&"multiply_numbers"));
-    
+
     // Should not find tools from other modules
     assert!(!direct_tool_names.contains(&"echo_test"));
 

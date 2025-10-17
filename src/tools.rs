@@ -1,6 +1,6 @@
 use rmcp::model::Tool;
 use rmcp::serde_json::{Map, Value};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::process::Command;
 
@@ -63,10 +63,10 @@ pub async fn discover_tools(
 
 /// Discover tools from a nushell module
 async fn discover_tools_from_module(
-    module_path: &PathBuf,
+    module_path: &Path,
 ) -> Result<Vec<ExtensionTool>, Box<dyn std::error::Error>> {
     let mod_file = module_path.join("mod.nu");
-    
+
     // Execute the mod.nu file with list-tools subcommand
     let output = Command::new("nu")
         .arg(&mod_file)
@@ -96,7 +96,7 @@ async fn discover_tools_from_module(
         };
 
         extension_tools.push(ExtensionTool {
-            module_path: module_path.clone(),
+            module_path: module_path.to_path_buf(),
             tool_definition: tool,
         });
     }
@@ -111,7 +111,7 @@ pub async fn execute_extension_tool(
     args: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let mod_file = extension.module_path.join("mod.nu");
-    
+
     let output = Command::new("nu")
         .arg(&mod_file)
         .arg("call-tool")
