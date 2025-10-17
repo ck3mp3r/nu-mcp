@@ -6,6 +6,7 @@
 # direnv
 .envrc
 .direnv/
+.devenv/
 
 # Thumbnails
 ._*
@@ -49,3 +50,4 @@ __pycache__/
 target/
 result
 tarpaulin-report.*
+.pre-commit-config.yaml

@@ -28,7 +28,9 @@ fn test_absolute_paths_in_sandbox_allowed() {
     let sandbox_dir = std::env::current_dir().unwrap();
     let sandbox_subdir = sandbox_dir.join("subdir");
     // This should be allowed as it's within the sandbox
-    assert!(validate_path_safety(&format!("ls {}", sandbox_subdir.display()), &sandbox_dir).is_ok());
+    assert!(
+        validate_path_safety(&format!("ls {}", sandbox_subdir.display()), &sandbox_dir).is_ok()
+    );
 }
 
 #[test]

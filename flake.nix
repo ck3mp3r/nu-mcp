@@ -1,10 +1,16 @@
 {
-  description = "Rust Nushell MCP Server with Devshell and Fenix";
+  description = "Rust Nushell MCP Server with Devenv and Fenix";
 
   inputs = {
     nixpkgs.url = "github:NixOs/nixpkgs";
-    flake-parts.url = "github:hercules-ci/flake-parts";
-    devshell.url = "github:numtide/devshell";
+    flake-parts = {
+      url = "github:hercules-ci/flake-parts";
+      inputs.nixpkgs-lib.follows = "nixpkgs";
+    };
+    devenv = {
+      url = "github:cachix/devenv";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     fenix = {
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -30,7 +36,6 @@
         supportedTargets = ["aarch64-darwin" "aarch64-linux" "x86_64-linux"];
         overlays = [
           inputs.fenix.overlays.default
-          inputs.devshell.overlays.default
         ];
         pkgs = import inputs.nixpkgs {inherit system overlays;};
 
@@ -42,29 +47,30 @@
           pname,
           src,
           installPath,
-          description
-        }: pkgs.stdenv.mkDerivation {
-          inherit pname src;
-          version = cargoToml.package.version;
+          description,
+        }:
+          pkgs.stdenv.mkDerivation {
+            inherit pname src;
+            version = cargoToml.package.version;
 
-          dontBuild = true;
-          dontConfigure = true;
+            dontBuild = true;
+            dontConfigure = true;
 
-          installPhase = ''
-            runHook preInstall
+            installPhase = ''
+              runHook preInstall
 
-            mkdir -p $out/share/nushell/mcp-tools/${installPath}
-            cp -r * $out/share/nushell/mcp-tools/${installPath}/
+              mkdir -p $out/share/nushell/mcp-tools/${installPath}
+              cp -r * $out/share/nushell/mcp-tools/${installPath}/
 
-            runHook postInstall
-          '';
+              runHook postInstall
+            '';
 
-          meta = with pkgs.lib; {
-            inherit description;
-            license = licenses.mit;
-            platforms = platforms.all;
+            meta = with pkgs.lib; {
+              inherit description;
+              license = licenses.mit;
+              platforms = platforms.all;
+            };
           };
-        };
 
         # Install data for pre-built releases
         installData = {
@@ -154,11 +160,10 @@
           };
 
         devShells = {
-          default = pkgs.devshell.mkShell {
-            packages = [inputs.fenix.packages.${system}.stable.toolchain];
-            imports = [
-              (pkgs.devshell.importTOML ./devshell.toml)
-              "${inputs.devshell}/extra/git/hooks.nix"
+          default = inputs.devenv.lib.mkShell {
+            inherit inputs pkgs;
+            modules = [
+              ./devenv.nix
             ];
           };
         };
