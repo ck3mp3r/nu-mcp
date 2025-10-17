@@ -26,7 +26,7 @@ def "main list-tools" [] {
     }
     {
       name: "send_and_capture"
-      description: "PREFERRED: Send a command to a tmux pane and capture its output. Use this when you need to run a command AND get its results (builds, tests, git status, ls, etc.). Automatically handles timing and waits for output. This is the preferred tool for most interactive command scenarios."
+      description: "DEFAULT: Send a command to a tmux pane and capture its output. This is the standard way to interact with tmux panes."
       input_schema: {
         type: "object"
         properties: {
@@ -60,7 +60,7 @@ def "main list-tools" [] {
     }
     {
       name: "send_command"
-      description: "Send a command to a tmux pane and return immediately (fire-and-forget). Use when you don't need the command output or when starting long-running processes. For commands where you need the output, use send_and_capture instead."
+      description: "Send command to tmux pane without capturing output (fire-and-forget). Use only when you don't need output or for long-running processes."
       input_schema: {
         type: "object"
         properties: {
@@ -86,7 +86,7 @@ def "main list-tools" [] {
     }
     {
       name: "capture_pane"
-      description: "Capture the current visible content of a tmux pane (static snapshot). Use when you want to see what's currently displayed. For running a command and getting its output, use send_and_capture instead."
+      description: "Capture current visible content of a tmux pane. For running commands and getting output, use send_and_capture instead."
       input_schema: {
         type: "object"
         properties: {
@@ -112,7 +112,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_session_info"
-      description: "Get detailed information about a specific tmux session (returns tabular data)"
+      description: "Get detailed information about a specific tmux session."
       input_schema: {
         type: "object"
         properties: {
@@ -126,7 +126,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_pane_process"
-      description: "Get information about the running process in a specific tmux pane (returns tabular data)"
+      description: "Get information about the running process in a tmux pane."
       input_schema: {
         type: "object"
         properties: {
@@ -148,7 +148,7 @@ def "main list-tools" [] {
     }
     {
       name: "find_pane_by_name"
-      description: "Find a pane by its name across all windows in a session (returns tabular data)"
+      description: "Find a pane by its name across windows in a session."
       input_schema: {
         type: "object"
         properties: {
@@ -166,7 +166,7 @@ def "main list-tools" [] {
     }
     {
       name: "find_pane_by_context"
-      description: "Find a pane by context like directory path, command, or description. Useful for finding 'docs pane', 'build pane', etc. (returns tabular data)"
+      description: "Find a pane by context like directory path or command."
       input_schema: {
         type: "object"
         properties: {
@@ -184,7 +184,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_panes"
-      description: "List all panes in a session as a clear table showing window, pane, name, process, directory, and status (returns tabular data)"
+      description: "List all panes in a session with their details."
       input_schema: {
         type: "object"
         properties: {
