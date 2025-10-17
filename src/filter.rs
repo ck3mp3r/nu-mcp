@@ -9,7 +9,11 @@ pub struct Config {
 
 pub fn validate_path_safety(command: &str, sandbox_dir: &Path) -> Result<(), String> {
     // Only check for path traversal patterns - remove all other "security" checks
-    if command.contains("../") || command.contains("..\\") || command.contains(".. ") || command.contains(" ..") {
+    if command.contains("../")
+        || command.contains("..\\")
+        || command.contains(".. ")
+        || command.contains(" ..")
+    {
         return Err("Path traversal patterns (../) are not allowed".to_string());
     }
 
@@ -28,18 +32,24 @@ pub fn validate_path_safety(command: &str, sandbox_dir: &Path) -> Result<(), Str
         if word.starts_with('-') || is_common_command(word) {
             continue;
         }
-        
+
         if word.starts_with('/') || word.contains(":\\") {
             // For existing paths, check if they're within sandbox
             if let Ok(canonical_path) = Path::new(word).canonicalize() {
                 if !canonical_path.starts_with(&canonical_sandbox) {
-                    return Err(format!("Absolute path '{}' escapes sandbox directory", word));
+                    return Err(format!(
+                        "Absolute path '{}' escapes sandbox directory",
+                        word
+                    ));
                 }
             } else if word.starts_with('/') {
                 // For non-existent absolute paths, check if they would be inside sandbox
                 let absolute_path = Path::new(word);
                 if !absolute_path.starts_with(&canonical_sandbox) {
-                    return Err(format!("Absolute path '{}' escapes sandbox directory", word));
+                    return Err(format!(
+                        "Absolute path '{}' escapes sandbox directory",
+                        word
+                    ));
                 }
             }
         }
@@ -49,11 +59,47 @@ pub fn validate_path_safety(command: &str, sandbox_dir: &Path) -> Result<(), Str
 }
 
 fn is_common_command(word: &str) -> bool {
-    matches!(word, 
-        "ls" | "cat" | "echo" | "pwd" | "cd" | "mkdir" | "rm" | "cp" | "mv" | 
-        "chmod" | "chown" | "grep" | "find" | "which" | "whoami" | "date" | 
-        "ps" | "top" | "kill" | "touch" | "head" | "tail" | "sort" | "uniq" |
-        "wc" | "cut" | "awk" | "sed" | "tar" | "zip" | "unzip" | "curl" | "wget" |
-        "git" | "npm" | "cargo" | "docker" | "python" | "node" | "java" | "version"
+    matches!(
+        word,
+        "ls" | "cat"
+            | "echo"
+            | "pwd"
+            | "cd"
+            | "mkdir"
+            | "rm"
+            | "cp"
+            | "mv"
+            | "chmod"
+            | "chown"
+            | "grep"
+            | "find"
+            | "which"
+            | "whoami"
+            | "date"
+            | "ps"
+            | "top"
+            | "kill"
+            | "touch"
+            | "head"
+            | "tail"
+            | "sort"
+            | "uniq"
+            | "wc"
+            | "cut"
+            | "awk"
+            | "sed"
+            | "tar"
+            | "zip"
+            | "unzip"
+            | "curl"
+            | "wget"
+            | "git"
+            | "npm"
+            | "cargo"
+            | "docker"
+            | "python"
+            | "node"
+            | "java"
+            | "version"
     )
 }

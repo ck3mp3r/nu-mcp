@@ -25,7 +25,7 @@ impl ServerHandler for NushellTool {
         instructions.push_str("Security: Commands execute in a directory sandbox.\n");
         instructions.push_str("- Path traversal patterns (../) are blocked\n");
         instructions.push_str("- Absolute paths outside sandbox are blocked\n");
-        
+
         if let Some(sandbox_dir) = &self.config.sandbox_directory {
             instructions.push_str(&format!("- Sandbox directory: {}\n", sandbox_dir.display()));
         } else {

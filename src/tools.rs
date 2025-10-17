@@ -66,7 +66,7 @@ async fn discover_tools_from_module(
     module_path: &PathBuf,
 ) -> Result<Vec<ExtensionTool>, Box<dyn std::error::Error>> {
     let mod_file = module_path.join("mod.nu");
-    
+
     // Execute the mod.nu file with list-tools subcommand
     let output = Command::new("nu")
         .arg(&mod_file)
@@ -111,7 +111,7 @@ pub async fn execute_extension_tool(
     args: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let mod_file = extension.module_path.join("mod.nu");
-    
+
     let output = Command::new("nu")
         .arg(&mod_file)
         .arg("call-tool")

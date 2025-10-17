@@ -50,8 +50,5 @@ fn test_get_info_basic_fields() {
     let info = tool.get_info();
     assert_eq!(info.server_info.name, "nu-mcp");
     assert!(info.server_info.title.is_some());
-    assert_eq!(
-        info.server_info.title.unwrap(),
-        "Nu MCP Server".to_string()
-    );
+    assert_eq!(info.server_info.title.unwrap(), "Nu MCP Server".to_string());
 }
