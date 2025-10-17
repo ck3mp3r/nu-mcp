@@ -46,6 +46,15 @@
       enable = true;
       packageOverrides.clippy = inputs.fenix.packages.${pkgs.system}.stable.clippy;
     };
+    # Custom pre-push hook to run tests
+    test-on-push = {
+      enable = true;
+      name = "Run tests";
+      entry = "cargo test";
+      language = "system";
+      stages = ["pre-push"];
+      pass_filenames = false;
+    };
   };
 
   enterShell = ''
