@@ -5,6 +5,8 @@ description = ""
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.100"
+async-trait = "0.1.89"
 rmcp-macros = "0.8.1"
 schemars = "1.0.4"
 serde_json = "1.0.145"
