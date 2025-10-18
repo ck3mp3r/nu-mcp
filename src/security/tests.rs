@@ -1,4 +1,4 @@
-use crate::filter::validate_path_safety;
+use super::validate_path_safety;
 use std::path::Path;
 
 fn default_sandbox_dir() -> &'static Path {

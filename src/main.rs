@@ -1,27 +1,5 @@
-mod filter;
-mod handler;
-mod tools;
-
 use clap::Parser;
-use filter::Config;
-use handler::run_server;
-use std::path::PathBuf;
-
-#[derive(Parser, Debug)]
-#[command(author, version, about)]
-struct Cli {
-    /// Directory containing nushell tool modules (directories with mod.nu files)
-    #[arg(long)]
-    tools_dir: Option<PathBuf>,
-
-    /// Enable the default run_nushell tool when using tools-dir
-    #[arg(long, default_value_t = false)]
-    enable_run_nushell: bool,
-
-    /// Directory to sandbox nushell execution (default: current working directory)
-    #[arg(long)]
-    sandbox_dir: Option<PathBuf>,
-}
+use nu_mcp::{cli::Cli, config::Config, mcp::run_server};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

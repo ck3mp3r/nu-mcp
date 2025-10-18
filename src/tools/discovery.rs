@@ -1,14 +1,9 @@
+use super::ExtensionTool;
 use rmcp::model::Tool;
 use rmcp::serde_json::{Map, Value};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::process::Command;
-
-#[derive(Debug, Clone)]
-pub struct ExtensionTool {
-    pub module_path: PathBuf,
-    pub tool_definition: Tool,
-}
 
 /// Discover tools from nushell modules in the given directory
 pub async fn discover_tools(
@@ -76,7 +71,7 @@ async fn discover_tools_from_module(
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Module execution failed: {}", stderr).into());
+        return Err(format!("Module execution failed: {stderr}").into());
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -87,7 +82,7 @@ async fn discover_tools_from_module(
     for def in tool_definitions {
         let tool = Tool {
             name: def.name.into(),
-            description: def.description.map(|d| d.into()),
+            description: def.description.map(std::convert::Into::into),
             input_schema: Arc::new(def.input_schema),
             annotations: None,
             title: None,
@@ -102,30 +97,6 @@ async fn discover_tools_from_module(
     }
 
     Ok(extension_tools)
-}
-
-/// Execute an extension tool
-pub async fn execute_extension_tool(
-    extension: &ExtensionTool,
-    tool_name: &str,
-    args: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let mod_file = extension.module_path.join("mod.nu");
-
-    let output = Command::new("nu")
-        .arg(&mod_file)
-        .arg("call-tool")
-        .arg(tool_name)
-        .arg(args)
-        .output()
-        .await?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Tool execution failed: {}", stderr).into());
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
 /// Tool definition structure for JSON parsing

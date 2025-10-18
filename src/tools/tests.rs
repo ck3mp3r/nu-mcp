@@ -1,8 +1,17 @@
-use crate::tools::{discover_tools, execute_extension_tool};
+use super::{NushellToolExecutor, ToolExecutor, discover_tools};
 use std::path::PathBuf;
 
 fn get_test_tools_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test/tools")
+}
+
+async fn execute_extension_tool_helper(
+    extension: &crate::tools::ExtensionTool,
+    tool_name: &str,
+    args: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let tool_executor = NushellToolExecutor;
+    tool_executor.execute_tool(extension, tool_name, args).await
 }
 
 #[test]
@@ -93,7 +102,7 @@ async fn test_execute_simple_tool() {
         .expect("echo_test tool not found");
 
     // Execute the tool
-    let result = execute_extension_tool(
+    let result = execute_extension_tool_helper(
         echo_tool,
         "echo_test",
         r#"{"message": "Hello Integration Test"}"#,
@@ -118,7 +127,8 @@ async fn test_execute_math_tools() {
         .find(|t| t.tool_definition.name == "add_numbers")
         .expect("add_numbers tool not found");
 
-    let result = execute_extension_tool(add_tool, "add_numbers", r#"{"a": 5, "b": 3}"#).await;
+    let result =
+        execute_extension_tool_helper(add_tool, "add_numbers", r#"{"a": 5, "b": 3}"#).await;
 
     assert!(result.is_ok());
     let output = result.unwrap();
@@ -130,7 +140,8 @@ async fn test_execute_math_tools() {
         .find(|t| t.tool_definition.name == "multiply_numbers")
         .expect("multiply_numbers tool not found");
 
-    let result = execute_extension_tool(mult_tool, "multiply_numbers", r#"{"x": 4, "y": 7}"#).await;
+    let result =
+        execute_extension_tool_helper(mult_tool, "multiply_numbers", r#"{"x": 4, "y": 7}"#).await;
 
     assert!(result.is_ok());
     let output = result.unwrap();
@@ -147,7 +158,7 @@ async fn test_execute_tool_unknown_tool() {
     assert!(!tools.is_empty(), "No tools discovered for testing");
 
     let any_tool = &tools[0];
-    let result = execute_extension_tool(any_tool, "nonexistent_tool", "{}").await;
+    let result = execute_extension_tool_helper(any_tool, "nonexistent_tool", "{}").await;
 
     assert!(result.is_err());
     let error = result.unwrap_err();
@@ -169,7 +180,7 @@ async fn test_execute_tool_invalid_args() {
         .find(|t| t.tool_definition.name == "echo_test")
         .expect("echo_test tool not found");
 
-    let result = execute_extension_tool(echo_tool, "echo_test", "invalid json").await;
+    let result = execute_extension_tool_helper(echo_tool, "echo_test", "invalid json").await;
 
     assert!(result.is_err());
 }
@@ -251,7 +262,7 @@ async fn test_execute_tool_with_complex_json() {
 
     // Test with floating point numbers
     let result =
-        execute_extension_tool(math_tool, "add_numbers", r#"{"a": 3.14, "b": 2.86}"#).await;
+        execute_extension_tool_helper(math_tool, "add_numbers", r#"{"a": 3.14, "b": 2.86}"#).await;
 
     assert!(result.is_ok());
     let output = result.unwrap();
@@ -271,7 +282,7 @@ async fn test_execute_tool_missing_required_args() {
         .expect("echo_test tool not found");
 
     // Try to call without required message parameter
-    let result = execute_extension_tool(echo_tool, "echo_test", r#"{}"#).await;
+    let result = execute_extension_tool_helper(echo_tool, "echo_test", r#"{}"#).await;
 
     assert!(result.is_err());
     let error = result.unwrap_err();
@@ -296,7 +307,8 @@ async fn test_tool_script_execution_with_existing_tools() {
     // Test that we can execute existing tools without timeout issues
     if let Some(echo_tool) = tools.iter().find(|t| t.tool_definition.name == "echo_test") {
         let result =
-            execute_extension_tool(echo_tool, "echo_test", r#"{"message": "timeout test"}"#).await;
+            execute_extension_tool_helper(echo_tool, "echo_test", r#"{"message": "timeout test"}"#)
+                .await;
         assert!(result.is_ok());
         let output = result.unwrap();
         assert!(output.contains("timeout test"));
@@ -312,7 +324,7 @@ async fn test_execute_tool_with_unicode_content() {
 
     // Test with unicode characters in existing tools
     if let Some(echo_tool) = tools.iter().find(|t| t.tool_definition.name == "echo_test") {
-        let result = execute_extension_tool(
+        let result = execute_extension_tool_helper(
             echo_tool,
             "echo_test",
             r#"{"message": "Unicode test: 🚀 ñáéíóú 中文 世界"}"#,
@@ -356,11 +368,11 @@ async fn test_execute_tool_error_handling() {
         .find(|t| t.tool_definition.name == "add_numbers")
     {
         // Try with missing arguments
-        let result = execute_extension_tool(math_tool, "add_numbers", r#"{}"#).await;
+        let result = execute_extension_tool_helper(math_tool, "add_numbers", r#"{}"#).await;
         assert!(result.is_err());
 
         // Try with invalid JSON
-        let result = execute_extension_tool(math_tool, "add_numbers", "invalid json").await;
+        let result = execute_extension_tool_helper(math_tool, "add_numbers", "invalid json").await;
         assert!(result.is_err());
     }
 }
@@ -464,7 +476,8 @@ async fn test_execute_extension_tool_timeout() {
     if let Some(echo_tool) = tools.iter().find(|t| t.tool_definition.name == "echo_test") {
         let start = std::time::Instant::now();
         let result =
-            execute_extension_tool(echo_tool, "echo_test", r#"{"message": "timeout test"}"#).await;
+            execute_extension_tool_helper(echo_tool, "echo_test", r#"{"message": "timeout test"}"#)
+                .await;
         let duration = start.elapsed();
 
         assert!(result.is_ok());
@@ -485,7 +498,7 @@ async fn test_execute_extension_tool_large_output() {
         let large_message = "x".repeat(1000); // 1KB message
         let args = format!(r#"{{"message": "{}"}}"#, large_message);
 
-        let result = execute_extension_tool(echo_tool, "echo_test", &args).await;
+        let result = execute_extension_tool_helper(echo_tool, "echo_test", &args).await;
         assert!(result.is_ok());
 
         let output = result.unwrap();
@@ -505,7 +518,7 @@ async fn test_execute_extension_tool_special_characters() {
         let special_chars = "!@#$%^&*()_+-=[]{}|;,./<>?";
         let args = serde_json::json!({"message": special_chars}).to_string();
 
-        let result = execute_extension_tool(echo_tool, "echo_test", &args).await;
+        let result = execute_extension_tool_helper(echo_tool, "echo_test", &args).await;
         assert!(result.is_ok());
 
         let output = result.unwrap();
@@ -525,7 +538,7 @@ async fn test_execute_extension_tool_empty_args() {
         .find(|t| t.tool_definition.name == "add_numbers")
     {
         // Test with empty args object
-        let result = execute_extension_tool(math_tool, "add_numbers", r#"{}"#).await;
+        let result = execute_extension_tool_helper(math_tool, "add_numbers", r#"{}"#).await;
 
         // Should fail due to missing required arguments
         assert!(result.is_err());
@@ -552,7 +565,7 @@ async fn test_execute_extension_tool_wrong_types() {
         .find(|t| t.tool_definition.name == "add_numbers")
     {
         // Test with wrong argument types (strings instead of numbers)
-        let result = execute_extension_tool(
+        let result = execute_extension_tool_helper(
             math_tool,
             "add_numbers",
             r#"{"a": "not_a_number", "b": "also_not_a_number"}"#,
@@ -633,8 +646,12 @@ async fn test_execute_extension_tool_with_nonexistent_script() {
             tool_definition: echo_tool.tool_definition.clone(),
         };
 
-        let result =
-            execute_extension_tool(&failing_extension, "echo_test", r#"{"message": "test"}"#).await;
+        let result = execute_extension_tool_helper(
+            &failing_extension,
+            "echo_test",
+            r#"{"message": "test"}"#,
+        )
+        .await;
 
         // Should fail due to nonexistent module file
         assert!(result.is_err());
