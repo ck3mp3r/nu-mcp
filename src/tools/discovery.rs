@@ -1,19 +1,19 @@
-use rmcp::model::Tool;
-use rmcp::serde_json::{Map, Value};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+
+use anyhow::{Context, Result, anyhow};
+use rmcp::{
+    model::Tool,
+    serde_json::{Map, Value},
+};
 use tokio::process::Command;
 
-#[derive(Debug, Clone)]
-pub struct ExtensionTool {
-    pub module_path: PathBuf,
-    pub tool_definition: Tool,
-}
+use super::ExtensionTool;
 
 /// Discover tools from nushell modules in the given directory
-pub async fn discover_tools(
-    tools_dir: &PathBuf,
-) -> Result<Vec<ExtensionTool>, Box<dyn std::error::Error>> {
+pub async fn discover_tools(tools_dir: &PathBuf) -> Result<Vec<ExtensionTool>> {
     let mut extension_tools = Vec::new();
 
     // Check if directory exists
@@ -62,9 +62,7 @@ pub async fn discover_tools(
 }
 
 /// Discover tools from a nushell module
-async fn discover_tools_from_module(
-    module_path: &Path,
-) -> Result<Vec<ExtensionTool>, Box<dyn std::error::Error>> {
+async fn discover_tools_from_module(module_path: &Path) -> Result<Vec<ExtensionTool>> {
     let mod_file = module_path.join("mod.nu");
 
     // Execute the mod.nu file with list-tools subcommand
@@ -72,22 +70,37 @@ async fn discover_tools_from_module(
         .arg(&mod_file)
         .arg("list-tools")
         .output()
-        .await?;
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to execute nushell command for {}",
+                mod_file.display()
+            )
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Module execution failed: {}", stderr).into());
+        return Err(anyhow!(
+            "Module execution failed for {}: {stderr}",
+            mod_file.display()
+        ));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let tool_definitions: Vec<ToolDefinition> = serde_json::from_str(&stdout)?;
+    let tool_definitions: Vec<ToolDefinition> =
+        serde_json::from_str(&stdout).with_context(|| {
+            format!(
+                "Failed to parse tool definitions from {}",
+                mod_file.display()
+            )
+        })?;
 
     let mut extension_tools = Vec::new();
 
     for def in tool_definitions {
         let tool = Tool {
             name: def.name.into(),
-            description: def.description.map(|d| d.into()),
+            description: def.description.map(std::convert::Into::into),
             input_schema: Arc::new(def.input_schema),
             annotations: None,
             title: None,
@@ -102,30 +115,6 @@ async fn discover_tools_from_module(
     }
 
     Ok(extension_tools)
-}
-
-/// Execute an extension tool
-pub async fn execute_extension_tool(
-    extension: &ExtensionTool,
-    tool_name: &str,
-    args: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let mod_file = extension.module_path.join("mod.nu");
-
-    let output = Command::new("nu")
-        .arg(&mod_file)
-        .arg("call-tool")
-        .arg(tool_name)
-        .arg(args)
-        .output()
-        .await?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Tool execution failed: {}", stderr).into());
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
 /// Tool definition structure for JSON parsing

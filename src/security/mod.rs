@@ -1,11 +1,4 @@
-use std::path::{Path, PathBuf};
-
-#[derive(Debug, Clone, Default)]
-pub struct Config {
-    pub tools_dir: Option<PathBuf>,
-    pub enable_run_nushell: bool,
-    pub sandbox_directory: Option<PathBuf>,
-}
+use std::path::Path;
 
 pub fn validate_path_safety(command: &str, sandbox_dir: &Path) -> Result<(), String> {
     // Only check for path traversal patterns - remove all other "security" checks
@@ -103,3 +96,6 @@ fn is_common_command(word: &str) -> bool {
             | "version"
     )
 }
+
+#[cfg(test)]
+mod mod_test;

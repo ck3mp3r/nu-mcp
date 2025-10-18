@@ -1,4 +1,4 @@
-use crate::filter::Config;
+use super::Config;
 use std::path::PathBuf;
 
 // Test simplified config creation
