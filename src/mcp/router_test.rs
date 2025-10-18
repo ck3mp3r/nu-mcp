@@ -12,14 +12,14 @@ use crate::{
     tools::{ExtensionTool, MockToolExecutor},
 };
 
-fn create_test_router() -> ToolRouter {
+fn create_test_router() -> ToolRouter<MockExecutor, MockToolExecutor> {
     let config = Config {
         tools_dir: None,
         enable_run_nushell: true,
         sandbox_directory: Some(PathBuf::from("/tmp")),
     };
-    let executor = Arc::new(MockExecutor::new("test output".to_string(), "".to_string()));
-    let tool_executor = Arc::new(MockToolExecutor::new("tool output".to_string()));
+    let executor = MockExecutor::new("test output".to_string(), "".to_string());
+    let tool_executor = MockToolExecutor::new("tool output".to_string());
     ToolRouter::new(config, vec![], executor, tool_executor)
 }
 
@@ -79,8 +79,8 @@ async fn test_router_extension_tool() {
         },
     };
 
-    let executor = Arc::new(MockExecutor::new("test output".to_string(), "".to_string()));
-    let tool_executor = Arc::new(MockToolExecutor::new("extension output".to_string()));
+    let executor = MockExecutor::new("test output".to_string(), "".to_string());
+    let tool_executor = MockToolExecutor::new("extension output".to_string());
     let router = ToolRouter::new(config, vec![extension], executor, tool_executor);
 
     let request = CallToolRequestParam {

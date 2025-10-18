@@ -4,7 +4,6 @@ use crate::execution::MockExecutor;
 use crate::tools::MockToolExecutor;
 use rmcp::handler::server::ServerHandler;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 #[test]
 fn test_get_info_includes_sandbox_info() {
@@ -13,8 +12,8 @@ fn test_get_info_includes_sandbox_info() {
         enable_run_nushell: false,
         sandbox_directory: Some(PathBuf::from("/tmp/sandbox")),
     };
-    let executor = Arc::new(MockExecutor::new("test".to_string(), "".to_string()));
-    let tool_executor = Arc::new(MockToolExecutor::new("test".to_string()));
+    let executor = MockExecutor::new("test".to_string(), "".to_string());
+    let tool_executor = MockToolExecutor::new("test".to_string());
     let router = ToolRouter::new(config, vec![], executor, tool_executor);
     let tool = NushellTool { router };
     let info = tool.get_info();
@@ -30,8 +29,8 @@ fn test_get_info_default_sandbox() {
         enable_run_nushell: false,
         sandbox_directory: None,
     };
-    let executor = Arc::new(MockExecutor::new("test".to_string(), "".to_string()));
-    let tool_executor = Arc::new(MockToolExecutor::new("test".to_string()));
+    let executor = MockExecutor::new("test".to_string(), "".to_string());
+    let tool_executor = MockToolExecutor::new("test".to_string());
     let router = ToolRouter::new(config, vec![], executor, tool_executor);
     let tool = NushellTool { router };
     let info = tool.get_info();
@@ -46,8 +45,8 @@ fn test_get_info_basic_fields() {
         enable_run_nushell: false,
         sandbox_directory: None,
     };
-    let executor = Arc::new(MockExecutor::new("test".to_string(), "".to_string()));
-    let tool_executor = Arc::new(MockToolExecutor::new("test".to_string()));
+    let executor = MockExecutor::new("test".to_string(), "".to_string());
+    let tool_executor = MockToolExecutor::new("test".to_string());
     let router = ToolRouter::new(config, vec![], executor, tool_executor);
     let tool = NushellTool { router };
     let info = tool.get_info();

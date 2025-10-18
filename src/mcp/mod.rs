@@ -14,16 +14,24 @@ use rmcp::{
 
 use crate::{
     config::Config,
-    execution::NushellExecutor,
-    tools::{NushellToolExecutor, discover_tools},
+    execution::{CommandExecutor, NushellExecutor},
+    tools::{NushellToolExecutor, ToolExecutor, discover_tools},
 };
 
 #[derive(Clone)]
-pub struct NushellTool {
-    pub router: ToolRouter,
+pub struct NushellTool<C = NushellExecutor, T = NushellToolExecutor>
+where
+    C: CommandExecutor + 'static,
+    T: ToolExecutor + 'static,
+{
+    pub router: ToolRouter<C, T>,
 }
 
-impl ServerHandler for NushellTool {
+impl<C, T> ServerHandler for NushellTool<C, T>
+where
+    C: CommandExecutor + 'static,
+    T: ToolExecutor + 'static,
+{
     fn get_info(&self) -> InitializeResult {
         let mut instructions = String::from("MCP server exposing Nushell commands.\n");
 
@@ -128,8 +136,8 @@ pub async fn run_server(config: Config) -> Result<()> {
         Vec::new()
     };
 
-    let executor = Arc::new(NushellExecutor);
-    let tool_executor = Arc::new(NushellToolExecutor);
+    let executor = NushellExecutor;
+    let tool_executor = NushellToolExecutor;
     let router = ToolRouter::new(config, extensions, executor, tool_executor);
     let tool = NushellTool { router };
     let service = tool.serve(transport::stdio()).await?;

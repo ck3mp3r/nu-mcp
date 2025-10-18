@@ -14,6 +14,7 @@ pub trait ToolExecutor: Send + Sync {
     ) -> Result<String>;
 }
 
+#[derive(Clone)]
 pub struct NushellToolExecutor;
 
 #[async_trait]

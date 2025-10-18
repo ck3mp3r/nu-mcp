@@ -1,27 +1,34 @@
 use super::formatter::ResultFormatter;
 use crate::config::Config;
-use crate::execution::CommandExecutor;
+use crate::execution::{CommandExecutor, NushellExecutor};
 use crate::security::validate_path_safety;
-use crate::tools::{ExtensionTool, ToolExecutor};
+use crate::tools::{ExtensionTool, NushellToolExecutor, ToolExecutor};
 use rmcp::model::{CallToolRequestParam, CallToolResult, ErrorData};
 use rmcp::serde_json;
 use std::env;
-use std::sync::Arc;
 
 #[derive(Clone)]
-pub struct ToolRouter {
+pub struct ToolRouter<C = NushellExecutor, T = NushellToolExecutor>
+where
+    C: CommandExecutor,
+    T: ToolExecutor,
+{
     pub config: Config,
     pub extensions: Vec<ExtensionTool>,
-    pub executor: Arc<dyn CommandExecutor>,
-    pub tool_executor: Arc<dyn ToolExecutor>,
+    pub executor: C,
+    pub tool_executor: T,
 }
 
-impl ToolRouter {
+impl<C, T> ToolRouter<C, T>
+where
+    C: CommandExecutor,
+    T: ToolExecutor,
+{
     pub fn new(
         config: Config,
         extensions: Vec<ExtensionTool>,
-        executor: Arc<dyn CommandExecutor>,
-        tool_executor: Arc<dyn ToolExecutor>,
+        executor: C,
+        tool_executor: T,
     ) -> Self {
         Self {
             config,
