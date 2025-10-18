@@ -1,5 +1,6 @@
-use super::discover_tools;
 use std::path::PathBuf;
+
+use super::discover_tools;
 
 fn get_test_tools_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test/tools")

@@ -1,11 +1,16 @@
+use std::{path::PathBuf, sync::Arc};
+
+use rmcp::{
+    model::{CallToolRequestParam, Tool},
+    serde_json,
+};
+
 use super::*;
-use crate::config::Config;
-use crate::execution::MockExecutor;
-use crate::tools::MockToolExecutor;
-use rmcp::model::{CallToolRequestParam, Tool};
-use rmcp::serde_json;
-use std::path::PathBuf;
-use std::sync::Arc;
+use crate::{
+    config::Config,
+    execution::MockExecutor,
+    tools::{ExtensionTool, MockToolExecutor},
+};
 
 fn create_test_router() -> ToolRouter {
     let config = Config {
@@ -61,7 +66,7 @@ async fn test_router_extension_tool() {
         sandbox_directory: Some(PathBuf::from("/tmp")),
     };
 
-    let extension = crate::tools::ExtensionTool {
+    let extension = ExtensionTool {
         module_path: PathBuf::from("/test/path"),
         tool_definition: Tool {
             name: "test_tool".into(),

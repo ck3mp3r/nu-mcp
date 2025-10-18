@@ -1,5 +1,7 @@
-use super::{ExtensionTool, execution::ToolExecutor};
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
+
+use super::{ExtensionTool, execution::ToolExecutor};
 
 pub struct MockToolExecutor {
     pub output: String,
@@ -32,9 +34,9 @@ impl ToolExecutor for MockToolExecutor {
         _extension: &ExtensionTool,
         _tool_name: &str,
         _args: &str,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    ) -> Result<String> {
         if self.should_fail {
-            Err(self.error_message.clone().into())
+            Err(anyhow!(self.error_message.clone()))
         } else {
             Ok(self.output.clone())
         }

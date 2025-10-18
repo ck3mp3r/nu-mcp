@@ -1,7 +1,8 @@
 pub use self::router::ToolRouter;
-use crate::config::Config;
-use crate::execution::NushellExecutor;
-use crate::tools::{NushellToolExecutor, discover_tools};
+use std::{env, sync::Arc};
+
+use anyhow::Result;
+
 use rmcp::{
     RoleServer, ServiceExt,
     handler::server::ServerHandler,
@@ -10,8 +11,12 @@ use rmcp::{
     service::RequestContext,
     transport,
 };
-use std::env;
-use std::sync::Arc;
+
+use crate::{
+    config::Config,
+    execution::NushellExecutor,
+    tools::{NushellToolExecutor, discover_tools},
+};
 
 #[derive(Clone)]
 pub struct NushellTool {
@@ -115,7 +120,7 @@ impl ServerHandler for NushellTool {
     }
 }
 
-pub async fn run_server(config: Config) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn run_server(config: Config) -> Result<()> {
     // Discover extension tools if tools_dir is provided
     let extensions = if let Some(ref tools_dir) = config.tools_dir {
         discover_tools(tools_dir).await?

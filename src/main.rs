@@ -1,8 +1,9 @@
+use anyhow::Result;
 use clap::Parser;
 use nu_mcp::{cli::Cli, config::Config, mcp::run_server};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     let config = Config {

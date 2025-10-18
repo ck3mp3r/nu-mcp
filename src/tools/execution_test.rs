@@ -1,15 +1,21 @@
-use super::{NushellToolExecutor, ToolExecutor, discover_tools};
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
+
+use anyhow::Result;
+
+use rmcp::model::Tool;
+use serde_json::Map;
+
+use super::{ExtensionTool, NushellToolExecutor, ToolExecutor, discover_tools};
 
 fn get_test_tools_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test/tools")
 }
 
 async fn execute_extension_tool_helper(
-    extension: &crate::tools::ExtensionTool,
+    extension: &ExtensionTool,
     tool_name: &str,
     args: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<String> {
     let tool_executor = NushellToolExecutor;
     tool_executor.execute_tool(extension, tool_name, args).await
 }
@@ -174,12 +180,12 @@ async fn test_execute_tool_missing_required_args() {
 #[tokio::test]
 async fn test_execute_extension_tool_with_nonexistent_script() {
     // Create a fake tool with nonexistent script path
-    let fake_tool = crate::tools::ExtensionTool {
+    let fake_tool = ExtensionTool {
         module_path: PathBuf::from("/nonexistent/path"),
-        tool_definition: rmcp::model::Tool {
+        tool_definition: Tool {
             name: "fake_tool".into(),
             description: Some("Fake tool for testing".into()),
-            input_schema: std::sync::Arc::new(serde_json::Map::new()),
+            input_schema: Arc::new(Map::new()),
             annotations: None,
             title: None,
             output_schema: None,

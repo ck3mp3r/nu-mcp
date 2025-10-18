@@ -1,14 +1,19 @@
-use super::ExtensionTool;
-use rmcp::model::Tool;
-use rmcp::serde_json::{Map, Value};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+
+use anyhow::{Context, Result, anyhow};
+use rmcp::{
+    model::Tool,
+    serde_json::{Map, Value},
+};
 use tokio::process::Command;
 
+use super::ExtensionTool;
+
 /// Discover tools from nushell modules in the given directory
-pub async fn discover_tools(
-    tools_dir: &PathBuf,
-) -> Result<Vec<ExtensionTool>, Box<dyn std::error::Error>> {
+pub async fn discover_tools(tools_dir: &PathBuf) -> Result<Vec<ExtensionTool>> {
     let mut extension_tools = Vec::new();
 
     // Check if directory exists
@@ -57,9 +62,7 @@ pub async fn discover_tools(
 }
 
 /// Discover tools from a nushell module
-async fn discover_tools_from_module(
-    module_path: &Path,
-) -> Result<Vec<ExtensionTool>, Box<dyn std::error::Error>> {
+async fn discover_tools_from_module(module_path: &Path) -> Result<Vec<ExtensionTool>> {
     let mod_file = module_path.join("mod.nu");
 
     // Execute the mod.nu file with list-tools subcommand
@@ -67,15 +70,30 @@ async fn discover_tools_from_module(
         .arg(&mod_file)
         .arg("list-tools")
         .output()
-        .await?;
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to execute nushell command for {}",
+                mod_file.display()
+            )
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Module execution failed: {stderr}").into());
+        return Err(anyhow!(
+            "Module execution failed for {}: {stderr}",
+            mod_file.display()
+        ));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let tool_definitions: Vec<ToolDefinition> = serde_json::from_str(&stdout)?;
+    let tool_definitions: Vec<ToolDefinition> =
+        serde_json::from_str(&stdout).with_context(|| {
+            format!(
+                "Failed to parse tool definitions from {}",
+                mod_file.display()
+            )
+        })?;
 
     let mut extension_tools = Vec::new();
 

@@ -1,4 +1,9 @@
-use std::path::PathBuf;
+use std::{fs, path::PathBuf, sync::Arc};
+
+use rmcp::model::Tool;
+use serde_json::{Map, Value};
+
+use super::ExtensionTool;
 
 #[test]
 fn test_path_operations() {
@@ -28,14 +33,10 @@ fn test_path_validation() {
 
 #[test]
 fn test_extension_tool_struct() {
-    use super::ExtensionTool;
-    use rmcp::model::Tool;
-    use std::sync::Arc;
-
     let tool_def = Tool {
         name: "test_tool".into(),
         description: Some("Test tool".into()),
-        input_schema: Arc::new(serde_json::Map::new()),
+        input_schema: Arc::new(Map::new()),
         annotations: None,
         title: None,
         output_schema: None,
@@ -53,14 +54,11 @@ fn test_extension_tool_struct() {
 
 #[test]
 fn test_tool_definition_edge_cases() {
-    use rmcp::model::Tool;
-    use std::sync::Arc;
-
     // Test with minimal tool definition
     let minimal_tool = Tool {
         name: "minimal".into(),
         description: None,
-        input_schema: Arc::new(serde_json::Map::new()),
+        input_schema: Arc::new(Map::new()),
         annotations: None,
         title: None,
         output_schema: None,
@@ -73,9 +71,6 @@ fn test_tool_definition_edge_cases() {
 
 #[test]
 fn test_tool_schema_validation() {
-    use serde_json::{Map, Value};
-    use std::sync::Arc;
-
     let mut schema = Map::new();
     schema.insert("type".to_string(), Value::String("object".to_string()));
 
@@ -95,14 +90,10 @@ fn test_tool_schema_validation() {
 
 #[test]
 fn test_tool_definition_serialization() {
-    use rmcp::model::Tool;
-    use serde_json;
-    use std::sync::Arc;
-
     let tool = Tool {
         name: "serialization_test".into(),
         description: Some("Test serialization".into()),
-        input_schema: Arc::new(serde_json::Map::new()),
+        input_schema: Arc::new(Map::new()),
         annotations: None,
         title: Some("Serialization Test".to_string()),
         output_schema: None,
@@ -115,8 +106,8 @@ fn test_tool_definition_serialization() {
     assert!(tool.title.is_some());
 }
 
-#[tokio::test]
-async fn test_tool_script_execution_with_existing_tools() {
+#[test]
+fn test_tool_script_execution_with_existing_tools() {
     // Test that the module can handle real tool discovery scenarios
     let test_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test/tools");
 
@@ -125,7 +116,7 @@ async fn test_tool_script_execution_with_existing_tools() {
         assert!(test_path.is_dir());
 
         // Check if there are any .nu files (indicating potential tools)
-        if let Ok(entries) = std::fs::read_dir(&test_path) {
+        if let Ok(entries) = fs::read_dir(&test_path) {
             let nu_files: Vec<_> = entries
                 .filter_map(|entry| entry.ok())
                 .filter(|entry| entry.path().is_dir() && entry.path().join("mod.nu").exists())

@@ -51,3 +51,4 @@ target/
 result
 tarpaulin-report.*
 .pre-commit-config.yaml
+.vscode/
