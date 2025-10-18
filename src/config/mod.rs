@@ -8,4 +8,4 @@ pub struct Config {
 }
 
 #[cfg(test)]
-mod tests;
+mod mod_test;

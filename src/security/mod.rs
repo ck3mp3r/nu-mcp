@@ -98,4 +98,4 @@ fn is_common_command(word: &str) -> bool {
 }
 
 #[cfg(test)]
-mod tests;
+mod mod_test;

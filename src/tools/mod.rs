@@ -19,4 +19,4 @@ pub mod mock;
 pub use mock::MockToolExecutor;
 
 #[cfg(test)]
-mod tests;
+mod mod_test;

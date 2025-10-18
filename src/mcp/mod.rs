@@ -138,6 +138,6 @@ pub mod router;
 #[cfg(test)]
 mod formatter_test;
 #[cfg(test)]
-mod router_test;
+mod mod_test;
 #[cfg(test)]
-mod tests;
+mod router_test;

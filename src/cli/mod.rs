@@ -18,4 +18,4 @@ pub struct Cli {
 }
 
 #[cfg(test)]
-mod tests;
+mod mod_test;
