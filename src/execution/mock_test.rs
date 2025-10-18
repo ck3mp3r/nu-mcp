@@ -1,4 +1,4 @@
-use super::*;
+use super::{CommandExecutor, MockExecutor};
 use std::path::Path;
 
 #[tokio::test]

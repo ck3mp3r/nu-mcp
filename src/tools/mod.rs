@@ -19,4 +19,8 @@ pub mod mock;
 pub use mock::MockToolExecutor;
 
 #[cfg(test)]
+mod discovery_test;
+#[cfg(test)]
+mod execution_test;
+#[cfg(test)]
 mod mod_test;
