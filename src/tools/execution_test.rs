@@ -211,7 +211,7 @@ async fn test_execute_extension_tool_large_output() {
         let large_args = r#"{"data": "x".repeat(1000)}"#;
 
         let result =
-            execute_extension_tool_helper(tool, &tool.tool_definition.name, &large_args).await;
+            execute_extension_tool_helper(tool, &tool.tool_definition.name, large_args).await;
 
         // Should handle large input/output gracefully
         assert!(result.is_ok() || result.is_err()); // Just ensure it doesn't panic

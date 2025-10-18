@@ -122,8 +122,11 @@ fn test_tool_script_execution_with_existing_tools() {
                 .filter(|entry| entry.path().is_dir() && entry.path().join("mod.nu").exists())
                 .collect();
 
-            // At least verify we can enumerate the directory structure
-            assert!(nu_files.len() >= 0); // Just ensure no panic
+            // Should find some tool modules in the test directory
+            assert!(
+                !nu_files.is_empty(),
+                "Expected to find at least one tool module in test/tools directory"
+            );
         }
     }
 }

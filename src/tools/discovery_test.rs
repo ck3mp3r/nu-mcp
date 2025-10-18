@@ -70,11 +70,11 @@ async fn test_discover_tools_with_malformed_script() {
     let test_tools_dir = get_test_tools_dir().join("invalid");
     let result = discover_tools(&test_tools_dir).await;
 
-    // Should handle malformed scripts gracefully
-    assert!(result.is_ok());
-    let tools = result.unwrap();
-    // May be empty or have some valid tools, but shouldn't crash
-    assert!(tools.len() >= 0);
+    // Should handle malformed scripts gracefully - function shouldn't crash
+    assert!(
+        result.is_ok(),
+        "discover_tools should handle malformed scripts without panicking"
+    );
 }
 
 #[tokio::test]
