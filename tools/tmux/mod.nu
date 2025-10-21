@@ -22,6 +22,7 @@ def "main list-tools" [] {
       input_schema: {
         type: "object"
         properties: {}
+        additionalProperties: false
       }
     }
     {
