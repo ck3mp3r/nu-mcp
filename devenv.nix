@@ -57,13 +57,17 @@
     };
   };
 
-  enterShell = ''
+  enterShell = let
+    scriptLines =
+      lib.mapAttrsToList (
+        name: script: "printf '  %-10s  %s\\n' '${name}' '${script.description}'"
+      )
+      config.scripts;
+  in ''
     echo
     echo "Helper scripts you can run to make your development richer:"
     echo ""
-    ${pkgs.gnused}/bin/sed -e 's| |••|g' -e 's|=| |' <<EOF | ${pkgs.util-linuxMinimal}/bin/column -t | ${pkgs.gnused}/bin/sed -e 's|^|* |' -e 's|••| |g'
-    ${lib.generators.toKeyValue {} (lib.mapAttrs (name: value: value.description) config.scripts)}
-    EOF
+    ${lib.concatStringsSep "\n" scriptLines}
     echo
   '';
 }
