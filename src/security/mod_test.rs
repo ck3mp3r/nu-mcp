@@ -106,7 +106,7 @@ fn test_home_directory_paths_outside_sandbox_blocked() {
 #[test]
 fn test_home_directory_paths_with_current_dir_sandbox() {
     // Use current directory as sandbox (not in home directory)
-    let sandbox_dir = current_dir().unwrap();
+    let sandbox_dir = std::env::current_dir().unwrap();
 
     // If sandbox is not in home directory, all home directory paths should be blocked
     if let Ok(home_dir) = std::env::var("HOME") {
@@ -115,6 +115,44 @@ fn test_home_directory_paths_with_current_dir_sandbox() {
             assert!(
                 validate_path_safety("ls ~/file.txt", &sandbox_dir).is_err(),
                 "Home directory paths should be blocked when sandbox is outside home"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_tilde_alone_blocked_when_outside_sandbox() {
+    // Use current directory as sandbox
+    let sandbox_dir = std::env::current_dir().unwrap();
+
+    // If sandbox is not in home directory, ~ alone should be blocked
+    if let Ok(home_dir) = std::env::var("HOME") {
+        let home_path = Path::new(&home_dir);
+        if !sandbox_dir.starts_with(home_path) {
+            assert!(
+                validate_path_safety("ls ~", &sandbox_dir).is_err(),
+                "Tilde alone should be blocked when home is outside sandbox"
+            );
+            assert!(
+                validate_path_safety("cd ~", &sandbox_dir).is_err(),
+                "Tilde alone in cd command should be blocked"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_tilde_alone_allowed_when_within_sandbox() {
+    // Use current directory as sandbox
+    let sandbox_dir = std::env::current_dir().unwrap();
+
+    // If sandbox is in home directory, ~ alone should be allowed only if it points to sandbox or subdirectory
+    if let Ok(home_dir) = std::env::var("HOME") {
+        let home_path = Path::new(&home_dir);
+        if sandbox_dir == home_path {
+            assert!(
+                validate_path_safety("ls ~", &sandbox_dir).is_ok(),
+                "Tilde alone should be allowed when sandbox is home directory itself"
             );
         }
     }

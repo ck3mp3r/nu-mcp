@@ -27,9 +27,13 @@ pub fn validate_path_safety(command: &str, sandbox_dir: &Path) -> Result<(), Str
         }
 
         // Expand home directory paths to absolute paths
-        let path_to_check = if word.starts_with("~/") {
+        let path_to_check = if word == "~" || word.starts_with("~/") {
             if let Some(home_dir) = std::env::var_os("HOME") {
-                Path::new(&home_dir).join(&word[2..])
+                if word == "~" {
+                    Path::new(&home_dir).to_path_buf()
+                } else {
+                    Path::new(&home_dir).join(&word[2..])
+                }
             } else {
                 continue; // Skip if HOME is not set
             }
