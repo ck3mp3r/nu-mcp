@@ -2,7 +2,7 @@
   description = "Rust Nushell MCP Server with Devenv and Fenix";
 
   inputs = {
-    nixpkgs.url = "github:NixOs/nixpkgs";
+    nixpkgs.url = "github:NixOs/nixpkgs/nixpkgs-unstable";
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
       inputs.nixpkgs-lib.follows = "nixpkgs";
