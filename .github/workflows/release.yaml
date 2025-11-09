@@ -1,4 +1,4 @@
-name: Multi-Arch Nix Release (v2)
+name: Release
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ jobs:
       version: ${{ steps.prep.outputs.version }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: ${{ github.ref }}
@@ -54,7 +54,7 @@ jobs:
             nix_system: aarch64-linux
     steps:
       - name: Checkout release branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: release/${{ needs.prep-release.outputs.version }}
 
@@ -72,7 +72,7 @@ jobs:
           cp result/nu-mcp-nix.sha256 ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}-nix.sha256
 
       - name: Upload build outputs as artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: nu-mcp-assets-${{ matrix.nix_system }}
           path: |
@@ -93,7 +93,7 @@ jobs:
           private-key: ${{ secrets.BOT }}
 
       - name: Checkout release branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: release/${{ needs.prep-release.outputs.version }}
           fetch-depth: 0
@@ -103,7 +103,7 @@ jobs:
         uses: ck3mp3r/actions/nu-tools@main
 
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           path: ./artifacts
 
@@ -118,6 +118,27 @@ jobs:
           # Generate platform data and commit
           generate-platform-data-for $version "nu-mcp" "./artifacts" | commit-files $"Add platform data for release ($version)"
 
+          # Prepare architecture data with hashes
+          let architectures = [
+            {
+              name: "aarch64-darwin"
+              hash: (open $"./artifacts/nu-mcp-assets-aarch64-darwin/nu-mcp-($version)-aarch64-darwin.sha256" | str trim)
+            }
+            {
+              name: "aarch64-linux"
+              hash: (open $"./artifacts/nu-mcp-assets-aarch64-linux/nu-mcp-($version)-aarch64-linux.sha256" | str trim)
+            }
+            {
+              name: "x86_64-linux"
+              hash: (open $"./artifacts/nu-mcp-assets-x86_64-linux/nu-mcp-($version)-x86_64-linux.sha256" | str trim)
+            }
+          ]
+
+          # Update Homebrew formula
+          open Formula/nu-mcp.rb | update-homebrew-formula $version "nu-mcp" $architectures | save --force Formula/nu-mcp.rb
+          git add Formula/nu-mcp.rb
+          git commit -m $"Update Homebrew formula to ($version)"
+
           # Create release and upload artifacts using gh CLI
           create-github-release $version
           glob "./artifacts/**/*.*" | upload-release-artifacts $version
@@ -126,4 +147,3 @@ jobs:
           merge-and-cleanup $version
         env:
           GITHUB_TOKEN: ${{ steps.token.outputs.token }}
-

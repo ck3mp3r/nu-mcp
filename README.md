@@ -55,7 +55,9 @@ For detailed configuration options and tool development, see the [documentation]
 
 ## Installation
 
-### As a Nix profile (standalone usage)
+### Via Nix
+
+#### As a Nix profile (standalone usage)
 
 You can install this flake as a Nix profile:
 
@@ -69,11 +71,11 @@ Or, if you have a local checkout:
 nix profile install path:/absolute/path/to/nu-mcp
 ```
 
-### Installing Tools
+#### Installing Tools
 
 Tools are available as individual packages or as a complete collection:
 
-#### Individual Tools
+##### Individual Tools
 ```sh
 # Weather tool only
 nix profile install github:ck3mp3r/nu-mcp#weather-mcp-tools
@@ -85,7 +87,7 @@ nix profile install github:ck3mp3r/nu-mcp#finance-mcp-tools
 nix profile install github:ck3mp3r/nu-mcp#tmux-mcp-tools
 ```
 
-#### Complete Tool Collection
+##### Complete Tool Collection
 ```sh
 # All available tools
 nix profile install github:ck3mp3r/nu-mcp#mcp-tools
@@ -93,7 +95,7 @@ nix profile install github:ck3mp3r/nu-mcp#mcp-tools
 
 Tools are installed to `~/.nix-profile/share/nushell/mcp-tools/`.
 
-### As an overlay in your own flake
+#### As an overlay in your own flake
 
 Add this flake as an input and overlay in your `flake.nix`:
 
@@ -113,6 +115,21 @@ Add this flake as an input and overlay in your `flake.nix`:
 ```
 
 You can now use `pkgs.nu-mcp` in your own packages, devShells, or CI.
+
+### Via Homebrew (macOS and Linux)
+
+Install from the tap:
+
+```sh
+brew tap ck3mp3r/nu-mcp https://github.com/ck3mp3r/nu-mcp
+brew install nu-mcp
+```
+
+Or install directly:
+
+```sh
+brew install ck3mp3r/nu-mcp/nu-mcp
+```
 
 ## Development
 - See [modelcontextprotocol/rust-sdk](https://github.com/modelcontextprotocol/rust-sdk) for SDK details and advanced usage.
