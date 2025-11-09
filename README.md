@@ -125,12 +125,6 @@ brew tap ck3mp3r/nu-mcp https://github.com/ck3mp3r/nu-mcp
 brew install nu-mcp
 ```
 
-Or install directly:
-
-```sh
-brew install ck3mp3r/nu-mcp/nu-mcp
-```
-
 ## Development
 - See [modelcontextprotocol/rust-sdk](https://github.com/modelcontextprotocol/rust-sdk) for SDK details and advanced usage.
 - The code is modular and fully async.
