@@ -21,10 +21,20 @@ export def format_search_result [
         []
       }
     )
-    # Add trust score if valid
+    # Add source reputation (new API format) or trust score (old API format)
     (
-      if (($result.trustScore? | default (-1)) != -1) {
+      if ($result.sourceReputation? | is-not-empty) {
+        [$"- Source Reputation: ($result.sourceReputation)"]
+      } else if (($result.trustScore? | default (-1)) != -1) {
         [$"- Trust Score: ($result.trustScore)"]
+      } else {
+        []
+      }
+    )
+    # Add benchmark score if available (new API format)
+    (
+      if (($result.benchmarkScore? | default (-1)) != -1) {
+        [$"- Benchmark Score: ($result.benchmarkScore)"]
       } else {
         []
       }
@@ -67,10 +77,12 @@ Each result includes:
 - Name: Library or package name
 - Description: Short summary
 - Code Snippets: Number of available code examples
-- Trust Score: Authority indicator
+- Source Reputation: Authority indicator (High, Medium, Low, or Unknown)
+- Benchmark Score: Quality indicator (100 is the highest score)
+- Trust Score: Authority indicator (shown for older API responses)
 - Versions: List of versions if available. Use one of those versions if the user provides a version in their query. The format of the version is /org/project/version.
 
-For best results, select libraries based on name match, trust score, snippet coverage, and relevance to your use case.
+For best results, select libraries based on name match, source reputation, benchmark score, snippet coverage, and relevance to your use case.
 
 ----------
 

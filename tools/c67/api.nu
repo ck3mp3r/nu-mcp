@@ -1,6 +1,14 @@
 # Context7 API interaction module
 # Handles API requests to Context7 service
 
+use utils.nu [
+  validate_search_response,
+  validate_documentation_response,
+  extract_http_status,
+  get_search_error_message,
+  get_docs_error_message
+]
+
 const CONTEXT7_API_BASE_URL = "https://context7.com/api"
 const DEFAULT_TYPE = "txt"
 
@@ -31,32 +39,37 @@ export def search_libraries [
 
     let response = http get --headers $headers $url
 
+    # Validate response structure
+    let validation = validate_search_response $response
+
+    if not $validation.valid {
+      return {
+        success: false
+        error: $validation.error
+      }
+    }
+
     {
       success: true
       data: $response
     }
   } catch {|error|
-    # Assign error to descriptive variable (best practice)
-    let err_msg = $error.msg
+    # Extract HTTP status code from error message
+    let status_code = extract_http_status $error.msg
 
-    # Parse error to provide better messages
-    let error_message = if ($err_msg | str contains "429") {
-      if ($api_key | is-empty) {
-        "Rate limited due to too many requests. You can create a free API key at https://context7.com/dashboard for higher rate limits."
-      } else {
-        "Rate limited due to too many requests. Please try again later."
-      }
-    } else if ($err_msg | str contains "401") {
-      $"Unauthorized. Please check your API key. The API key you provided is: ($api_key). API keys should start with 'ctx7sk'"
-    } else if ($err_msg | str contains "404") {
-      "No libraries found matching your query."
+    # Get appropriate error message based on status code
+    let error_message = get_search_error_message $status_code $api_key
+
+    # Use specific error message if available, otherwise use generic error
+    let final_message = if ($error_message | is-empty) {
+      $"Error searching libraries: ($error.msg)"
     } else {
-      $"Error searching libraries: ($err_msg)"
+      $error_message
     }
 
     {
       success: false
-      error: $error_message
+      error: $final_message
     }
   }
 }
@@ -86,7 +99,7 @@ export def fetch_library_documentation [
 
     let response = http get --headers $headers $url
 
-    # Check if response is empty or invalid
+    # Check if response is empty or contains error indicators
     let is_invalid = (
       ($response | is-empty) or
       ($response == "No content available") or
@@ -94,38 +107,43 @@ export def fetch_library_documentation [
     )
 
     if $is_invalid {
-      {
+      return {
         success: false
         error: "Documentation not found or not finalized for this library. This might have happened because you used an invalid Context7-compatible library ID. To get a valid Context7-compatible library ID, use the 'resolve-library-id' with the package name you wish to retrieve documentation for."
       }
-    } else {
-      {
-        success: true
-        data: $response
+    }
+
+    # Validate response structure
+    let validation = validate_documentation_response $response
+
+    if not $validation.valid {
+      return {
+        success: false
+        error: $validation.error
       }
     }
-  } catch {|error|
-    # Assign error to descriptive variable (best practice)
-    let err_msg = $error.msg
 
-    # Parse error to provide better messages
-    let error_message = if ($err_msg | str contains "429") {
-      if ($api_key | is-empty) {
-        "Rate limited due to too many requests. You can create a free API key at https://context7.com/dashboard for higher rate limits."
-      } else {
-        "Rate limited due to too many requests. Please try again later."
-      }
-    } else if ($err_msg | str contains "404") {
-      "The library you are trying to access does not exist. Please try with a different library ID."
-    } else if ($err_msg | str contains "401") {
-      $"Unauthorized. Please check your API key. The API key you provided is: ($api_key). API keys should start with 'ctx7sk'"
+    {
+      success: true
+      data: $response
+    }
+  } catch {|error|
+    # Extract HTTP status code from error message
+    let status_code = extract_http_status $error.msg
+
+    # Get appropriate error message based on status code
+    let error_message = get_docs_error_message $status_code $api_key
+
+    # Use specific error message if available, otherwise use generic error
+    let final_message = if ($error_message | is-empty) {
+      $"Error fetching library documentation: ($error.msg)"
     } else {
-      $"Error fetching library documentation: ($err_msg)"
+      $error_message
     }
 
     {
       success: false
-      error: $error_message
+      error: $final_message
     }
   }
 }
