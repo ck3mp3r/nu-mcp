@@ -36,6 +36,7 @@ The `tools/` directory contains a growing catalog of useful MCP tools:
 - **Weather** (`tools/weather/`) - Current weather and forecasts using Open-Meteo API
 - **Finance** (`tools/finance/`) - Stock prices and financial data using Yahoo Finance API
 - **Tmux** (`tools/tmux/`) - Tmux session and pane management with intelligent command execution
+- **Context7** (`tools/c67/`) - Up-to-date library documentation and code examples from Context7
 
 ## Configuration
 
@@ -85,6 +86,9 @@ nix profile install github:ck3mp3r/nu-mcp#finance-mcp-tools
 
 # Tmux tool only
 nix profile install github:ck3mp3r/nu-mcp#tmux-mcp-tools
+
+# Context7 (c67) tool only
+nix profile install github:ck3mp3r/nu-mcp#c67-mcp-tools
 ```
 
 ##### Complete Tool Collection

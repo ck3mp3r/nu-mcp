@@ -151,12 +151,19 @@
               description = "Tmux MCP tool for nu-mcp - provides tmux session and pane management with intelligent command execution";
             };
 
+            c67-mcp-tools = mkToolPackage {
+              pname = "c67-mcp-tools";
+              src = ./tools/c67;
+              installPath = "c67";
+              description = "Context7 MCP tool for nu-mcp - provides up-to-date library documentation and code examples from Context7";
+            };
+
             # Combined tools package for convenience
             mcp-tools = mkToolPackage {
               pname = "mcp-tools";
               src = ./tools;
               installPath = "";
-              description = "Complete MCP tools catalog for nu-mcp - includes weather, finance, tmux, and other useful tools";
+              description = "Complete MCP tools catalog for nu-mcp - includes weather, finance, tmux, c67, and other useful tools";
             };
           };
 
