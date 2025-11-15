@@ -1,0 +1,51 @@
+version: 2
+updates:
+  # Monitor Cargo dependencies
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    groups:
+      # Group patch updates (for auto-merge via GitHub Actions)
+      patch-updates:
+        update-types:
+          - "patch"
+      # Group minor updates separately
+      minor-updates:
+        update-types:
+          - "minor"
+      # Keep major updates separate
+      major-updates:
+        update-types:
+          - "major"
+
+  # Monitor GitHub Actions updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    groups:
+      # Group patch updates (for auto-merge via GitHub Actions)
+      actions-patch:
+        update-types:
+          - "patch"
+        patterns:
+          - "*"
+      # Group minor updates separately
+      actions-minor:
+        update-types:
+          - "minor"
+        patterns:
+          - "*"
+      # Keep major updates separate
+      actions-major:
+        update-types:
+          - "major"
+        patterns:
+          - "*"
