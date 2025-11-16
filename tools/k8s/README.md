@@ -22,18 +22,50 @@ MCP server for Kubernetes cluster management. Provides 22 kubectl/Helm tools wit
 
 ## Safety Modes
 
-| Mode | Tools | Enable |
-|------|-------|--------|
-| **Non-Destructive** (default) | 17 | No env var needed |
-| **Read-Only** | 7 | `MCP_READ_ONLY=true` |
-| **Full Access** | 22 | `MCP_ALLOW_DESTRUCTIVE=true` |
+The server operates in one of three modes based on environment variables:
 
-**Non-Destructive Mode** allows:
+| Mode | Tools | Configuration |
+|------|-------|---------------|
+| **Non-Destructive** (default) | 17 | No env var needed |
+| **Read-Only** | 7 | Set `MCP_READ_ONLY=true` |
+| **Full Access** | 22 | Set `MCP_ALLOW_DESTRUCTIVE=true` |
+
+### Switching Modes
+
+**In your MCP client configuration** (e.g., Claude Desktop, Cline), add the environment variable to the `env` object:
+
+```json
+{
+  "mcpServers": {
+    "k8s": {
+      "command": "nu-mcp",
+      "args": ["--tools-dir", "/path/to/tools/k8s"],
+      "env": {
+        "KUBE_CONTEXT": "my-cluster",
+        "MCP_ALLOW_DESTRUCTIVE": "true"     ← Add this line for full access
+      }
+    }
+  }
+}
+```
+
+**Then restart your MCP client** for the change to take effect.
+
+### What Each Mode Allows
+
+**Non-Destructive Mode** (default - safest for production):
 - ✅ Read operations (get, describe, logs)
 - ✅ Create/update operations (apply, scale, patch)
 - ✅ Execution (exec, port-forward)
 - ✅ Helm install/upgrade
 - ❌ Delete operations
+
+**Read-Only Mode** (maximum safety):
+- ✅ Only read operations (get, describe, logs, context, explain, list, ping)
+- ❌ All write/execute operations
+
+**Full Access Mode** (development/testing only):
+- ✅ All operations including delete, uninstall, cleanup, node drain
 
 ## Available Tools
 
