@@ -4,8 +4,21 @@ MCP server for Kubernetes cluster management. Provides 22 kubectl/Helm tools wit
 
 ## Quick Start
 
-**Prerequisites:** kubectl installed and configured
+**Prerequisites:** kubectl installed and configured with a valid kubeconfig
 
+**Minimal configuration** (uses current context from kubeconfig):
+```json
+{
+  "mcpServers": {
+    "k8s": {
+      "command": "nu-mcp",
+      "args": ["--tools-dir", "/path/to/nu-mcp/tools/k8s"]
+    }
+  }
+}
+```
+
+**With explicit context** (recommended):
 ```json
 {
   "mcpServers": {
@@ -115,16 +128,25 @@ Set `MCP_K8S_MODE` in your MCP client configuration (e.g., Claude Desktop, Cline
 
 ### Environment Variables
 
-```bash
-KUBECONFIG=/path/to/kubeconfig    # Optional - defaults to ~/.kube/config
-KUBE_CONTEXT=my-cluster           # Optional - override context
-KUBE_NAMESPACE=default            # Optional - default namespace
+All environment variables are optional:
 
-# Safety mode (default is readonly)
-MCP_K8S_MODE=readonly             # Read-only access (default)
-MCP_K8S_MODE=write                # Non-destructive write operations
-MCP_K8S_MODE=destructive          # All operations including delete
+```bash
+# Kubernetes Configuration
+KUBECONFIG=/path/to/kubeconfig    # Defaults to ~/.kube/config
+KUBE_CONTEXT=my-cluster           # Defaults to current-context in kubeconfig
+KUBE_NAMESPACE=default            # Defaults to "default"
+
+# Safety Mode
+MCP_K8S_MODE=readonly             # Read-only (default - 7 tools)
+MCP_K8S_MODE=write                # + Non-destructive writes (17 tools)
+MCP_K8S_MODE=destructive          # + Destructive operations (22 tools)
 ```
+
+**Note:** If no environment variables are set, the server will:
+- Use `~/.kube/config` as the kubeconfig file
+- Use the current-context from that kubeconfig
+- Use "default" namespace
+- Operate in read-only mode (7 tools)
 
 ### Example Configurations
 
