@@ -742,57 +742,6 @@ export def cleanup-schema [] {
   }
 }
 
-# Execute any kubectl command
-export def kubectl-generic-schema [] {
-  {
-    name: "kubectl_generic"
-    description: "Execute any kubectl command with the provided arguments and flags"
-    input_schema: {
-      type: "object"
-      properties: {
-        command: {
-          type: "string"
-          description: "The kubectl command to execute (e.g. patch, rollout, top)"
-        }
-        subCommand: {
-          type: "string"
-          description: "Subcommand if applicable (e.g. 'history' for rollout)"
-        }
-        resourceType: {
-          type: "string"
-          description: "Resource type (e.g. pod, deployment)"
-        }
-        name: {
-          type: "string"
-          description: "Resource name"
-        }
-        namespace: {
-          type: "string"
-          description: "Namespace (defaults to 'default')"
-        }
-        outputFormat: {
-          type: "string"
-          description: "Output format (e.g. json, yaml, wide)"
-          enum: ["json" "yaml" "wide" "name" "custom"]
-        }
-        flags: {
-          type: "object"
-          description: "Command flags as key-value pairs"
-        }
-        args: {
-          type: "array"
-          description: "Additional command arguments"
-        }
-        context: {
-          type: "string"
-          description: "Kubernetes context to use (optional - defaults to current context)"
-        }
-      }
-      required: ["command"]
-    }
-  }
-}
-
 # Manage Kubernetes nodes
 export def node-management-schema [] {
   {
@@ -890,7 +839,6 @@ export def get-destructive-schemas [] {
     (kubectl-delete-schema)
     (helm-uninstall-schema)
     (cleanup-schema)
-    (kubectl-generic-schema)
     (node-management-schema)
   ]
 }

@@ -87,7 +87,6 @@ export def destructive-tools [] {
     "kubectl_delete"
     "helm_uninstall"
     "cleanup"
-    "kubectl_generic"
     "node_management"
   ]
 }

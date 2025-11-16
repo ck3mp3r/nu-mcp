@@ -103,7 +103,6 @@ def call_tool [
     # Phase 2: Destructive operations
     "kubectl_delete" => { kubectl-delete $params }
     "helm_uninstall" => { helm-uninstall $params }
-    "kubectl_generic" => { kubectl-generic $params }
     "node_management" => { node-management $params }
     "cleanup" => { cleanup $params }
 
