@@ -39,9 +39,9 @@ The server operates in one of three modes controlled by a single environment var
 
 | Mode | Tools | Configuration |
 |------|-------|---------------|
-| **Read-Only** (default) | 7 | No env var needed (or `MCP_K8S_MODE=readonly`) |
-| **Write** | 17 | Set `MCP_K8S_MODE=write` |
-| **Destructive** | 22 | Set `MCP_K8S_MODE=destructive` |
+| **readonly** (default) | 7 | No env var needed (or `MCP_K8S_MODE=readonly`) |
+| **non-destructive** | 17 | Set `MCP_K8S_MODE=non-destructive` |
+| **destructive** | 22 | Set `MCP_K8S_MODE=destructive` |
 
 ### Switching Modes
 
@@ -63,7 +63,7 @@ Set `MCP_K8S_MODE` in your MCP client configuration (e.g., Claude Desktop, Cline
 }
 ```
 
-**Write Mode** - for deployments and scaling:
+**Non-Destructive Mode** - for deployments and scaling:
 ```json
 {
   "mcpServers": {
@@ -72,7 +72,7 @@ Set `MCP_K8S_MODE` in your MCP client configuration (e.g., Claude Desktop, Cline
       "args": ["--tools-dir", "/path/to/tools/k8s"],
       "env": {
         "KUBE_CONTEXT": "staging",
-        "MCP_K8S_MODE": "write"
+        "MCP_K8S_MODE": "non-destructive"
       }
     }
   }
@@ -99,18 +99,18 @@ Set `MCP_K8S_MODE` in your MCP client configuration (e.g., Claude Desktop, Cline
 
 ### What Each Mode Allows
 
-**Read-Only Mode** (default - safest):
+**readonly** (default - safest):
 - ✅ Only read operations (get, describe, logs, context, explain, list, ping)
 - ❌ All write/execute operations
 
-**Non-Destructive Mode** (safe for most operations):
+**non-destructive** (safe for most operations):
 - ✅ Read operations (get, describe, logs)
 - ✅ Create/update operations (apply, scale, patch)
 - ✅ Execution (exec, port-forward)
 - ✅ Helm install/upgrade
 - ❌ Delete operations
 
-**Full Access Mode** (development/testing only):
+**destructive** (development/testing only):
 - ✅ All operations including delete, uninstall, cleanup, node drain
 
 ## Available Tools
@@ -138,7 +138,7 @@ KUBE_NAMESPACE=default            # Defaults to "default"
 
 # Safety Mode
 MCP_K8S_MODE=readonly             # Read-only (default - 7 tools)
-MCP_K8S_MODE=write                # + Non-destructive writes (17 tools)
+MCP_K8S_MODE=non-destructive      # + Non-destructive writes (17 tools)
 MCP_K8S_MODE=destructive          # + Destructive operations (22 tools)
 ```
 

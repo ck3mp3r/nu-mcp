@@ -57,13 +57,7 @@ export def validate-resource-type [type: string] {
 
 # Get safety mode from environment variables
 export def get-safety-mode [] {
-    let k8s_mode = ($env.MCP_K8S_MODE? | default "readonly")
-    
-    match $k8s_mode {
-        "write" => "non-destructive"
-        "destructive" => "full"
-        _ => "readonly"  # Default - safest option
-    }
+  $env.MCP_K8S_MODE? | default "readonly"
 }
 
 # Define read-only tools (7 tools)
@@ -101,7 +95,7 @@ export def is-tool-allowed [tool_name: string] {
     "non-destructive" => {
       $tool_name not-in (destructive-tools)
     }
-    "full" => {
+    "destructive" => {
       true
     }
     _ => {
@@ -112,21 +106,21 @@ export def is-tool-allowed [tool_name: string] {
 
 # Generate permission denied error
 export def permission-denied-error [tool_name: string] {
-    let mode = (get-safety-mode)
-    
-    let message = match $mode {
-        "readonly" => $"Tool '($tool_name)' requires write access. Set MCP_K8S_MODE=write to enable non-destructive operations.",
-        "non-destructive" => $"Tool '($tool_name)' is a destructive operation. Set MCP_K8S_MODE=destructive to enable.",
-        _ => $"Tool '($tool_name)' is not allowed in current mode."
-    }
-    
-    {
-        error: "PermissionDenied"
-        message: $message
-        tool: $tool_name
-        mode: $mode
-        isError: true
-    }
+  let mode = (get-safety-mode)
+
+  let message = match $mode {
+    "readonly" => $"Tool '($tool_name)' requires write access. Set MCP_K8S_MODE=non-destructive to enable."
+    "non-destructive" => $"Tool '($tool_name)' is a destructive operation. Set MCP_K8S_MODE=destructive to enable."
+    _ => $"Tool '($tool_name)' is not allowed in current mode."
+  }
+
+  {
+    error: "PermissionDenied"
+    message: $message
+    tool: $tool_name
+    mode: $mode
+    isError: true
+  }
 }
 
 # Main kubectl command wrapper

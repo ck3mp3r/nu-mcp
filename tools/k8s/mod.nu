@@ -48,11 +48,13 @@ def list_tools [] {
         $schema.name not-in (destructive-tools)
       }
     }
-    "full" => {
+    "destructive" => {
       $all_schemas
     }
     _ => {
-      $all_schemas
+      $all_schemas | where {|schema|
+        $schema.name in (readonly-tools)
+      }
     }
   }
 
