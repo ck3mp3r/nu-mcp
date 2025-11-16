@@ -5,6 +5,7 @@ use utils.nu *
 use formatters.nu *
 use resources.nu *
 use operations.nu *
+use helm.nu *
 
 # Main entry point for MCP protocol
 export def main [
@@ -71,16 +72,32 @@ def call_tool [
     
     # Route to appropriate tool implementation
     match $tool_name {
-        # Resource operations
+        # Phase 1A: Read-only resource operations
         "kubectl_get" => { kubectl-get $params }
         "kubectl_describe" => { kubectl-describe $params }
         
-        # Operations
+        # Phase 1A: Read-only operations
         "kubectl_logs" => { kubectl-logs $params }
         "kubectl_context" => { kubectl-context $params }
         "explain_resource" => { explain-resource $params }
         "list_api_resources" => { list-api-resources $params }
         "ping" => { ping $params }
+        
+        # Phase 1B: Write resource operations
+        "kubectl_apply" => { kubectl-apply $params }
+        "kubectl_create" => { kubectl-create $params }
+        "kubectl_patch" => { kubectl-patch $params }
+        
+        # Phase 1B: Write operations
+        "kubectl_scale" => { kubectl-scale $params }
+        "kubectl_rollout" => { kubectl-rollout $params }
+        "exec_in_pod" => { exec-in-pod $params }
+        "port_forward" => { port-forward $params }
+        "stop_port_forward" => { stop-port-forward $params }
+        
+        # Phase 1B: Helm operations
+        "install_helm_chart" => { install-helm-chart $params }
+        "upgrade_helm_chart" => { upgrade-helm-chart $params }
         
         # Unknown tool
         _ => {

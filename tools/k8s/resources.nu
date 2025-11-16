@@ -90,3 +90,187 @@ export def kubectl-describe [
         description: $result
     }
 }
+# kubectl_apply - Apply YAML manifest
+export def kubectl-apply [
+    params: record
+] {
+    # Extract parameters
+    let manifest = $params.manifest? | default ""
+    let filename = $params.filename? | default ""
+    let namespace = $params.namespace? | default ""
+    let dry_run = $params.dryRun? | default false
+    let force = $params.force? | default false
+    let context = $params.context? | default ""
+    
+    # Validate that either manifest or filename is provided
+    if $manifest == "" and $filename == "" {
+        return (format-tool-response {
+            error: "MissingParameter"
+            message: "Either manifest or filename must be provided"
+            isError: true
+        } --error true)
+    }
+    
+    # Build kubectl arguments
+    mut args = ["apply"]
+    
+    # Add filename or use stdin for manifest
+    if $filename != "" {
+        $args = ($args | append ["-f" $filename])
+    } else {
+        $args = ($args | append ["-f" "-"])  # stdin
+    }
+    
+    # Add dry-run if specified
+    if $dry_run {
+        $args = ($args | append "--dry-run=client")
+    }
+    
+    # Add force if specified
+    if $force {
+        $args = ($args | append "--force")
+    }
+    
+    # Execute kubectl command
+    let result = if $manifest != "" {
+        run-kubectl $args --stdin $manifest --namespace $namespace --context $context --output "json"
+    } else {
+        run-kubectl $args --namespace $namespace --context $context --output "json"
+    }
+    
+    # Check for errors
+    if ($result | describe | str contains "record") and ($result | get isError? | default false) {
+        return (format-tool-response $result --error true)
+    }
+    
+    # Format response
+    format-tool-response {
+        operation: "apply"
+        result: $result
+    }
+}
+
+# kubectl_create - Create Kubernetes resources
+export def kubectl-create [
+    params: record
+] {
+    # Extract parameters
+    let manifest = $params.manifest? | default ""
+    let filename = $params.filename? | default ""
+    let namespace = $params.namespace? | default ""
+    let dry_run = $params.dryRun? | default false
+    let validate = $params.validate? | default true
+    let context = $params.context? | default ""
+    
+    # Validate that either manifest or filename is provided
+    if $manifest == "" and $filename == "" {
+        return (format-tool-response {
+            error: "MissingParameter"
+            message: "Either manifest or filename must be provided"
+            isError: true
+        } --error true)
+    }
+    
+    # Build kubectl arguments
+    mut args = ["create"]
+    
+    # Add filename or use stdin for manifest
+    if $filename != "" {
+        $args = ($args | append ["-f" $filename])
+    } else {
+        $args = ($args | append ["-f" "-"])  # stdin
+    }
+    
+    # Add dry-run if specified
+    if $dry_run {
+        $args = ($args | append "--dry-run=client")
+    }
+    
+    # Add validate flag
+    if not $validate {
+        $args = ($args | append "--validate=false")
+    }
+    
+    # Execute kubectl command
+    let result = if $manifest != "" {
+        run-kubectl $args --stdin $manifest --namespace $namespace --context $context --output "json"
+    } else {
+        run-kubectl $args --namespace $namespace --context $context --output "json"
+    }
+    
+    # Check for errors
+    if ($result | describe | str contains "record") and ($result | get isError? | default false) {
+        return (format-tool-response $result --error true)
+    }
+    
+    # Format response
+    format-tool-response {
+        operation: "create"
+        result: $result
+    }
+}
+
+# kubectl_patch - Update resource fields
+export def kubectl-patch [
+    params: record
+] {
+    # Extract parameters
+    let resource_type = $params.resourceType
+    let name = $params.name
+    let namespace = $params.namespace? | default ""
+    let patch_type = $params.patchType? | default "strategic"
+    let patch_data = $params.patchData? | default null
+    let patch_file = $params.patchFile? | default ""
+    let dry_run = $params.dryRun? | default false
+    let context = $params.context? | default ""
+    
+    # Validate that either patchData or patchFile is provided
+    if $patch_data == null and $patch_file == "" {
+        return (format-tool-response {
+            error: "MissingParameter"
+            message: "Either patchData or patchFile must be provided"
+            isError: true
+        } --error true)
+    }
+    
+    # Build kubectl arguments
+    mut args = ["patch" $resource_type $name]
+    
+    # Add patch type
+    let patch_type_flag = match $patch_type {
+        "strategic" => "--type=strategic"
+        "merge" => "--type=merge"
+        "json" => "--type=json"
+        _ => "--type=strategic"
+    }
+    $args = ($args | append $patch_type_flag)
+    
+    # Add patch data
+    if $patch_data != null {
+        let patch_json = ($patch_data | to json --raw)
+        $args = ($args | append ["--patch" $patch_json])
+    } else {
+        $args = ($args | append ["--patch-file" $patch_file])
+    }
+    
+    # Add dry-run if specified
+    if $dry_run {
+        $args = ($args | append "--dry-run=client")
+    }
+    
+    # Execute kubectl command
+    let result = run-kubectl $args --namespace $namespace --context $context --output "json"
+    
+    # Check for errors
+    if ($result | describe | str contains "record") and ($result | get isError? | default false) {
+        return (format-tool-response $result --error true)
+    }
+    
+    # Format response
+    format-tool-response {
+        operation: "patch"
+        resourceType: $resource_type
+        name: $name
+        result: $result
+    }
+}

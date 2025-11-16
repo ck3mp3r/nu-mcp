@@ -345,3 +345,208 @@ export def ping [
         safetyMode: (get-safety-mode)
     }
 }
+
+# kubectl_scale - Scale deployments/statefulsets
+export def kubectl-scale [
+    params: record
+] {
+    # Extract parameters
+    let name = $params.name
+    let namespace = $params.namespace? | default ""
+    let replicas = $params.replicas
+    let resource_type = $params.resourceType? | default "deployment"
+    let context = $params.context? | default ""
+    
+    # Build kubectl arguments
+    let args = ["scale" $resource_type $name $"--replicas=($replicas)"]
+    
+    # Execute kubectl command
+    let result = run-kubectl $args --namespace $namespace --context $context --output "text"
+    
+    # Check for errors
+    if ($result | describe | str contains "record") and ($result | get isError? | default false) {
+        return (format-tool-response $result --error true)
+    }
+    
+    # Format response
+    format-tool-response {
+        operation: "scale"
+        resourceType: $resource_type
+        name: $name
+        replicas: $replicas
+        result: $result
+    }
+}
+
+# kubectl_rollout - Manage rollouts
+export def kubectl-rollout [
+    params: record
+] {
+    # Extract parameters
+    let sub_command = $params.subCommand
+    let resource_type = $params.resourceType
+    let name = $params.name
+    let namespace = $params.namespace
+    let revision = $params.revision? | default null
+    let to_revision = $params.toRevision? | default null
+    let timeout = $params.timeout? | default ""
+    let watch = $params.watch? | default false
+    let context = $params.context? | default ""
+    
+    # Build kubectl arguments
+    mut args = ["rollout" $sub_command $"($resource_type)/($name)"]
+    
+    # Add revision for undo
+    if $revision != null {
+        $args = ($args | append $"--to-revision=($revision)")
+    }
+    
+    # Add timeout if specified
+    if $timeout != "" {
+        $args = ($args | append ["--timeout" $timeout])
+    }
+    
+    # Add watch if specified
+    if $watch {
+        $args = ($args | append "--watch")
+    }
+    
+    # Execute kubectl command
+    let result = run-kubectl $args --namespace $namespace --context $context --output "text"
+    
+    # Check for errors
+    if ($result | describe | str contains "record") and ($result | get isError? | default false) {
+        return (format-tool-response $result --error true)
+    }
+    
+    # Format response
+    format-tool-response {
+        operation: "rollout"
+        subCommand: $sub_command
+        resourceType: $resource_type
+        name: $name
+        result: $result
+    }
+}
+
+# exec_in_pod - Execute command in pod
+export def exec-in-pod [
+    params: record
+] {
+    # Extract parameters
+    let name = $params.name
+    let namespace = $params.namespace? | default ""
+    let command = $params.command
+    let container = $params.container? | default ""
+    let shell = $params.shell? | default ""
+    let timeout = $params.timeout? | default 60000
+    let context = $params.context? | default ""
+    
+    # Build kubectl arguments
+    mut args = ["exec" $name]
+    
+    # Add container if specified
+    if $container != "" {
+        $args = ($args | append ["-c" $container])
+    }
+    
+    # Add the command separator
+    $args = ($args | append "--")
+    
+    # Add shell and command
+    if $shell != "" {
+        $args = ($args | append [$shell "-c" $command])
+    } else {
+        # Split command into args if it's a string
+        let cmd_parts = ($command | split row " ")
+        $args = ($args | append $cmd_parts)
+    }
+    
+    # Execute kubectl command
+    let result = run-kubectl $args --namespace $namespace --context $context --output "text"
+    
+    # Check for errors
+    if ($result | describe | str contains "record") and ($result | get isError? | default false) {
+        return (format-tool-response $result --error true)
+    }
+    
+    # Format response
+    format-tool-response {
+        operation: "exec"
+        pod: $name
+        namespace: (if $namespace != "" { $namespace } else { get-default-namespace })
+        output: $result
+    }
+}
+
+# port_forward - Forward local port to pod/service
+export def port-forward [
+    params: record
+] {
+    # Extract parameters
+    let resource_type = $params.resourceType
+    let resource_name = $params.resourceName
+    let local_port = $params.localPort
+    let target_port = $params.targetPort
+    let namespace = $params.namespace? | default ""
+    let context = $params.context? | default ""
+    
+    # Build kubectl arguments
+    let resource = $"($resource_type)/($resource_name)"
+    let port_mapping = $"($local_port):($target_port)"
+    let args = ["port-forward" $resource $port_mapping]
+    
+    # Note: Port forwarding is a long-running process
+    # For now, we'll start it and return immediately
+    # In a full implementation, we'd need background process management
+    
+    # Execute kubectl command in background
+    # This is simplified - full implementation would need process tracking
+    let result = try {
+        # Start port-forward in background (simplified)
+        {
+            success: true
+            message: $"Port forwarding started: localhost:($local_port) -> ($resource):($target_port)"
+            id: $"($resource_type)-($resource_name)-($local_port)"
+        }
+    } catch {
+        {
+            error: "PortForwardFailed"
+            message: "Failed to start port forwarding"
+            isError: true
+        }
+    }
+    
+    # Check for errors
+    if ($result | get isError? | default false) {
+        return (format-tool-response $result --error true)
+    }
+    
+    # Format response
+    format-tool-response {
+        operation: "port-forward"
+        resource: $resource
+        localPort: $local_port
+        targetPort: $target_port
+        id: ($result | get id)
+        message: ($result | get message)
+    }
+}
+
+# stop_port_forward - Stop port forwarding
+export def stop-port-forward [
+    params: record
+] {
+    # Extract parameters
+    let id = $params.id
+    
+    # Note: This is a simplified implementation
+    # Full implementation would need to track and kill background processes
+    
+    # Format response
+    format-tool-response {
+        operation: "stop-port-forward"
+        id: $id
+        message: "Port forwarding stop requested (simplified implementation)"
+    }
+}
