@@ -39,11 +39,18 @@
     description = "Context7 MCP tool for nu-mcp - provides up-to-date library documentation and code examples from Context7";
   };
 
+  k8s-mcp-tools = mkToolPackage {
+    pname = "k8s-mcp-tools";
+    src = ../tools/k8s;
+    installPath = "k8s";
+    description = "Kubernetes MCP tool for nu-mcp - provides 21 kubectl/Helm operations with three-tier safety model";
+  };
+
   # Combined tools package for convenience
   mcp-tools = mkToolPackage {
     pname = "mcp-tools";
     src = ../tools;
     installPath = "";
-    description = "Complete MCP tools catalog for nu-mcp - includes argocd, weather, finance, tmux, c67, and other useful tools";
+    description = "Complete MCP tools catalog for nu-mcp - includes k8s, argocd, weather, finance, tmux, c67, and other useful tools";
   };
 }
