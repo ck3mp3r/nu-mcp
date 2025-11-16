@@ -71,23 +71,23 @@ export def get-safety-mode [] {
 # Define read-only tools (7 tools)
 export def readonly-tools [] {
   [
-    "kubectl_get"
-    "kubectl_describe"
-    "kubectl_logs"
-    "kubectl_context"
-    "explain_resource"
-    "list_api_resources"
-    "ping"
+    "kube_get"
+    "kube_describe"
+    "kube_logs"
+    "kube_context"
+    "kube_explain"
+    "kube_api_resources"
+    "kube_ping"
   ]
 }
 
 # Define destructive tools (5 tools)
 export def destructive-tools [] {
   [
-    "kubectl_delete"
+    "kube_delete"
     "helm_uninstall"
-    "cleanup"
-    "node_management"
+    "kube_cleanup"
+    "kube_node"
   ]
 }
 
@@ -181,12 +181,12 @@ export def run-kubectl [
 
   # Execute kubectl command
   try {
-    let kubectl_args = ($cmd_args | skip 1) # Skip "kubectl" string
+    let kube_args = ($cmd_args | skip 1) # Skip "kubectl" string
     let result = if $stdin != "" {
       # Use stdin if provided
-      $stdin | ^kubectl ...$kubectl_args
+      $stdin | ^kubectl ...$kube_args
     } else {
-      ^kubectl ...$kubectl_args
+      ^kubectl ...$kube_args
     }
 
     # Parse output based on format

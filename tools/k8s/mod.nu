@@ -74,37 +74,37 @@ def call_tool [
   # Route to appropriate tool implementation
   match $tool_name {
     # Phase 1A: Read-only resource operations
-    "kubectl_get" => { kubectl-get $params }
-    "kubectl_describe" => { kubectl-describe $params }
+    "kube_get" => { kubectl-get $params }
+    "kube_describe" => { kubectl-describe $params }
 
     # Phase 1A: Read-only operations
-    "kubectl_logs" => { kubectl-logs $params }
-    "kubectl_context" => { kubectl-context $params }
-    "explain_resource" => { explain-resource $params }
-    "list_api_resources" => { list-api-resources $params }
-    "ping" => { ping $params }
+    "kube_logs" => { kubectl-logs $params }
+    "kube_context" => { kubectl-context $params }
+    "kube_explain" => { explain-resource $params }
+    "kube_api_resources" => { list-api-resources $params }
+    "kube_ping" => { ping $params }
 
     # Phase 1B: Write resource operations
-    "kubectl_apply" => { kubectl-apply $params }
-    "kubectl_create" => { kubectl-create $params }
-    "kubectl_patch" => { kubectl-patch $params }
+    "kube_apply" => { kubectl-apply $params }
+    "kube_create" => { kubectl-create $params }
+    "kube_patch" => { kubectl-patch $params }
 
     # Phase 1B: Write operations
-    "kubectl_scale" => { kubectl-scale $params }
-    "kubectl_rollout" => { kubectl-rollout $params }
-    "exec_in_pod" => { exec-in-pod $params }
-    "port_forward" => { port-forward $params }
-    "stop_port_forward" => { stop-port-forward $params }
+    "kube_scale" => { kubectl-scale $params }
+    "kube_rollout" => { kubectl-rollout $params }
+    "kube_exec" => { exec-in-pod $params }
+    "kube_port_forward" => { port-forward $params }
+    "kube_port_forward_stop" => { kube-port-forward-stop $params }
 
     # Phase 1B: Helm operations
     "helm_install" => { helm-install $params }
     "helm_upgrade" => { helm-upgrade $params }
 
     # Phase 2: Destructive operations
-    "kubectl_delete" => { kubectl-delete $params }
+    "kube_delete" => { kubectl-delete $params }
     "helm_uninstall" => { helm-uninstall $params }
-    "node_management" => { node-management $params }
-    "cleanup" => { cleanup $params }
+    "kube_node" => { node-management $params }
+    "kube_cleanup" => { cleanup $params }
 
     # Unknown tool
     _ => {

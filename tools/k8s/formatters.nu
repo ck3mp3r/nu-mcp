@@ -18,10 +18,10 @@ export def context-parameter [] {
 
 # Phase 1A: Read-Only Tools (7 tools)
 
-# 1. kubectl_get - Get/list Kubernetes resources
+# 1. kube_get - Get/list Kubernetes resources
 export def kubectl-get-schema [] {
   {
-    name: "kubectl_get"
+    name: "kube_get"
     description: "Get or list Kubernetes resources by resource type, name, and optionally namespace"
     input_schema: {
       type: "object"
@@ -65,10 +65,10 @@ export def kubectl-get-schema [] {
   }
 }
 
-# 2. kubectl_describe - Describe Kubernetes resource
+# 2. kube_describe - Describe Kubernetes resource
 export def kubectl-describe-schema [] {
   {
-    name: "kubectl_describe"
+    name: "kube_describe"
     description: "Describe Kubernetes resources by resource type, name, and optionally namespace"
     input_schema: {
       type: "object"
@@ -94,10 +94,10 @@ export def kubectl-describe-schema [] {
   }
 }
 
-# 3. kubectl_logs - Get pod/container logs
+# 3. kube_logs - Get pod/container logs
 export def kubectl-logs-schema [] {
   {
-    name: "kubectl_logs"
+    name: "kube_logs"
     description: "Get logs from Kubernetes resources like pods, deployments, or jobs"
     input_schema: {
       type: "object"
@@ -154,10 +154,10 @@ export def kubectl-logs-schema [] {
   }
 }
 
-# 4. kubectl_context - Manage kubectl contexts
+# 4. kube_context - Manage kubectl contexts
 export def kubectl-context-schema [] {
   {
-    name: "kubectl_context"
+    name: "kube_context"
     description: "Manage Kubernetes contexts - list, get, or set the current context"
     input_schema: {
       type: "object"
@@ -194,10 +194,10 @@ export def kubectl-context-schema [] {
   }
 }
 
-# 5. explain_resource - Explain Kubernetes resource schema
+# 5. kube_explain - Explain Kubernetes resource schema
 export def explain-resource-schema [] {
   {
-    name: "explain_resource"
+    name: "kube_explain"
     description: "Get documentation for a Kubernetes resource or field"
     input_schema: {
       type: "object"
@@ -228,10 +228,10 @@ export def explain-resource-schema [] {
   }
 }
 
-# 6. list_api_resources - List available Kubernetes API resources
+# 6. kube_api_resources - List available Kubernetes API resources
 export def list-api-resources-schema [] {
   {
-    name: "list_api_resources"
+    name: "kube_api_resources"
     description: "List the API resources available in the cluster"
     input_schema: {
       type: "object"
@@ -267,7 +267,7 @@ export def list-api-resources-schema [] {
 # 7. ping - Verify kubectl connectivity
 export def ping-schema [] {
   {
-    name: "ping"
+    name: "kube_ping"
     description: "Verify that the counterpart is still responsive and the connection is alive."
     input_schema: {
       type: "object"
@@ -279,10 +279,10 @@ export def ping-schema [] {
 
 # Phase 1B: Non-Destructive Write Operations (10 tools)
 
-# 8. kubectl_apply - Apply YAML manifest
+# 8. kube_apply - Apply YAML manifest
 export def kubectl-apply-schema [] {
   {
-    name: "kubectl_apply"
+    name: "kube_apply"
     description: "Apply a Kubernetes YAML manifest from a string or file"
     input_schema: {
       type: "object"
@@ -313,10 +313,10 @@ export def kubectl-apply-schema [] {
   }
 }
 
-# 9. kubectl_create - Create Kubernetes resources
+# 9. kube_create - Create Kubernetes resources
 export def kubectl-create-schema [] {
   {
-    name: "kubectl_create"
+    name: "kube_create"
     description: "Create Kubernetes resources using various methods (from file or using subcommands)"
     input_schema: {
       type: "object"
@@ -347,10 +347,10 @@ export def kubectl-create-schema [] {
   }
 }
 
-# 10. kubectl_patch - Update resource fields
+# 10. kube_patch - Update resource fields
 export def kubectl-patch-schema [] {
   {
-    name: "kubectl_patch"
+    name: "kube_patch"
     description: "Update field(s) of a resource using strategic merge patch, JSON merge patch, or JSON patch"
     input_schema: {
       type: "object"
@@ -390,10 +390,10 @@ export def kubectl-patch-schema [] {
   }
 }
 
-# 11. kubectl_scale - Scale deployments/statefulsets
+# 11. kube_scale - Scale deployments/statefulsets
 export def kubectl-scale-schema [] {
   {
-    name: "kubectl_scale"
+    name: "kube_scale"
     description: "Scale a Kubernetes deployment"
     input_schema: {
       type: "object"
@@ -419,10 +419,10 @@ export def kubectl-scale-schema [] {
   }
 }
 
-# 12. kubectl_rollout - Manage rollouts
+# 12. kube_rollout - Manage rollouts
 export def kubectl-rollout-schema [] {
   {
-    name: "kubectl_rollout"
+    name: "kube_rollout"
     description: "Manage the rollout of a resource (e.g., deployment, daemonset, statefulset)"
     input_schema: {
       type: "object"
@@ -468,10 +468,10 @@ export def kubectl-rollout-schema [] {
   }
 }
 
-# 13. exec_in_pod - Execute command in pod
+# 13. kube_exec - Execute command in pod
 export def exec-in-pod-schema [] {
   {
-    name: "exec_in_pod"
+    name: "kube_exec"
     description: "Execute a command in a Kubernetes pod or container and return the output"
     input_schema: {
       type: "object"
@@ -504,10 +504,10 @@ export def exec-in-pod-schema [] {
   }
 }
 
-# 14. port_forward - Forward local port to pod/service
+# 14. kube_port_forward - Forward local port to pod/service
 export def port-forward-schema [] {
   {
-    name: "port_forward"
+    name: "kube_port_forward"
     description: "Forward a local port to a port on a Kubernetes resource"
     input_schema: {
       type: "object"
@@ -539,10 +539,10 @@ export def port-forward-schema [] {
   }
 }
 
-# 15. stop_port_forward - Stop port forwarding
-export def stop-port-forward-schema [] {
+# 15. kube_port_forward_stop - Stop port forwarding
+export def kube-port-forward-stop-schema [] {
   {
-    name: "stop_port_forward"
+    name: "kube_port_forward_stop"
     description: "Stop a port-forward process"
     input_schema: {
       type: "object"
@@ -651,7 +651,7 @@ export def helm-upgrade-schema [] {
 # Delete Kubernetes resources
 export def kubectl-delete-schema [] {
   {
-    name: "kubectl_delete"
+    name: "kube_delete"
     description: "Delete Kubernetes resources by resource type, name, labels, or from a manifest file"
     input_schema: {
       type: "object"
@@ -733,7 +733,7 @@ export def helm-uninstall-schema [] {
 # Cleanup all managed resources
 export def cleanup-schema [] {
   {
-    name: "cleanup"
+    name: "kube_cleanup"
     description: "Cleanup all managed resources (port-forwards, etc.)"
     input_schema: {
       type: "object"
@@ -745,7 +745,7 @@ export def cleanup-schema [] {
 # Manage Kubernetes nodes
 export def node-management-schema [] {
   {
-    name: "node_management"
+    name: "kube_node"
     description: "Manage Kubernetes nodes with cordon, drain, and uncordon operations"
     input_schema: {
       type: "object"
@@ -827,7 +827,7 @@ export def get-non-destructive-schemas [] {
     (kubectl-rollout-schema)
     (exec-in-pod-schema)
     (port-forward-schema)
-    (stop-port-forward-schema)
+    (kube-port-forward-stop-schema)
     (helm-install-schema)
     (helm-upgrade-schema)
   ]

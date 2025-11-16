@@ -1,9 +1,9 @@
 # Kubernetes MCP Tool - Resource Operations
-# Implementations for kubectl_get, kubectl_describe
+# Implementations for kube_get, kube_describe
 
 use utils.nu *
 
-# kubectl_get - Get or list Kubernetes resources
+# kube_get - Get or list Kubernetes resources
 export def kubectl-get [
   params: record
 ] {
@@ -60,7 +60,7 @@ export def kubectl-get [
   format-tool-response $masked_result
 }
 
-# kubectl_describe - Describe a Kubernetes resource
+# kube_describe - Describe a Kubernetes resource
 export def kubectl-describe [
   params: record
 ] {
@@ -90,7 +90,7 @@ export def kubectl-describe [
     description: $result
   }
 }
-# kubectl_apply - Apply YAML manifest
+# kube_apply - Apply YAML manifest
 export def kubectl-apply [
   params: record
 ] {
@@ -152,7 +152,7 @@ export def kubectl-apply [
   }
 }
 
-# kubectl_create - Create Kubernetes resources
+# kube_create - Create Kubernetes resources
 export def kubectl-create [
   params: record
 ] {
@@ -214,7 +214,7 @@ export def kubectl-create [
   }
 }
 
-# kubectl_patch - Update resource fields
+# kube_patch - Update resource fields
 export def kubectl-patch [
   params: record
 ] {

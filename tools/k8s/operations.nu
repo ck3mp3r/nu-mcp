@@ -1,9 +1,9 @@
 # Kubernetes MCP Tool - Operations
-# Implementations for kubectl_logs, kubectl_context, explain_resource, list_api_resources, ping
+# Implementations for kube_logs, kube_context, kube_explain, kube_api_resources, ping
 
 use utils.nu *
 
-# kubectl_logs - Get pod/container logs
+# kube_logs - Get pod/container logs
 export def kubectl-logs [
   params: record
 ] {
@@ -88,7 +88,7 @@ export def kubectl-logs [
   }
 }
 
-# kubectl_context - Manage kubectl contexts
+# kube_context - Manage kubectl contexts
 export def kubectl-context [
   params: record
 ] {
@@ -186,7 +186,7 @@ export def kubectl-context [
   }
 }
 
-# explain_resource - Explain Kubernetes resource schema
+# kube_explain - Explain Kubernetes resource schema
 export def explain-resource [
   params: record
 ] {
@@ -231,7 +231,7 @@ export def explain-resource [
   }
 }
 
-# list_api_resources - List available API resources
+# kube_api_resources - List available API resources
 export def list-api-resources [
   params: record
 ] {
@@ -350,7 +350,7 @@ export def ping [
   }
 }
 
-# kubectl_scale - Scale deployments/statefulsets
+# kube_scale - Scale deployments/statefulsets
 export def kubectl-scale [
   params: record
 ] {
@@ -382,7 +382,7 @@ export def kubectl-scale [
   }
 }
 
-# kubectl_rollout - Manage rollouts
+# kube_rollout - Manage rollouts
 export def kubectl-rollout [
   params: record
 ] {
@@ -433,7 +433,7 @@ export def kubectl-rollout [
   }
 }
 
-# exec_in_pod - Execute command in pod
+# kube_exec - Execute command in pod
 export def exec-in-pod [
   params: record
 ] {
@@ -483,7 +483,7 @@ export def exec-in-pod [
   }
 }
 
-# port_forward - Forward local port to pod/service
+# kube_port_forward - Forward local port to pod/service
 export def port-forward [
   params: record
 ] {
@@ -565,8 +565,8 @@ export def port-forward [
   format-tool-response $result
 }
 
-# stop_port_forward - Stop port forwarding
-export def stop-port-forward [
+# kube_port_forward_stop - Stop port forwarding
+export def kube-port-forward-stop [
   params: record
 ] {
   # Extract parameters
@@ -628,7 +628,7 @@ export def stop-port-forward [
 
   # Format response
   format-tool-response {
-    operation: "stop-port-forward"
+    operation: "kube-port-forward-stop"
     id: $id
     message: ($result | get message)
   }
@@ -638,7 +638,7 @@ export def stop-port-forward [
 # Phase 2: Destructive Operations
 # ============================================================================
 
-# node_management - Manage Kubernetes nodes (cordon, drain, uncordon)
+# kube_node - Manage Kubernetes nodes (cordon, drain, uncordon)
 export def node-management [
   params: record
 ] {
@@ -806,7 +806,7 @@ export def cleanup [
   # For now, we just acknowledge the cleanup request
 
   format-tool-response {
-    operation: "cleanup"
+    operation: "kube_cleanup"
     message: "Cleanup completed (simplified implementation - no managed resources to clean)"
     success: true
   }

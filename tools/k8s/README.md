@@ -116,13 +116,13 @@ Set `MCP_K8S_MODE` in your MCP client configuration (e.g., Claude Desktop, Cline
 ## Available Tools
 
 ### Read-Only (7 tools)
-`kubectl_get`, `kubectl_describe`, `kubectl_logs`, `kubectl_context`, `explain_resource`, `list_api_resources`, `ping`
+`kube_get`, `kube_describe`, `kube_logs`, `kube_context`, `kube_explain`, `kube_api_resources`, `kube_ping`
 
 ### Non-Destructive Write (10 tools)
-`kubectl_apply`, `kubectl_create`, `kubectl_scale`, `kubectl_patch`, `kubectl_rollout`, `port_forward`, `stop_port_forward`, `exec_in_pod`, `helm_install`, `helm_upgrade`
+`kube_apply`, `kube_create`, `kube_scale`, `kube_patch`, `kube_rollout`, `kube_port_forward`, `kube_port_forward_stop`, `kube_exec`, `helm_install`, `helm_upgrade`
 
 ### Destructive (5 tools)
-`kubectl_delete`, `helm_uninstall`, `cleanup`, `kubectl_generic`, `node_management`
+`kube_delete`, `helm_uninstall`, `kube_cleanup`, `kube_generic`, `kube_node`
 
 ## Configuration
 
@@ -169,7 +169,7 @@ nu tools/k8s/mod.nu list-tools
 nu tools/k8s/mod.nu call-tool ping {}
 
 # Get pods
-nu tools/k8s/mod.nu call-tool kubectl_get {resourceType: "pods"}
+nu tools/k8s/mod.nu call-tool kube_get {resourceType: "pods"}
 ```
 
 ## References
