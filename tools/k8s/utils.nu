@@ -57,16 +57,16 @@ export def validate-resource-type [type: string] {
 
 # Get safety mode from environment variables
 export def get-safety-mode [] {
-  let read_only = ($env.MCP_READ_ONLY? | default "false") == "true"
-  let allow_destructive = ($env.MCP_ALLOW_DESTRUCTIVE? | default "false") == "true"
-
-  if $read_only {
-    "readonly"
-  } else if $allow_destructive {
-    "full"
-  } else {
-    "non-destructive" # Default
-  }
+    let allow_write = ($env.MCP_ALLOW_WRITE? | default "false") == "true"
+    let allow_destructive = ($env.MCP_ALLOW_DESTRUCTIVE? | default "false") == "true"
+    
+    if $allow_destructive {
+        "full"
+    } else if $allow_write {
+        "non-destructive"
+    } else {
+        "readonly"  # Default - safest option
+    }
 }
 
 # Define read-only tools (7 tools)
@@ -115,21 +115,21 @@ export def is-tool-allowed [tool_name: string] {
 
 # Generate permission denied error
 export def permission-denied-error [tool_name: string] {
-  let mode = (get-safety-mode)
-
-  let message = match $mode {
-    "readonly" => $"Tool '($tool_name)' is disabled in read-only mode. Remove MCP_READ_ONLY to enable write operations."
-    "non-destructive" => $"Tool '($tool_name)' is a destructive operation. Set MCP_ALLOW_DESTRUCTIVE=true to enable."
-    _ => $"Tool '($tool_name)' is not allowed in current mode."
-  }
-
-  {
-    error: "PermissionDenied"
-    message: $message
-    tool: $tool_name
-    mode: $mode
-    isError: true
-  }
+    let mode = (get-safety-mode)
+    
+    let message = match $mode {
+        "readonly" => $"Tool '($tool_name)' requires write access. Set MCP_ALLOW_WRITE=true to enable non-destructive operations.",
+        "non-destructive" => $"Tool '($tool_name)' is a destructive operation. Set MCP_ALLOW_DESTRUCTIVE=true to enable.",
+        _ => $"Tool '($tool_name)' is not allowed in current mode."
+    }
+    
+    {
+        error: "PermissionDenied"
+        message: $message
+        tool: $tool_name
+        mode: $mode
+        isError: true
+    }
 }
 
 # Main kubectl command wrapper

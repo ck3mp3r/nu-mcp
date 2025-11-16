@@ -26,14 +26,15 @@ The server operates in one of three modes based on environment variables:
 
 | Mode | Tools | Configuration |
 |------|-------|---------------|
-| **Non-Destructive** (default) | 17 | No env var needed |
-| **Read-Only** | 7 | Set `MCP_READ_ONLY=true` |
+| **Read-Only** (default) | 7 | No env var needed |
+| **Non-Destructive** | 17 | Set `MCP_ALLOW_WRITE=true` |
 | **Full Access** | 22 | Set `MCP_ALLOW_DESTRUCTIVE=true` |
 
 ### Switching Modes
 
 **In your MCP client configuration** (e.g., Claude Desktop, Cline), add the environment variable to the `env` object:
 
+**For write operations** (apply, scale, patch, Helm install):
 ```json
 {
   "mcpServers": {
@@ -42,9 +43,19 @@ The server operates in one of three modes based on environment variables:
       "args": ["--tools-dir", "/path/to/tools/k8s"],
       "env": {
         "KUBE_CONTEXT": "my-cluster",
-        "MCP_ALLOW_DESTRUCTIVE": "true"     ← Add this line for full access
+        "MCP_ALLOW_WRITE": "true"           ← Add this for non-destructive write access
       }
     }
+  }
+}
+```
+
+**For destructive operations** (delete, uninstall):
+```json
+{
+  "env": {
+    "KUBE_CONTEXT": "my-cluster",
+    "MCP_ALLOW_DESTRUCTIVE": "true"         ← Add this for full access (includes write)
   }
 }
 ```
@@ -53,16 +64,16 @@ The server operates in one of three modes based on environment variables:
 
 ### What Each Mode Allows
 
-**Non-Destructive Mode** (default - safest for production):
+**Read-Only Mode** (default - safest):
+- ✅ Only read operations (get, describe, logs, context, explain, list, ping)
+- ❌ All write/execute operations
+
+**Non-Destructive Mode** (safe for most operations):
 - ✅ Read operations (get, describe, logs)
 - ✅ Create/update operations (apply, scale, patch)
 - ✅ Execution (exec, port-forward)
 - ✅ Helm install/upgrade
 - ❌ Delete operations
-
-**Read-Only Mode** (maximum safety):
-- ✅ Only read operations (get, describe, logs, context, explain, list, ping)
-- ❌ All write/execute operations
 
 **Full Access Mode** (development/testing only):
 - ✅ All operations including delete, uninstall, cleanup, node drain
@@ -87,22 +98,36 @@ KUBECONFIG=/path/to/kubeconfig    # Optional - defaults to ~/.kube/config
 KUBE_CONTEXT=my-cluster           # Optional - override context
 KUBE_NAMESPACE=default            # Optional - default namespace
 
-# Safety modes
-MCP_READ_ONLY=true                # Enable read-only mode
-MCP_ALLOW_DESTRUCTIVE=true        # Enable destructive operations
+# Safety modes (default is read-only)
+MCP_ALLOW_WRITE=true              # Enable non-destructive write operations
+MCP_ALLOW_DESTRUCTIVE=true        # Enable all operations including destructive
 ```
 
 ### Example Configurations
 
-**Production (read-only):**
+**Production (read-only, default):**
 ```json
 {
   "k8s-prod": {
     "command": "nu-mcp",
     "args": ["--tools-dir", "/path/to/tools/k8s"],
     "env": {
-      "KUBE_CONTEXT": "production",
-      "MCP_READ_ONLY": "true"
+      "KUBE_CONTEXT": "production"
+      // No safety flag needed - read-only is default
+    }
+  }
+}
+```
+
+**Staging (non-destructive writes):**
+```json
+{
+  "k8s-staging": {
+    "command": "nu-mcp",
+    "args": ["--tools-dir", "/path/to/tools/k8s"],
+    "env": {
+      "KUBE_CONTEXT": "staging",
+      "MCP_ALLOW_WRITE": "true"
     }
   }
 }
