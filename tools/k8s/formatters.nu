@@ -23,7 +23,7 @@ export def kubectl-get-schema [] {
     {
         name: "kubectl_get"
         description: "Get or list Kubernetes resources by resource type, name, and optionally namespace"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 resourceType: {
@@ -70,7 +70,7 @@ export def kubectl-describe-schema [] {
     {
         name: "kubectl_describe"
         description: "Describe Kubernetes resources by resource type, name, and optionally namespace"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 resourceType: {
@@ -99,7 +99,7 @@ export def kubectl-logs-schema [] {
     {
         name: "kubectl_logs"
         description: "Get logs from Kubernetes resources like pods, deployments, or jobs"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 resourceType: {
@@ -159,7 +159,7 @@ export def kubectl-context-schema [] {
     {
         name: "kubectl_context"
         description: "Manage Kubernetes contexts - list, get, or set the current context"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 operation: {
@@ -199,7 +199,7 @@ export def explain-resource-schema [] {
     {
         name: "explain_resource"
         description: "Get documentation for a Kubernetes resource or field"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 resource: {
@@ -233,7 +233,7 @@ export def list-api-resources-schema [] {
     {
         name: "list_api_resources"
         description: "List the API resources available in the cluster"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 apiGroup: {
@@ -269,7 +269,7 @@ export def ping-schema [] {
     {
         name: "ping"
         description: "Verify that the counterpart is still responsive and the connection is alive."
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {}
             required: []
@@ -284,7 +284,7 @@ export def kubectl-apply-schema [] {
     {
         name: "kubectl_apply"
         description: "Apply a Kubernetes YAML manifest from a string or file"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 manifest: {
@@ -318,7 +318,7 @@ export def kubectl-create-schema [] {
     {
         name: "kubectl_create"
         description: "Create Kubernetes resources using various methods (from file or using subcommands)"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 manifest: {
@@ -352,7 +352,7 @@ export def kubectl-patch-schema [] {
     {
         name: "kubectl_patch"
         description: "Update field(s) of a resource using strategic merge patch, JSON merge patch, or JSON patch"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 resourceType: {
@@ -395,7 +395,7 @@ export def kubectl-scale-schema [] {
     {
         name: "kubectl_scale"
         description: "Scale a Kubernetes deployment"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 name: {
@@ -424,7 +424,7 @@ export def kubectl-rollout-schema [] {
     {
         name: "kubectl_rollout"
         description: "Manage the rollout of a resource (e.g., deployment, daemonset, statefulset)"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 subCommand: {
@@ -473,7 +473,7 @@ export def exec-in-pod-schema [] {
     {
         name: "exec_in_pod"
         description: "Execute a command in a Kubernetes pod or container and return the output"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 name: {
@@ -509,7 +509,7 @@ export def port-forward-schema [] {
     {
         name: "port_forward"
         description: "Forward a local port to a port on a Kubernetes resource"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 resourceType: {
@@ -544,7 +544,7 @@ export def stop-port-forward-schema [] {
     {
         name: "stop_port_forward"
         description: "Stop a port-forward process"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 id: {
@@ -562,7 +562,7 @@ export def helm-install-schema [] {
     {
         name: "helm_install"
         description: "Install a Helm chart with support for both standard and template-based installation"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 name: {
@@ -608,7 +608,7 @@ export def helm-upgrade-schema [] {
     {
         name: "helm_upgrade"
         description: "Upgrade an existing Helm chart release"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 name: {
@@ -653,7 +653,7 @@ export def kubectl-delete-schema [] {
     {
         name: "kubectl_delete"
         description: "Delete Kubernetes resources by resource type, name, labels, or from a manifest file"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 resourceType: {
@@ -709,7 +709,7 @@ export def helm-uninstall-schema [] {
     {
         name: "helm_uninstall"
         description: "Uninstall a Helm chart release"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 name: {
@@ -735,7 +735,7 @@ export def cleanup-schema [] {
     {
         name: "cleanup"
         description: "Cleanup all managed resources (port-forwards, etc.)"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {}
         }
@@ -747,7 +747,7 @@ export def kubectl-generic-schema [] {
     {
         name: "kubectl_generic"
         description: "Execute any kubectl command with the provided arguments and flags"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 command: {
@@ -798,7 +798,7 @@ export def node-management-schema [] {
     {
         name: "node_management"
         description: "Manage Kubernetes nodes with cordon, drain, and uncordon operations"
-        inputSchema: {
+        input_schema: {
             type: "object"
             properties: {
                 operation: {
