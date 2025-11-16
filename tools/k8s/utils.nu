@@ -86,8 +86,8 @@ export def readonly-tools [] {
 export def destructive-tools [] {
     [
         "kubectl_delete"
-        "uninstall_helm_chart"
-        "cleanup_pods"
+        "helm_uninstall"
+        "cleanup"
         "kubectl_generic"
         "node_management"
     ]
@@ -350,4 +350,21 @@ export def validate-kubectl-access [] {
             isError: true
         }
     }
+}
+
+# Check if a resource type is non-namespaced (cluster-scoped)
+export def is-non-namespaced-resource [
+    resource_type: string
+] {
+    let non_namespaced = [
+        "nodes" "node" "no"
+        "namespaces" "namespace" "ns"
+        "persistentvolumes" "pv"
+        "storageclasses" "sc"
+        "clusterroles"
+        "clusterrolebindings"
+        "customresourcedefinitions" "crd" "crds"
+    ]
+    
+    $resource_type | str downcase | $in in $non_namespaced
 }

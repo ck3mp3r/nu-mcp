@@ -1,10 +1,10 @@
 # Kubernetes MCP Tool - Helm Operations
-# Implementations for install_helm_chart, upgrade_helm_chart
+# Implementations for helm_install, helm_upgrade, helm_uninstall
 
 use utils.nu *
 
-# install_helm_chart - Install Helm chart
-export def install-helm-chart [
+# helm_install - Install Helm chart
+export def helm-install [
     params: record
 ] {
     # Extract parameters
@@ -76,8 +76,8 @@ export def install-helm-chart [
     }
 }
 
-# upgrade_helm_chart - Upgrade Helm release
-export def upgrade-helm-chart [
+# helm_upgrade - Upgrade Helm release
+export def helm-upgrade [
     params: record
 ] {
     # Extract parameters
@@ -143,6 +143,51 @@ export def upgrade-helm-chart [
         operation: "upgrade"
         release: $name
         chart: $chart
+        namespace: $namespace
+        result: ($result | get output)
+    }
+}
+
+# ============================================================================
+# Phase 2: Destructive Operations
+# ============================================================================
+
+# helm_uninstall - Uninstall Helm release
+export def helm-uninstall [
+    params: record
+] {
+    # Extract parameters
+    let name = $params.name
+    let namespace = $params.namespace
+    let context = $params.context? | default ""
+    
+    # Build helm command arguments
+    let args = ["uninstall" $name "--namespace" $namespace]
+    
+    # Execute helm command
+    let result = try {
+        let output = (^helm ...$args)
+        {
+            success: true
+            output: $output
+        }
+    } catch {
+        {
+            error: "HelmUninstallFailed"
+            message: ($in | str trim)
+            isError: true
+        }
+    }
+    
+    # Check for errors
+    if ($result | get isError? | default false) {
+        return (format-tool-response $result --error true)
+    }
+    
+    # Format response
+    format-tool-response {
+        operation: "uninstall"
+        release: $name
         namespace: $namespace
         result: ($result | get output)
     }

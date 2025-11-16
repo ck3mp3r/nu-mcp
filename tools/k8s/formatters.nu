@@ -558,9 +558,9 @@ export def stop-port-forward-schema [] {
 }
 
 # 16. install_helm_chart - Install Helm chart
-export def install-helm-chart-schema [] {
+export def helm-install-schema [] {
     {
-        name: "install_helm_chart"
+        name: "helm_install"
         description: "Install a Helm chart with support for both standard and template-based installation"
         inputSchema: {
             type: "object"
@@ -604,9 +604,9 @@ export def install-helm-chart-schema [] {
 }
 
 # 17. upgrade_helm_chart - Upgrade Helm release
-export def upgrade-helm-chart-schema [] {
+export def helm-upgrade-schema [] {
     {
-        name: "upgrade_helm_chart"
+        name: "helm_upgrade"
         description: "Upgrade an existing Helm chart release"
         inputSchema: {
             type: "object"
@@ -644,6 +644,217 @@ export def upgrade-helm-chart-schema [] {
     }
 }
 
+# ============================================================================
+# Phase 2: Destructive Operations
+# ============================================================================
+
+# Delete Kubernetes resources
+export def kubectl-delete-schema [] {
+    {
+        name: "kubectl_delete"
+        description: "Delete Kubernetes resources by resource type, name, labels, or from a manifest file"
+        inputSchema: {
+            type: "object"
+            properties: {
+                resourceType: {
+                    type: "string"
+                    description: "Type of resource to delete (e.g., pods, deployments, services, etc.)"
+                }
+                name: {
+                    type: "string"
+                    description: "Name of the resource to delete"
+                }
+                namespace: {
+                    type: "string"
+                    description: "Namespace containing the resource (defaults to 'default')"
+                }
+                labelSelector: {
+                    type: "string"
+                    description: "Delete resources matching this label selector (e.g. 'app=nginx')"
+                }
+                manifest: {
+                    type: "string"
+                    description: "YAML manifest defining resources to delete (optional)"
+                }
+                filename: {
+                    type: "string"
+                    description: "Path to a YAML file to delete resources from (optional)"
+                }
+                allNamespaces: {
+                    type: "boolean"
+                    description: "If true, delete resources across all namespaces"
+                    default: false
+                }
+                force: {
+                    type: "boolean"
+                    description: "If true, immediately remove resources from API and bypass graceful deletion"
+                    default: false
+                }
+                gracePeriodSeconds: {
+                    type: "number"
+                    description: "Period of time in seconds given to the resource to terminate gracefully"
+                }
+                context: {
+                    type: "string"
+                    description: "Kubernetes context to use (optional - defaults to current context)"
+                }
+            }
+            required: ["resourceType", "name", "namespace"]
+        }
+    }
+}
+
+# Uninstall a Helm chart release
+export def helm-uninstall-schema [] {
+    {
+        name: "helm_uninstall"
+        description: "Uninstall a Helm chart release"
+        inputSchema: {
+            type: "object"
+            properties: {
+                name: {
+                    type: "string"
+                    description: "Name of the Helm release to uninstall"
+                }
+                namespace: {
+                    type: "string"
+                    description: "Namespace of the Helm release (defaults to 'default')"
+                }
+                context: {
+                    type: "string"
+                    description: "Kubernetes context to use (optional - defaults to current context)"
+                }
+            }
+            required: ["name", "namespace"]
+        }
+    }
+}
+
+# Cleanup all managed resources
+export def cleanup-schema [] {
+    {
+        name: "cleanup"
+        description: "Cleanup all managed resources (port-forwards, etc.)"
+        inputSchema: {
+            type: "object"
+            properties: {}
+        }
+    }
+}
+
+# Execute any kubectl command
+export def kubectl-generic-schema [] {
+    {
+        name: "kubectl_generic"
+        description: "Execute any kubectl command with the provided arguments and flags"
+        inputSchema: {
+            type: "object"
+            properties: {
+                command: {
+                    type: "string"
+                    description: "The kubectl command to execute (e.g. patch, rollout, top)"
+                }
+                subCommand: {
+                    type: "string"
+                    description: "Subcommand if applicable (e.g. 'history' for rollout)"
+                }
+                resourceType: {
+                    type: "string"
+                    description: "Resource type (e.g. pod, deployment)"
+                }
+                name: {
+                    type: "string"
+                    description: "Resource name"
+                }
+                namespace: {
+                    type: "string"
+                    description: "Namespace (defaults to 'default')"
+                }
+                outputFormat: {
+                    type: "string"
+                    description: "Output format (e.g. json, yaml, wide)"
+                    enum: ["json", "yaml", "wide", "name", "custom"]
+                }
+                flags: {
+                    type: "object"
+                    description: "Command flags as key-value pairs"
+                }
+                args: {
+                    type: "array"
+                    description: "Additional command arguments"
+                }
+                context: {
+                    type: "string"
+                    description: "Kubernetes context to use (optional - defaults to current context)"
+                }
+            }
+            required: ["command"]
+        }
+    }
+}
+
+# Manage Kubernetes nodes
+export def node-management-schema [] {
+    {
+        name: "node_management"
+        description: "Manage Kubernetes nodes with cordon, drain, and uncordon operations"
+        inputSchema: {
+            type: "object"
+            properties: {
+                operation: {
+                    type: "string"
+                    description: "Node operation to perform"
+                    enum: ["cordon", "drain", "uncordon"]
+                }
+                nodeName: {
+                    type: "string"
+                    description: "Name of the node to operate on (required for cordon, drain, uncordon)"
+                }
+                force: {
+                    type: "boolean"
+                    description: "Force the operation even if there are pods not managed by a ReplicationController, ReplicaSet, Job, DaemonSet or StatefulSet (for drain operation)"
+                    default: false
+                }
+                gracePeriod: {
+                    type: "number"
+                    description: "Period of time in seconds given to each pod to terminate gracefully (for drain operation). If set to -1, uses the kubectl default grace period."
+                    default: -1
+                }
+                deleteLocalData: {
+                    type: "boolean"
+                    description: "Delete local data even if emptyDir volumes are used (for drain operation)"
+                    default: false
+                }
+                ignoreDaemonsets: {
+                    type: "boolean"
+                    description: "Ignore DaemonSet-managed pods (for drain operation)"
+                    default: true
+                }
+                timeout: {
+                    type: "string"
+                    description: "The length of time to wait before giving up (for drain operation, e.g., '5m', '1h')"
+                    default: "0"
+                }
+                dryRun: {
+                    type: "boolean"
+                    description: "Show what would be done without actually doing it (for drain operation)"
+                    default: false
+                }
+                confirmDrain: {
+                    type: "boolean"
+                    description: "Explicit confirmation to drain the node (required for drain operation)"
+                    default: false
+                }
+            }
+            required: ["operation"]
+        }
+    }
+}
+
+# ============================================================================
+# Schema Collection Functions
+# ============================================================================
+
 # Get all Phase 1A read-only tool schemas
 export def get-readonly-schemas [] {
     [
@@ -668,12 +879,23 @@ export def get-non-destructive-schemas [] {
         (exec-in-pod-schema)
         (port-forward-schema)
         (stop-port-forward-schema)
-        (install-helm-chart-schema)
-        (upgrade-helm-chart-schema)
+        (helm-install-schema)
+        (helm-upgrade-schema)
     ]
 }
 
-# Get all tool schemas (Phase 1A + 1B)
+# Get Phase 2 destructive tool schemas
+export def get-destructive-schemas [] {
+    [
+        (kubectl-delete-schema)
+        (helm-uninstall-schema)
+        (cleanup-schema)
+        (kubectl-generic-schema)
+        (node-management-schema)
+    ]
+}
+
+# Get all tool schemas (Phase 1A + 1B + Phase 2)
 export def get-all-schemas [] {
-    (get-readonly-schemas) | append (get-non-destructive-schemas)
+    (get-readonly-schemas) | append (get-non-destructive-schemas) | append (get-destructive-schemas)
 }

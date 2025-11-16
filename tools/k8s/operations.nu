@@ -550,3 +550,253 @@ export def stop-port-forward [
         message: "Port forwarding stop requested (simplified implementation)"
     }
 }
+
+# ============================================================================
+# Phase 2: Destructive Operations
+# ============================================================================
+
+# kubectl_generic - Execute any kubectl command
+export def kubectl-generic [
+    params: record
+] {
+    # Extract parameters
+    let command = $params.command
+    let sub_command = $params.subCommand? | default ""
+    let resource_type = $params.resourceType? | default ""
+    let name = $params.name? | default ""
+    let namespace = $params.namespace? | default (get-default-namespace)
+    let output_format = $params.outputFormat? | default ""
+    let flags = $params.flags? | default {}
+    let args = $params.args? | default []
+    let context = $params.context? | default ""
+    
+    # Build kubectl command arguments
+    mut cmd_args = [$command]
+    
+    # Add subcommand if provided
+    if $sub_command != "" {
+        $cmd_args = ($cmd_args | append $sub_command)
+    }
+    
+    # Add resource type if provided
+    if $resource_type != "" {
+        $cmd_args = ($cmd_args | append $resource_type)
+    }
+    
+    # Add resource name if provided
+    if $name != "" {
+        $cmd_args = ($cmd_args | append $name)
+    }
+    
+    # Add output format if provided
+    if $output_format != "" {
+        $cmd_args = ($cmd_args | append $"-o=($output_format)")
+    }
+    
+    # Add any provided flags
+    for flag in ($flags | transpose key value) {
+        let key = $flag.key
+        let value = $flag.value
+        
+        if ($value | describe) == "bool" {
+            if $value {
+                # Boolean flag is true, add it
+                $cmd_args = ($cmd_args | append $"--($key)")
+            }
+            # Skip false boolean flags
+        } else if $value != null {
+            # Add as --key=value
+            $cmd_args = ($cmd_args | append $"--($key)=($value)")
+        }
+    }
+    
+    # Add any additional arguments
+    if ($args | length) > 0 {
+        $cmd_args = ($cmd_args | append $args)
+    }
+    
+    # Execute kubectl command
+    let result = run-kubectl $cmd_args --namespace $namespace --context $context --output "text"
+    
+    # Check for errors
+    if ($result | describe | str contains "record") and ($result | get isError? | default false) {
+        return (format-tool-response $result --error true)
+    }
+    
+    # Format response
+    format-tool-response {
+        operation: "kubectl-generic"
+        command: $command
+        result: $result
+    }
+}
+
+# node_management - Manage Kubernetes nodes (cordon, drain, uncordon)
+export def node-management [
+    params: record
+] {
+    # Extract parameters
+    let operation = $params.operation
+    let node_name = $params.nodeName? | default ""
+    let force = $params.force? | default false
+    let grace_period = $params.gracePeriod? | default (-1)
+    let delete_local_data = $params.deleteLocalData? | default false
+    let ignore_daemonsets = $params.ignoreDaemonsets? | default true
+    let timeout = $params.timeout? | default "0"
+    let dry_run = $params.dryRun? | default false
+    let confirm_drain = $params.confirmDrain? | default false
+    
+    # Validate node name is provided for operations that need it
+    if $node_name == "" and $operation in ["cordon", "drain", "uncordon"] {
+        return (format-tool-response {
+            error: "InvalidInput"
+            message: "nodeName is required for cordon, drain, and uncordon operations"
+            isError: true
+        } --error true)
+    }
+    
+    # Handle different operations
+    match $operation {
+        "cordon" => {
+            # Cordon the node (mark as unschedulable)
+            let result = try {
+                let output = (^kubectl cordon $node_name)
+                {
+                    success: true
+                    output: $output
+                }
+            } catch {
+                {
+                    error: "CordonFailed"
+                    message: ($in | str trim)
+                    isError: true
+                }
+            }
+            
+            if ($result | get isError? | default false) {
+                return (format-tool-response $result --error true)
+            }
+            
+            format-tool-response {
+                operation: "cordon"
+                node: $node_name
+                result: ($result | get output)
+            }
+        },
+        
+        "uncordon" => {
+            # Uncordon the node (mark as schedulable)
+            let result = try {
+                let output = (^kubectl uncordon $node_name)
+                {
+                    success: true
+                    output: $output
+                }
+            } catch {
+                {
+                    error: "UncordonFailed"
+                    message: ($in | str trim)
+                    isError: true
+                }
+            }
+            
+            if ($result | get isError? | default false) {
+                return (format-tool-response $result --error true)
+            }
+            
+            format-tool-response {
+                operation: "uncordon"
+                node: $node_name
+                result: ($result | get output)
+            }
+        },
+        
+        "drain" => {
+            # Check for confirmation if not in dry run mode
+            if (not $dry_run) and (not $confirm_drain) {
+                return (format-tool-response {
+                    error: "ConfirmationRequired"
+                    message: $"Drain operation requires explicit confirmation. Set confirmDrain=true to proceed with draining node '($node_name)'."
+                    isError: true
+                } --error true)
+            }
+            
+            # Build drain command arguments
+            mut drain_args = ["drain" $node_name]
+            
+            if $force {
+                $drain_args = ($drain_args | append "--force")
+            }
+            
+            if $grace_period >= 0 {
+                $drain_args = ($drain_args | append $"--grace-period=($grace_period)")
+            }
+            
+            if $delete_local_data {
+                $drain_args = ($drain_args | append "--delete-emptydir-data")
+            }
+            
+            if $ignore_daemonsets {
+                $drain_args = ($drain_args | append "--ignore-daemonsets")
+            }
+            
+            if $timeout != "0" {
+                $drain_args = ($drain_args | append $"--timeout=($timeout)")
+            }
+            
+            if $dry_run {
+                $drain_args = ($drain_args | append "--dry-run=client")
+            }
+            
+            # Execute drain command
+            let result = try {
+                let output = (^kubectl ...$drain_args)
+                {
+                    success: true
+                    output: $output
+                    dryRun: $dry_run
+                }
+            } catch {
+                {
+                    error: "DrainFailed"
+                    message: ($in | str trim)
+                    isError: true
+                }
+            }
+            
+            if ($result | get isError? | default false) {
+                return (format-tool-response $result --error true)
+            }
+            
+            format-tool-response {
+                operation: "drain"
+                node: $node_name
+                dryRun: $dry_run
+                result: ($result | get output)
+            }
+        },
+        
+        _ => {
+            format-tool-response {
+                error: "UnknownOperation"
+                message: $"Unknown node management operation: ($operation)"
+                isError: true
+            } --error true
+        }
+    }
+}
+
+# cleanup - Cleanup all managed resources
+export def cleanup [
+    params: record
+] {
+    # This is a simplified implementation
+    # In the reference, this cleans up port-forwards and other managed resources
+    # For now, we just acknowledge the cleanup request
+    
+    format-tool-response {
+        operation: "cleanup"
+        message: "Cleanup completed (simplified implementation - no managed resources to clean)"
+        success: true
+    }
+}

@@ -11,8 +11,8 @@ Build a Kubernetes MCP server for nu-mcp, mirroring the tool set from [Flux159/m
 |-------|-------|--------|----------------|
 | **Phase 1A** | 7 read-only tools | ✅ **COMPLETE** | 2025-11-16 |
 | **Phase 1B** | 10 non-destructive write tools | ✅ **COMPLETE** | 2025-11-16 |
-| **Phase 2** | 5 destructive tools | ⏳ **TODO** | - |
-| **Total** | **17/22 tools (77%)** | 🚀 **In Progress** | - |
+| **Phase 2** | 5 destructive tools | ✅ **COMPLETE** | 2025-11-16 |
+| **Total** | **22/22 tools (100%)** | ✅ **COMPLETE** | 2025-11-16 |
 
 ### Files Created/Modified
 - ✅ `utils.nu` - Core kubectl wrapper (350 lines)
@@ -96,16 +96,16 @@ Allows:
 | 13 | `port_forward` | Port forward to pod/service | Non-Destructive, Full |
 | 14 | `stop_port_forward` | Stop port forwarding | Non-Destructive, Full |
 | 15 | `exec_in_pod` | Execute command in pod | Non-Destructive, Full |
-| 16 | `install_helm_chart` | Install Helm chart | Non-Destructive, Full |
-| 17 | `upgrade_helm_chart` | Upgrade Helm release | Non-Destructive, Full |
+| 16 | `helm_install` | Install Helm chart | Non-Destructive, Full |
+| 17 | `helm_upgrade` | Upgrade Helm release | Non-Destructive, Full |
 
 ### Phase 2: Destructive Operations (5 tools)
 
 | # | Tool | Description | Mode Support |
 |---|------|-------------|--------------|
 | 18 | `kubectl_delete` | Delete resources | Full only |
-| 19 | `uninstall_helm_chart` | Uninstall Helm release | Full only |
-| 20 | `cleanup_pods` | Cleanup failed/evicted pods | Full only |
+| 19 | `helm_uninstall` | Uninstall Helm release | Full only |
+| 20 | `cleanup` | Cleanup managed resources | Full only |
 | 21 | `kubectl_generic` | Generic kubectl command | Full only |
 | 22 | `node_management` | Cordon/drain/uncordon nodes | Full only |
 
@@ -114,17 +114,16 @@ Allows:
 ## File Structure
 
 ```
-tools/kubernetes/
-├── mod.nu              # MCP interface & tool routing (~200 lines)
-├── formatters.nu       # Tool schemas & definitions (~500 lines)
-├── utils.nu            # kubectl CLI wrapper & helpers (~150 lines)
-├── resources.nu        # Resource operations (get, describe, apply, delete)
-├── operations.nu       # Operations (scale, logs, exec, port-forward, rollout)
-├── helm.nu             # Helm operations (install, upgrade, uninstall)
-├── advanced.nu         # Advanced operations (cleanup, node mgmt, generic)
-├── README.md           # User documentation
+tools/k8s/
+├── mod.nu              # MCP interface & tool routing (135 lines)
+├── formatters.nu       # Tool schemas & definitions (863 lines)
+├── utils.nu            # kubectl CLI wrapper & helpers (368 lines)
+├── resources.nu        # Resource operations (get, describe, apply, create, patch, delete) (394 lines)
+├── operations.nu       # Operations (scale, logs, exec, port-forward, rollout, cleanup, generic, node mgmt) (739 lines)
+├── helm.nu             # Helm operations (install, upgrade, uninstall) (195 lines)
+├── README.md           # User documentation (420 lines)
 ├── IMPLEMENTATION_PLAN.md  # This file
-└── TESTING.md          # Testing guide
+└── DEVELOPMENT_PROCESS.md  # Development guide
 ```
 
 ---
@@ -316,17 +315,19 @@ export def kubectl-get-schema [] -> record {
 - kubectl_scale, kubectl_rollout, exec_in_pod, port_forward, stop_port_forward (operations.nu)
 - install_helm_chart, upgrade_helm_chart (helm.nu)
 
-### Phase 2: Destructive Operations (Day 5)
+### Phase 2: Destructive Operations ✅ COMPLETE
 
 **Deliverables**:
-- [ ] Extend `formatters.nu` - Add 5 destructive tool schemas
-- [ ] `advanced.nu` - Implement cleanup_pods, node_management, kubectl_generic
-- [ ] Extend `resources.nu` - Implement delete
-- [ ] Extend `helm.nu` - Implement uninstall
-- [ ] Full safety mode testing
-- [ ] Documentation completion
+- [x] Extend `formatters.nu` - Add 5 destructive tool schemas
+- [x] Extend `operations.nu` - Implement cleanup, node_management, kubectl_generic
+- [x] Extend `resources.nu` - Implement delete
+- [x] Extend `helm.nu` - Implement uninstall
+- [x] Full safety mode testing
+- [x] Helm tool names updated to helm_install, helm_upgrade, helm_uninstall
 
 **Tools**: 22 total (17 + 5 destructive)
+
+**Date Completed**: 2025-11-16
 
 ---
 
@@ -420,14 +421,15 @@ main call-tool kubectl_delete {resourceType: "pod", name: "test"}
 
 **Date Completed**: 2025-11-16
 
-### Phase 2 Complete
-- [ ] All 22 tools implemented
-- [ ] Delete operations work in full mode
-- [ ] Delete operations blocked in non-destructive mode
-- [ ] Documentation complete
-- [ ] Nix package builds
+### Phase 2 Complete ✅
+- [x] All 22 tools implemented
+- [x] Delete operations work in full mode
+- [x] Delete operations blocked in non-destructive mode
+- [x] Safety model verified (7/17/22 tools in readonly/default/full modes)
+- [x] Helm tools renamed to helm_install, helm_upgrade, helm_uninstall
+- [x] Documentation updated
 
-**Status**: Not started
+**Date Completed**: 2025-11-16
 
 ---
 

@@ -96,8 +96,15 @@ def call_tool [
         "stop_port_forward" => { stop-port-forward $params }
         
         # Phase 1B: Helm operations
-        "install_helm_chart" => { install-helm-chart $params }
-        "upgrade_helm_chart" => { upgrade-helm-chart $params }
+        "helm_install" => { helm-install $params }
+        "helm_upgrade" => { helm-upgrade $params }
+        
+        # Phase 2: Destructive operations
+        "kubectl_delete" => { kubectl-delete $params }
+        "helm_uninstall" => { helm-uninstall $params }
+        "kubectl_generic" => { kubectl-generic $params }
+        "node_management" => { node-management $params }
+        "cleanup" => { cleanup $params }
         
         # Unknown tool
         _ => {

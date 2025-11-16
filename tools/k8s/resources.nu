@@ -274,3 +274,127 @@ export def kubectl-patch [
         result: $result
     }
 }
+
+# ============================================================================
+# Phase 2: Destructive Operations
+# ============================================================================
+
+# Delete Kubernetes resources
+export def kubectl-delete [
+    params: record
+] {
+    # Extract parameters
+    let resource_type = $params.resourceType? | default ""
+    let name = $params.name? | default ""
+    let namespace = $params.namespace? | default (get-default-namespace)
+    let label_selector = $params.labelSelector? | default ""
+    let manifest = $params.manifest? | default ""
+    let filename = $params.filename? | default ""
+    let all_namespaces = $params.allNamespaces? | default false
+    let force = $params.force? | default false
+    let grace_period = $params.gracePeriodSeconds? | default null
+    let context = $params.context? | default ""
+    
+    # Validate input - need at least one way to identify resources
+    if ($resource_type == "") and ($manifest == "") and ($filename == "") {
+        return (format-tool-response {
+            error: "InvalidInput"
+            message: "Either resourceType, manifest, or filename must be provided"
+            isError: true
+        } --error true)
+    }
+    
+    # If resourceType is provided, need either name or labelSelector
+    if ($resource_type != "") and ($name == "") and ($label_selector == "") {
+        return (format-tool-response {
+            error: "InvalidInput"
+            message: "When using resourceType, either name or labelSelector must be provided"
+            isError: true
+        } --error true)
+    }
+    
+    # Build kubectl delete command
+    mut args = ["delete"]
+    
+    # Handle deleting from manifest or file
+    if ($manifest != "") {
+        # Create temporary file for the manifest
+        let temp_file = $"/tmp/delete-manifest-(date now | format date '%s').yaml"
+        $manifest | save -f $temp_file
+        $args = ($args | append ["-f" $temp_file])
+        
+        # Execute the command
+        let result = run-kubectl $args --namespace $namespace --context $context --output "text"
+        
+        # Clean up temp file
+        rm -f $temp_file
+        
+        # Check for errors
+        if ($result | describe | str contains "record") and ($result | get isError? | default false) {
+            return (format-tool-response $result --error true)
+        }
+        
+        return (format-tool-response {
+            operation: "delete"
+            source: "manifest"
+            result: $result
+        })
+    } else if ($filename != "") {
+        $args = ($args | append ["-f" $filename])
+    } else {
+        # Handle deleting by resource type and name/selector
+        $args = ($args | append $resource_type)
+        
+        if ($name != "") {
+            $args = ($args | append $name)
+        }
+        
+        if ($label_selector != "") {
+            $args = ($args | append ["-l" $label_selector])
+        }
+    }
+    
+    # Add namespace flags
+    if $all_namespaces {
+        $args = ($args | append "--all-namespaces")
+    } else if (not (is-non-namespaced-resource $resource_type)) {
+        # Namespace will be added by run-kubectl
+    }
+    
+    # Add force flag if requested
+    if $force {
+        $args = ($args | append "--force")
+    }
+    
+    # Add grace period if specified
+    if ($grace_period != null) {
+        $args = ($args | append $"--grace-period=($grace_period)")
+    }
+    
+    # Execute kubectl command
+    let result = run-kubectl $args --namespace $namespace --context $context --output "text"
+    
+    # Check for errors
+    if ($result | describe | str contains "record") and ($result | get isError? | default false) {
+        # Check if it's a "not found" error
+        let error_msg = $result.message? | default ""
+        if ($error_msg | str contains "not found") {
+            return (format-tool-response {
+                error: "ResourceNotFound"
+                status: "not_found"
+                message: "Resource not found"
+                isError: true
+            } --error true)
+        }
+        return (format-tool-response $result --error true)
+    }
+    
+    # Format response
+    format-tool-response {
+        operation: "delete"
+        resourceType: $resource_type
+        name: $name
+        namespace: $namespace
+        result: $result
+    }
+}
