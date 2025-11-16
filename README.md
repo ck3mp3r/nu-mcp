@@ -33,6 +33,7 @@ Combine both core command execution and extension tools.
 
 The `tools/` directory contains a growing catalog of useful MCP tools:
 
+- **ArgoCD** (`tools/argocd/`) - ArgoCD application and resource management via HTTP API
 - **Weather** (`tools/weather/`) - Current weather and forecasts using Open-Meteo API
 - **Finance** (`tools/finance/`) - Stock prices and financial data using Yahoo Finance API
 - **Tmux** (`tools/tmux/`) - Tmux session and pane management with intelligent command execution
@@ -78,6 +79,9 @@ Tools are available as individual packages or as a complete collection:
 
 ##### Individual Tools
 ```sh
+# ArgoCD tool only
+nix profile install github:ck3mp3r/nu-mcp#argocd-mcp-tools
+
 # Weather tool only
 nix profile install github:ck3mp3r/nu-mcp#weather-mcp-tools
 
