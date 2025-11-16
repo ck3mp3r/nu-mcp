@@ -20,9 +20,14 @@ export def "main list-tools" [] {
 # Call a specific MCP tool
 export def "main call-tool" [
     tool_name: string
-    args: string = "{}"
+    args: any = "{}"
 ] {
-    let params = $args | from json
+    # Handle both string (from Rust via -c) and record (from direct script invocation)
+    let params = if ($args | describe) == "string" {
+        $args | from json
+    } else {
+        $args
+    }
     call_tool $tool_name $params
 }
 
