@@ -39,21 +39,35 @@ export def helm-install [
         $args = ($args | append ["--values" $values_file])
     }
     
-    # Add values from object if specified
-    if $values != null {
-        # Convert values object to YAML and use --set-json
-        let values_json = ($values | to json --raw)
-        $args = ($args | append ["--set-json" $values_json])
+    # Add values from object if specified (write to temp file)
+    let temp_values_file = if $values != null {
+        let temp_file = $"/tmp/helm-values-(date now | format date '%s').yaml"
+        $values | to yaml | save -f $temp_file
+        $args = ($args | append ["--values" $temp_file])
+        $temp_file
+    } else {
+        ""
     }
     
     # Execute helm command
     let result = try {
         let output = (^helm ...$args)
+        
+        # Clean up temp values file if it exists
+        if $temp_values_file != "" {
+            try { rm -f $temp_values_file } catch { }
+        }
+        
         {
             success: true
             output: $output
         }
     } catch {
+        # Clean up temp values file if it exists
+        if $temp_values_file != "" {
+            try { rm -f $temp_values_file } catch { }
+        }
+        
         {
             error: "HelmInstallFailed"
             message: ($in | str trim)
@@ -111,21 +125,35 @@ export def helm-upgrade [
         $args = ($args | append ["--values" $values_file])
     }
     
-    # Add values from object if specified
-    if $values != null {
-        # Convert values object to YAML and use --set-json
-        let values_json = ($values | to json --raw)
-        $args = ($args | append ["--set-json" $values_json])
+    # Add values from object if specified (write to temp file)
+    let temp_values_file = if $values != null {
+        let temp_file = $"/tmp/helm-values-(date now | format date '%s').yaml"
+        $values | to yaml | save -f $temp_file
+        $args = ($args | append ["--values" $temp_file])
+        $temp_file
+    } else {
+        ""
     }
     
     # Execute helm command
     let result = try {
         let output = (^helm ...$args)
+        
+        # Clean up temp values file if it exists
+        if $temp_values_file != "" {
+            try { rm -f $temp_values_file } catch { }
+        }
+        
         {
             success: true
             output: $output
         }
     } catch {
+        # Clean up temp values file if it exists
+        if $temp_values_file != "" {
+            try { rm -f $temp_values_file } catch { }
+        }
+        
         {
             error: "HelmUpgradeFailed"
             message: ($in | str trim)
