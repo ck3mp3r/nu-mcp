@@ -57,7 +57,15 @@ export def validate-resource-type [type: string] {
 
 # Get safety mode from environment variables
 export def get-safety-mode [] {
-  $env.MCP_K8S_MODE? | default "readonly"
+  let mode = ($env.MCP_K8S_MODE? | default "readonly")
+
+  # Validate mode and default to readonly for invalid values
+  if $mode in ["readonly" "non-destructive" "destructive"] {
+    $mode
+  } else {
+    print -e $"Warning: Invalid MCP_K8S_MODE='($mode)'. Valid values: readonly, non-destructive, destructive. Defaulting to readonly."
+    "readonly"
+  }
 }
 
 # Define read-only tools (7 tools)
