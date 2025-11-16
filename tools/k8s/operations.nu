@@ -136,12 +136,12 @@ export def kubectl-context [
                 namespace: (get-default-namespace)
             }
         },
-        "use" => {
-            # Switch context
+        "use" | "set" => {
+            # Switch context (use and set are aliases)
             if $name == "" {
                 return (format-tool-response {
                     error: "MissingParameter"
-                    message: "Context name is required for 'use' operation"
+                    message: "Context name is required for 'set' operation"
                     isError: true
                 } --error true)
             }
@@ -159,7 +159,7 @@ export def kubectl-context [
             
             if ($result | get exit_code) == 0 {
                 format-tool-response {
-                    operation: "use"
+                    operation: $operation
                     previous: (get-current-context)
                     current: $name
                     message: $"Switched to context '($name)'"

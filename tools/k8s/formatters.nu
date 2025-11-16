@@ -22,41 +22,41 @@ export def context-parameter [] {
 export def kubectl-get-schema [] {
     {
         name: "kubectl_get"
-        description: "Get or list Kubernetes resources by type, name, and namespace. Returns structured JSON data for resources like pods, deployments, services, configmaps, secrets, etc."
+        description: "Get or list Kubernetes resources by resource type, name, and optionally namespace"
         inputSchema: {
             type: "object"
             properties: {
                 resourceType: {
                     type: "string"
-                    description: "Type of Kubernetes resource (e.g., 'pods', 'deployments', 'services', 'configmaps', 'secrets', 'nodes', 'namespaces')"
+                    description: "Type of resource to get (e.g., pods, deployments, services, configmaps, events, etc.)"
                 }
                 name: {
                     type: "string"
-                    description: "Name of the specific resource (optional - if omitted, lists all resources of the specified type)"
+                    description: "Name of the resource (optional - if not provided, lists all resources of the specified type)"
                 }
                 namespace: (namespace-parameter)
                 allNamespaces: {
                     type: "boolean"
-                    description: "If true, list resources across all namespaces (optional - default: false)"
+                    description: "If true, list resources across all namespaces"
                     default: false
                 }
                 output: {
                     type: "string"
                     enum: ["json", "yaml", "wide", "name"]
-                    description: "Output format (optional - default: 'json')"
+                    description: "Output format"
                     default: "json"
                 }
                 labelSelector: {
                     type: "string"
-                    description: "Filter resources by label selector (optional - e.g., 'app=nginx,tier=frontend')"
+                    description: "Filter resources by label selector (e.g. 'app=nginx')"
                 }
                 fieldSelector: {
                     type: "string"
-                    description: "Filter resources by field selector (optional - e.g., 'status.phase=Running')"
+                    description: "Filter resources by field selector (e.g. 'metadata.name=my-pod')"
                 }
                 sortBy: {
                     type: "string"
-                    description: "Sort results by field (optional - e.g., '.metadata.creationTimestamp')"
+                    description: "Sort events by a field (default: lastTimestamp). Only applicable for events."
                 }
                 context: (context-parameter)
             }
@@ -69,13 +69,13 @@ export def kubectl-get-schema [] {
 export def kubectl-describe-schema [] {
     {
         name: "kubectl_describe"
-        description: "Show detailed information about a specific Kubernetes resource, including status, events, and configuration. Provides human-readable description with more context than 'get'."
+        description: "Describe Kubernetes resources by resource type, name, and optionally namespace"
         inputSchema: {
             type: "object"
             properties: {
                 resourceType: {
                     type: "string"
-                    description: "Type of Kubernetes resource (e.g., 'pod', 'deployment', 'service', 'node')"
+                    description: "Type of resource to describe (e.g., pods, deployments, services, etc.)"
                 }
                 name: {
                     type: "string"
@@ -84,7 +84,7 @@ export def kubectl-describe-schema [] {
                 namespace: (namespace-parameter)
                 allNamespaces: {
                     type: "boolean"
-                    description: "If true, search across all namespaces (optional - default: false)"
+                    description: "If true, describe resources across all namespaces"
                     default: false
                 }
                 context: (context-parameter)
@@ -98,54 +98,54 @@ export def kubectl-describe-schema [] {
 export def kubectl-logs-schema [] {
     {
         name: "kubectl_logs"
-        description: "Retrieve logs from a pod or specific container. Supports options for tailing, timestamps, and viewing previous container logs (useful for debugging crashed containers)."
+        description: "Get logs from Kubernetes resources like pods, deployments, or jobs"
         inputSchema: {
             type: "object"
             properties: {
                 resourceType: {
                     type: "string"
-                    description: "Resource type (typically 'pod' or 'deployment')"
+                    description: "Type of resource to get logs from"
                     default: "pod"
                 }
                 name: {
                     type: "string"
-                    description: "Name of the pod or deployment"
+                    description: "Name of the resource"
                 }
                 namespace: (namespace-parameter)
                 container: {
                     type: "string"
-                    description: "Container name (required if pod has multiple containers)"
+                    description: "Container name (required when pod has multiple containers)"
                 }
                 tail: {
                     type: "integer"
-                    description: "Number of lines to show from the end of logs (optional - e.g., 100)"
+                    description: "Number of lines to show from end of logs"
                 }
                 since: {
                     type: "string"
-                    description: "Return logs newer than a relative duration (e.g., '5m', '1h', '2d')"
+                    description: "Show logs since relative time (e.g. '5s', '2m', '3h')"
                 }
                 sinceTime: {
                     type: "string"
-                    description: "Return logs after a specific time (RFC3339 format)"
+                    description: "Show logs since absolute time (RFC3339)"
                 }
                 timestamps: {
                     type: "boolean"
-                    description: "Include timestamps in log output (optional - default: false)"
+                    description: "Include timestamps in logs"
                     default: false
                 }
                 previous: {
                     type: "boolean"
-                    description: "Get logs from previous container instance (useful for crashed containers)"
+                    description: "Include logs from previously terminated containers"
                     default: false
                 }
                 follow: {
                     type: "boolean"
-                    description: "Stream logs in real-time (optional - default: false)"
+                    description: "Follow logs output (not recommended, may cause timeouts)"
                     default: false
                 }
                 labelSelector: {
                     type: "string"
-                    description: "Select pods by label (e.g., 'app=nginx')"
+                    description: "Filter resources by label selector"
                 }
                 context: (context-parameter)
             }
@@ -158,33 +158,34 @@ export def kubectl-logs-schema [] {
 export def kubectl-context-schema [] {
     {
         name: "kubectl_context"
-        description: "Manage Kubernetes contexts from kubeconfig. List available contexts, get current context, or switch to a different context. Contexts define which cluster, user, and namespace to use."
+        description: "Manage Kubernetes contexts - list, get, or set the current context"
         inputSchema: {
             type: "object"
             properties: {
                 operation: {
                     type: "string"
-                    enum: ["list", "get", "use"]
-                    description: "Operation to perform: 'list' (show all contexts), 'get' (show current context), 'use' (switch context)"
+                    enum: ["list", "get", "set"]
+                    description: "Operation to perform: list contexts, get current context, or set current context"
+                    default: "list"
                 }
                 name: {
                     type: "string"
-                    description: "Context name (required for 'use' operation)"
+                    description: "Name of the context to set as current (required for set operation)"
                 }
                 showCurrent: {
                     type: "boolean"
-                    description: "Highlight current context in list output (optional - default: true)"
+                    description: "When listing contexts, highlight which one is currently active"
                     default: true
                 }
                 detailed: {
                     type: "boolean"
-                    description: "Show detailed context information including cluster, user, and namespace (optional - default: false)"
+                    description: "Include detailed information about the context"
                     default: false
                 }
                 output: {
                     type: "string"
-                    enum: ["json", "yaml", "table"]
-                    description: "Output format (optional - default: 'json')"
+                    enum: ["json", "yaml", "name", "custom"]
+                    description: "Output format"
                     default: "json"
                 }
             }
@@ -197,27 +198,27 @@ export def kubectl-context-schema [] {
 export def explain-resource-schema [] {
     {
         name: "explain_resource"
-        description: "Get documentation for Kubernetes resource types and their fields. Useful for understanding resource schemas, required fields, and API structure. Supports recursive exploration of nested fields."
+        description: "Get documentation for a Kubernetes resource or field"
         inputSchema: {
             type: "object"
             properties: {
                 resource: {
                     type: "string"
-                    description: "Resource type or field path to explain (e.g., 'pod', 'deployment.spec', 'pod.spec.containers')"
+                    description: "Resource name or field path (e.g. 'pods' or 'pods.spec.containers')"
                 }
                 apiVersion: {
                     type: "string"
-                    description: "API version to use (optional - e.g., 'v1', 'apps/v1')"
+                    description: "API version to use (e.g. 'apps/v1')"
                 }
                 recursive: {
                     type: "boolean"
-                    description: "Show all fields recursively (optional - default: false)"
+                    description: "Print the fields of fields recursively"
                     default: false
                 }
                 output: {
                     type: "string"
                     enum: ["plaintext", "plaintext-openapiv2"]
-                    description: "Output format (optional - default: 'plaintext')"
+                    description: "Output format (plaintext or plaintext-openapiv2)"
                     default: "plaintext"
                 }
                 context: (context-parameter)
@@ -231,30 +232,30 @@ export def explain-resource-schema [] {
 export def list-api-resources-schema [] {
     {
         name: "list_api_resources"
-        description: "List all available Kubernetes API resource types in the cluster. Shows resource names, short names, API groups, namespaced status, and supported verbs (get, list, create, delete, etc.). Useful for discovering what resources are available."
+        description: "List the API resources available in the cluster"
         inputSchema: {
             type: "object"
             properties: {
                 apiGroup: {
                     type: "string"
-                    description: "Filter by API group (optional - e.g., 'apps', 'batch', 'networking.k8s.io')"
+                    description: "API group to filter by"
                 }
                 namespaced: {
                     type: "boolean"
-                    description: "Filter by namespaced resources (optional - true for namespaced, false for cluster-scoped)"
+                    description: "If true, only show namespaced resources"
                 }
                 verbs: {
                     type: "array"
                     items: {
                         type: "string"
                     }
-                    description: "Filter by supported verbs (optional - e.g., ['list', 'get', 'create'])"
+                    description: "List of verbs to filter by"
                 }
                 output: {
                     type: "string"
-                    enum: ["wide", "name", "json"]
-                    description: "Output format (optional - default: 'json')"
-                    default: "json"
+                    enum: ["wide", "name", "no-headers"]
+                    description: "Output format (wide, name, or no-headers)"
+                    default: "wide"
                 }
                 context: (context-parameter)
             }
@@ -267,12 +268,10 @@ export def list-api-resources-schema [] {
 export def ping-schema [] {
     {
         name: "ping"
-        description: "Verify connectivity to the Kubernetes cluster. Checks if kubectl is installed, configured correctly, and can reach the cluster. Returns cluster info, kubectl version, current context, and default namespace."
+        description: "Verify that the counterpart is still responsive and the connection is alive."
         inputSchema: {
             type: "object"
-            properties: {
-                context: (context-parameter)
-            }
+            properties: {}
             required: []
         }
     }
