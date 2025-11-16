@@ -57,15 +57,12 @@ export def validate-resource-type [type: string] {
 
 # Get safety mode from environment variables
 export def get-safety-mode [] {
-    let allow_write = ($env.MCP_ALLOW_WRITE? | default "false") == "true"
-    let allow_destructive = ($env.MCP_ALLOW_DESTRUCTIVE? | default "false") == "true"
+    let k8s_mode = ($env.MCP_K8S_MODE? | default "readonly")
     
-    if $allow_destructive {
-        "full"
-    } else if $allow_write {
-        "non-destructive"
-    } else {
-        "readonly"  # Default - safest option
+    match $k8s_mode {
+        "write" => "non-destructive"
+        "destructive" => "full"
+        _ => "readonly"  # Default - safest option
     }
 }
 
@@ -118,8 +115,8 @@ export def permission-denied-error [tool_name: string] {
     let mode = (get-safety-mode)
     
     let message = match $mode {
-        "readonly" => $"Tool '($tool_name)' requires write access. Set MCP_ALLOW_WRITE=true to enable non-destructive operations.",
-        "non-destructive" => $"Tool '($tool_name)' is a destructive operation. Set MCP_ALLOW_DESTRUCTIVE=true to enable.",
+        "readonly" => $"Tool '($tool_name)' requires write access. Set MCP_K8S_MODE=write to enable non-destructive operations.",
+        "non-destructive" => $"Tool '($tool_name)' is a destructive operation. Set MCP_K8S_MODE=destructive to enable.",
         _ => $"Tool '($tool_name)' is not allowed in current mode."
     }
     

@@ -22,40 +22,62 @@ MCP server for Kubernetes cluster management. Provides 22 kubectl/Helm tools wit
 
 ## Safety Modes
 
-The server operates in one of three modes based on environment variables:
+The server operates in one of three modes controlled by a single environment variable:
 
 | Mode | Tools | Configuration |
 |------|-------|---------------|
-| **Read-Only** (default) | 7 | No env var needed |
-| **Non-Destructive** | 17 | Set `MCP_ALLOW_WRITE=true` |
-| **Full Access** | 22 | Set `MCP_ALLOW_DESTRUCTIVE=true` |
+| **Read-Only** (default) | 7 | No env var needed (or `MCP_K8S_MODE=readonly`) |
+| **Write** | 17 | Set `MCP_K8S_MODE=write` |
+| **Destructive** | 22 | Set `MCP_K8S_MODE=destructive` |
 
 ### Switching Modes
 
-**In your MCP client configuration** (e.g., Claude Desktop, Cline), add the environment variable to the `env` object:
+Set `MCP_K8S_MODE` in your MCP client configuration (e.g., Claude Desktop, Cline):
 
-**For write operations** (apply, scale, patch, Helm install):
+**Read-Only (default)** - safest for production:
 ```json
 {
   "mcpServers": {
-    "k8s": {
+    "k8s-prod": {
       "command": "nu-mcp",
       "args": ["--tools-dir", "/path/to/tools/k8s"],
       "env": {
-        "KUBE_CONTEXT": "my-cluster",
-        "MCP_ALLOW_WRITE": "true"           ← Add this for non-destructive write access
+        "KUBE_CONTEXT": "production"
+        // No MCP_K8S_MODE needed - defaults to readonly
       }
     }
   }
 }
 ```
 
-**For destructive operations** (delete, uninstall):
+**Write Mode** - for deployments and scaling:
 ```json
 {
-  "env": {
-    "KUBE_CONTEXT": "my-cluster",
-    "MCP_ALLOW_DESTRUCTIVE": "true"         ← Add this for full access (includes write)
+  "mcpServers": {
+    "k8s-staging": {
+      "command": "nu-mcp",
+      "args": ["--tools-dir", "/path/to/tools/k8s"],
+      "env": {
+        "KUBE_CONTEXT": "staging",
+        "MCP_K8S_MODE": "write"
+      }
+    }
+  }
+}
+```
+
+**Destructive Mode** - development/testing only:
+```json
+{
+  "mcpServers": {
+    "k8s-dev": {
+      "command": "nu-mcp",
+      "args": ["--tools-dir", "/path/to/tools/k8s"],
+      "env": {
+        "KUBE_CONTEXT": "minikube",
+        "MCP_K8S_MODE": "destructive"
+      }
+    }
   }
 }
 ```
@@ -98,54 +120,15 @@ KUBECONFIG=/path/to/kubeconfig    # Optional - defaults to ~/.kube/config
 KUBE_CONTEXT=my-cluster           # Optional - override context
 KUBE_NAMESPACE=default            # Optional - default namespace
 
-# Safety modes (default is read-only)
-MCP_ALLOW_WRITE=true              # Enable non-destructive write operations
-MCP_ALLOW_DESTRUCTIVE=true        # Enable all operations including destructive
+# Safety mode (default is readonly)
+MCP_K8S_MODE=readonly             # Read-only access (default)
+MCP_K8S_MODE=write                # Non-destructive write operations
+MCP_K8S_MODE=destructive          # All operations including delete
 ```
 
 ### Example Configurations
 
-**Production (read-only, default):**
-```json
-{
-  "k8s-prod": {
-    "command": "nu-mcp",
-    "args": ["--tools-dir", "/path/to/tools/k8s"],
-    "env": {
-      "KUBE_CONTEXT": "production"
-      // No safety flag needed - read-only is default
-    }
-  }
-}
-```
-
-**Staging (non-destructive writes):**
-```json
-{
-  "k8s-staging": {
-    "command": "nu-mcp",
-    "args": ["--tools-dir", "/path/to/tools/k8s"],
-    "env": {
-      "KUBE_CONTEXT": "staging",
-      "MCP_ALLOW_WRITE": "true"
-    }
-  }
-}
-```
-
-**Development (full access):**
-```json
-{
-  "k8s-dev": {
-    "command": "nu-mcp",
-    "args": ["--tools-dir", "/path/to/tools/k8s"],
-    "env": {
-      "KUBE_CONTEXT": "minikube",
-      "MCP_ALLOW_DESTRUCTIVE": "true"
-    }
-  }
-}
-```
+See "Switching Modes" section above for configuration examples.
 
 ## Security Features
 
