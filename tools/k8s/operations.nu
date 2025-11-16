@@ -494,25 +494,123 @@ export def port-forward [
     # Build kubectl arguments
     let resource = $"($resource_type)/($resource_name)"
     let port_mapping = $"($local_port):($target_port)"
-    let args = ["port-forward" $resource $port_mapping]
+    let log_file = $"/tmp/kubectl-port-forward-($local_port).log"
     
-    # Note: Port forwarding is a long-running process
-    # For now, we'll start it and return immediately
-    # In a full implementation, we'd need background process management
-    
-    # Execute kubectl command in background
-    # This is simplified - full implementation would need process tracking
+    # Execute kubectl port-forward in background using Nushell job system
     let result = try {
-        # Start port-forward in background (simplified)
-        {
-            success: true
-            message: $"Port forwarding started: localhost:($local_port) -> ($resource):($target_port)"
-            id: $"($resource_type)-($resource_name)-($local_port)"
+        # Spawn background job for port-forward
+        # kubectl port-forward blocks, keeping the job alive
+        let job_id = (job spawn --tag $"pf-($local_port)" {|| 
+            if $namespace != "" and $context != "" {
+                ^kubectl port-forward $resource $port_mapping --namespace $namespace --context $context out+err> $log_file
+            } else if $namespace != "" {
+                ^kubectl port-forward $resource $port_mapping --namespace $namespace out+err> $log_file
+            } else if $context != "" {
+                ^kubectl port-forward $resource $port_mapping --context $context out+err> $log_file
+            } else {
+                ^kubectl port-forward $resource $port_mapping out+err> $log_file
+            }
+        })
+        
+        # Give it a moment to start
+        sleep 1sec
+        
+        # Check if the log file shows it started
+        let log_content = if ($log_file | path exists) {
+            open $log_file
+        } else {
+            ""
+        }
+        
+        if ($log_content | str contains "Forwarding from") {
+            {
+                success: true
+                message: $"Port forwarding started: localhost:($local_port) -> ($resource):($target_port)"
+                id: $"pf-($local_port)"
+                logFile: $log_file
+            }
+        } else if ($log_content | str contains "error") {
+            error make {
+                msg: $"Port forward failed: ($log_content)"
+            }
+        } else {
+            {
+                success: true
+                message: $"Port forwarding started: localhost:($local_port) -> ($resource):($target_port)"
+                id: $"pf-($local_port)"
+                logFile: $log_file
+                warning: "Could not verify startup - check log file"
+            }
         }
     } catch {
         {
             error: "PortForwardFailed"
-            message: "Failed to start port forwarding"
+            message: $"Failed to start port forwarding: ($in)"
+            isError: true
+        }
+    }
+    
+    # Check for errors
+    if ($result | get isError? | default false) {
+        return (format-tool-response $result --error true)
+    }
+    
+    # Format response
+    format-tool-response $result
+}
+
+# stop_port_forward - Stop port forwarding
+export def stop-port-forward [
+    params: record
+] {
+    # Extract parameters
+    let id = $params.id
+    
+    # Extract port from ID (format: pf-{port})
+    let port = ($id | split row '-' | get 1)
+    let log_file = $"/tmp/kubectl-port-forward-($port).log"
+    
+    # Try to stop the port-forward job
+    let result = try {
+        # Find the job by tag
+        let jobs = (job list | where tag == $id)
+        
+        if ($jobs | length) == 0 {
+            error make {
+                msg: $"No port-forward job found with ID ($id)"
+            }
+        }
+        
+        # Get the job ID and kill it
+        let job_id = ($jobs | first | get id)
+        job kill $job_id
+        
+        # Give it a moment to stop
+        sleep 500ms
+        
+        # Verify it's stopped
+        let still_running = (job list | where id == $job_id | length) > 0
+        
+        if $still_running {
+            error make {
+                msg: $"Job ($job_id) is still running after kill attempt"
+            }
+        }
+        
+        # Clean up log file
+        if ($log_file | path exists) {
+            rm -f $log_file
+        }
+        
+        {
+            success: true
+            message: $"Port forwarding stopped for ($id) (Job ID: ($job_id))"
+            jobId: $job_id
+        }
+    } catch {
+        {
+            error: "StopPortForwardFailed"
+            message: ($in)
             isError: true
         }
     }
@@ -524,30 +622,9 @@ export def port-forward [
     
     # Format response
     format-tool-response {
-        operation: "port-forward"
-        resource: $resource
-        localPort: $local_port
-        targetPort: $target_port
-        id: ($result | get id)
-        message: ($result | get message)
-    }
-}
-
-# stop_port_forward - Stop port forwarding
-export def stop-port-forward [
-    params: record
-] {
-    # Extract parameters
-    let id = $params.id
-    
-    # Note: This is a simplified implementation
-    # Full implementation would need to track and kill background processes
-    
-    # Format response
-    format-tool-response {
         operation: "stop-port-forward"
         id: $id
-        message: "Port forwarding stop requested (simplified implementation)"
+        message: ($result | get message)
     }
 }
 
