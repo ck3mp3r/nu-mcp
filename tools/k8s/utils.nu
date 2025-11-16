@@ -2,7 +2,7 @@
 # kubectl wrapper, safety checks, and helper functions
 
 # Check if kubectl is installed and accessible
-export def check-kubectl [] -> bool {
+export def check-kubectl [] {
     try {
         kubectl version --client --output json | from json
         true
@@ -12,7 +12,7 @@ export def check-kubectl [] -> bool {
 }
 
 # Get kubectl version info
-export def get-kubectl-version [] -> record {
+export def get-kubectl-version [] {
     try {
         kubectl version --client --output json | from json | get clientVersion
     } catch {
@@ -24,7 +24,7 @@ export def get-kubectl-version [] -> record {
 }
 
 # Get current kubeconfig context
-export def get-current-context [] -> string {
+export def get-current-context [] {
     try {
         kubectl config current-context | str trim
     } catch {
@@ -33,7 +33,7 @@ export def get-current-context [] -> string {
 }
 
 # List all available contexts
-export def list-contexts [] -> table {
+export def list-contexts [] {
     try {
         kubectl config get-contexts --output json 
         | from json 
@@ -46,7 +46,7 @@ export def list-contexts [] -> table {
 }
 
 # Validate resource type against kubectl api-resources
-export def validate-resource-type [type: string] -> bool {
+export def validate-resource-type [type: string] {
     try {
         let resources = (kubectl api-resources --output name | lines)
         ($type in $resources) or ($type | str downcase in $resources)
@@ -56,7 +56,7 @@ export def validate-resource-type [type: string] -> bool {
 }
 
 # Get safety mode from environment variables
-export def get-safety-mode [] -> string {
+export def get-safety-mode [] {
     let read_only = ($env.MCP_READ_ONLY? | default "false") == "true"
     let allow_destructive = ($env.MCP_ALLOW_DESTRUCTIVE? | default "false") == "true"
     
@@ -70,7 +70,7 @@ export def get-safety-mode [] -> string {
 }
 
 # Define read-only tools (7 tools)
-export def readonly-tools [] -> list<string> {
+export def readonly-tools [] {
     [
         "kubectl_get"
         "kubectl_describe"
@@ -83,7 +83,7 @@ export def readonly-tools [] -> list<string> {
 }
 
 # Define destructive tools (5 tools)
-export def destructive-tools [] -> list<string> {
+export def destructive-tools [] {
     [
         "kubectl_delete"
         "uninstall_helm_chart"
@@ -94,7 +94,7 @@ export def destructive-tools [] -> list<string> {
 }
 
 # Check if a tool is allowed in current safety mode
-export def is-tool-allowed [tool_name: string] -> bool {
+export def is-tool-allowed [tool_name: string] {
     let mode = (get-safety-mode)
     
     match $mode {
@@ -114,7 +114,7 @@ export def is-tool-allowed [tool_name: string] -> bool {
 }
 
 # Generate permission denied error
-export def permission-denied-error [tool_name: string] -> record {
+export def permission-denied-error [tool_name: string] {
     let mode = (get-safety-mode)
     
     let message = match $mode {
@@ -139,12 +139,12 @@ export def run-kubectl [
     --namespace: string = "",
     --context: string = "",
     --output: string = "json",
-    --all-namespaces: bool = false
-] -> any {
+    --all-namespaces = false
+] {
     # Build base command
     mut cmd_args = ["kubectl"]
     
-    # Add context if specified
+    # Add context if specified (global flag, goes before subcommand)
     let ctx = if $context != "" {
         $context
     } else {
@@ -155,7 +155,10 @@ export def run-kubectl [
         $cmd_args = ($cmd_args | append ["--context" $ctx])
     }
     
-    # Add namespace if specified (and not all-namespaces)
+    # Add the actual kubectl command arguments (e.g., "get", "pods")
+    $cmd_args = ($cmd_args | append $args)
+    
+    # Add namespace if specified (command-specific flag, after subcommand)
     if not $all_namespaces and $namespace != "" {
         $cmd_args = ($cmd_args | append ["--namespace" $namespace])
     } else if not $all_namespaces {
@@ -170,21 +173,22 @@ export def run-kubectl [
         $cmd_args = ($cmd_args | append ["--all-namespaces"])
     }
     
-    # Add the actual kubectl command arguments
-    $cmd_args = ($cmd_args | append $args)
-    
     # Add output format if applicable
     if $output in ["json", "yaml"] and not ("--output" in $args or "-o" in $args) {
         $cmd_args = ($cmd_args | append ["--output" $output])
     }
     
+    # Capture command string for error reporting
+    let cmd_str = ($cmd_args | str join " ")
+    
     # Execute kubectl command
     try {
+        let kubectl_args = ($cmd_args | skip 1)  # Skip "kubectl" string
         let result = if $stdin != "" {
             # Use stdin if provided
-            $stdin | ^kubectl ...$cmd_args[1..]
+            $stdin | ^kubectl ...$kubectl_args
         } else {
-            ^kubectl ...$cmd_args[1..]
+            ^kubectl ...$kubectl_args
         }
         
         # Parse output based on format
@@ -206,12 +210,12 @@ export def run-kubectl [
             $result | str trim
         }
     } catch {
-        # Return error information
+        # Return error information  
         let error_msg = $in | str trim
         {
             error: "KubectlCommandFailed"
             message: $error_msg
-            command: ($cmd_args | str join " ")
+            command: $cmd_str
             isError: true
         }
     }
@@ -221,7 +225,7 @@ export def run-kubectl [
 export def parse-kubectl-output [
     output: string,
     format: string = "json"
-] -> any {
+] {
     if ($output | str trim | str starts-with "Error") {
         {
             error: "KubectlError"
@@ -248,7 +252,7 @@ export def parse-kubectl-output [
 }
 
 # Get default namespace from environment or kubeconfig
-export def get-default-namespace [] -> string {
+export def get-default-namespace [] {
     # First check env var
     let env_ns = $env.KUBE_NAMESPACE? | default ""
     if $env_ns != "" {
@@ -271,7 +275,7 @@ export def get-default-namespace [] -> string {
 }
 
 # Mask secrets in kubectl output
-export def mask-secrets [data: any] -> any {
+export def mask-secrets [data: any] {
     # Check if this is secret data
     if ($data | describe | str contains "record") {
         if ($data | get kind? | default "" | str downcase) == "secret" {
@@ -295,8 +299,8 @@ export def mask-secrets [data: any] -> any {
 # Format MCP tool response
 export def format-tool-response [
     content: any,
-    --error: bool = false
-] -> record {
+    --error = false
+] {
     if $error {
         {
             content: [
@@ -320,7 +324,7 @@ export def format-tool-response [
 }
 
 # Validate kubectl is available and cluster is accessible
-export def validate-kubectl-access [] -> record {
+export def validate-kubectl-access [] {
     # Check kubectl exists
     if not (check-kubectl) {
         return {

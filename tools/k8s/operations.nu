@@ -6,7 +6,7 @@ use utils.nu *
 # kubectl_logs - Get pod/container logs
 export def kubectl-logs [
     params: record
-] -> record {
+] {
     # Extract parameters
     let resource_type = $params.resourceType? | default "pod"
     let name = $params.name
@@ -75,7 +75,7 @@ export def kubectl-logs [
     
     # Check for errors
     if ($result | describe | str contains "record") and ($result | get isError? | default false) {
-        return (format-tool-response $result --error)
+        return (format-tool-response $result --error true)
     }
     
     # Format response
@@ -91,7 +91,7 @@ export def kubectl-logs [
 # kubectl_context - Manage kubectl contexts
 export def kubectl-context [
     params: record
-] -> record {
+] {
     # Extract parameters
     let operation = $params.operation
     let name = $params.name? | default ""
@@ -127,7 +127,7 @@ export def kubectl-context [
                     error: "NoContextSet"
                     message: "No current context is set"
                     isError: true
-                } --error)
+                } --error true)
             }
             
             format-tool-response {
@@ -143,7 +143,7 @@ export def kubectl-context [
                     error: "MissingParameter"
                     message: "Context name is required for 'use' operation"
                     isError: true
-                } --error)
+                } --error true)
             }
             
             # Execute context switch
@@ -169,7 +169,7 @@ export def kubectl-context [
                     error: "ContextSwitchFailed"
                     message: ($result | get stderr | str trim)
                     isError: true
-                } --error
+                } --error true
             }
         },
         _ => {
@@ -177,7 +177,7 @@ export def kubectl-context [
                 error: "InvalidOperation"
                 message: $"Unknown operation: ($operation). Valid operations are: list, get, use"
                 isError: true
-            } --error
+            } --error true
         }
     }
 }
@@ -185,7 +185,7 @@ export def kubectl-context [
 # explain_resource - Explain Kubernetes resource schema
 export def explain-resource [
     params: record
-] -> record {
+] {
     # Extract parameters
     let resource = $params.resource
     let api_version = $params.apiVersion? | default ""
@@ -216,7 +216,7 @@ export def explain-resource [
     
     # Check for errors
     if ($result | describe | str contains "record") and ($result | get isError? | default false) {
-        return (format-tool-response $result --error)
+        return (format-tool-response $result --error true)
     }
     
     # Format response
@@ -230,7 +230,7 @@ export def explain-resource [
 # list_api_resources - List available API resources
 export def list-api-resources [
     params: record
-] -> record {
+] {
     # Extract parameters
     let api_group = $params.apiGroup? | default ""
     let namespaced = $params.namespaced? | default null
@@ -272,7 +272,7 @@ export def list-api-resources [
     
     # Check for errors
     if ($result | describe | str contains "record") and ($result | get isError? | default false) {
-        return (format-tool-response $result --error)
+        return (format-tool-response $result --error true)
     }
     
     # Parse the wide output into structured data if JSON requested
@@ -306,7 +306,7 @@ export def list-api-resources [
 # ping - Verify kubectl connectivity
 export def ping [
     params: record
-] -> record {
+] {
     # Extract parameters
     let context = $params.context? | default ""
     
@@ -315,7 +315,7 @@ export def ping [
     
     # Check if validation failed
     if ($validation | get isError? | default false) {
-        return (format-tool-response $validation --error)
+        return (format-tool-response $validation --error true)
     }
     
     # Get cluster info

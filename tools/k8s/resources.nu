@@ -6,7 +6,7 @@ use utils.nu *
 # kubectl_get - Get or list Kubernetes resources
 export def kubectl-get [
     params: record
-] -> record {
+] {
     # Extract parameters
     let resource_type = $params.resourceType
     let name = $params.name? | default ""
@@ -46,7 +46,7 @@ export def kubectl-get [
     
     # Check for errors
     if ($result | describe | str contains "record") and ($result | get isError? | default false) {
-        return (format-tool-response $result --error)
+        return (format-tool-response $result --error true)
     }
     
     # Mask secrets if this is a secret resource
@@ -63,7 +63,7 @@ export def kubectl-get [
 # kubectl_describe - Describe a Kubernetes resource
 export def kubectl-describe [
     params: record
-] -> record {
+] {
     # Extract parameters
     let resource_type = $params.resourceType
     let name = $params.name
@@ -79,7 +79,7 @@ export def kubectl-describe [
     
     # Check for errors
     if ($result | describe | str contains "record") and ($result | get isError? | default false) {
-        return (format-tool-response $result --error)
+        return (format-tool-response $result --error true)
     }
     
     # Format response

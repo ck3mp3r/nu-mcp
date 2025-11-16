@@ -89,7 +89,7 @@ def call_tool [
                 message: $"Unknown tool: ($tool_name)"
                 availableTools: (list_tools | get tools | get name)
                 isError: true
-            } --error
+            } --error true
         }
     }
 }

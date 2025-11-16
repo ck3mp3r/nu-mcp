@@ -2,14 +2,14 @@
 # MCP tool schemas for all k8s operations
 
 # Common parameter definitions
-export def namespace-parameter [] -> record {
+export def namespace-parameter [] {
     {
         type: "string"
         description: "Kubernetes namespace (optional - defaults to KUBE_NAMESPACE env var or 'default')"
     }
 }
 
-export def context-parameter [] -> record {
+export def context-parameter [] {
     {
         type: "string"
         description: "Kubernetes context to use (optional - defaults to KUBE_CONTEXT env var or current context)"
@@ -19,7 +19,7 @@ export def context-parameter [] -> record {
 # Phase 1A: Read-Only Tools (7 tools)
 
 # 1. kubectl_get - Get/list Kubernetes resources
-export def kubectl-get-schema [] -> record {
+export def kubectl-get-schema [] {
     {
         name: "kubectl_get"
         description: "Get or list Kubernetes resources by type, name, and namespace. Returns structured JSON data for resources like pods, deployments, services, configmaps, secrets, etc."
@@ -66,7 +66,7 @@ export def kubectl-get-schema [] -> record {
 }
 
 # 2. kubectl_describe - Describe Kubernetes resource
-export def kubectl-describe-schema [] -> record {
+export def kubectl-describe-schema [] {
     {
         name: "kubectl_describe"
         description: "Show detailed information about a specific Kubernetes resource, including status, events, and configuration. Provides human-readable description with more context than 'get'."
@@ -95,7 +95,7 @@ export def kubectl-describe-schema [] -> record {
 }
 
 # 3. kubectl_logs - Get pod/container logs
-export def kubectl-logs-schema [] -> record {
+export def kubectl-logs-schema [] {
     {
         name: "kubectl_logs"
         description: "Retrieve logs from a pod or specific container. Supports options for tailing, timestamps, and viewing previous container logs (useful for debugging crashed containers)."
@@ -155,7 +155,7 @@ export def kubectl-logs-schema [] -> record {
 }
 
 # 4. kubectl_context - Manage kubectl contexts
-export def kubectl-context-schema [] -> record {
+export def kubectl-context-schema [] {
     {
         name: "kubectl_context"
         description: "Manage Kubernetes contexts from kubeconfig. List available contexts, get current context, or switch to a different context. Contexts define which cluster, user, and namespace to use."
@@ -194,7 +194,7 @@ export def kubectl-context-schema [] -> record {
 }
 
 # 5. explain_resource - Explain Kubernetes resource schema
-export def explain-resource-schema [] -> record {
+export def explain-resource-schema [] {
     {
         name: "explain_resource"
         description: "Get documentation for Kubernetes resource types and their fields. Useful for understanding resource schemas, required fields, and API structure. Supports recursive exploration of nested fields."
@@ -228,7 +228,7 @@ export def explain-resource-schema [] -> record {
 }
 
 # 6. list_api_resources - List available Kubernetes API resources
-export def list-api-resources-schema [] -> record {
+export def list-api-resources-schema [] {
     {
         name: "list_api_resources"
         description: "List all available Kubernetes API resource types in the cluster. Shows resource names, short names, API groups, namespaced status, and supported verbs (get, list, create, delete, etc.). Useful for discovering what resources are available."
@@ -264,7 +264,7 @@ export def list-api-resources-schema [] -> record {
 }
 
 # 7. ping - Verify kubectl connectivity
-export def ping-schema [] -> record {
+export def ping-schema [] {
     {
         name: "ping"
         description: "Verify connectivity to the Kubernetes cluster. Checks if kubectl is installed, configured correctly, and can reach the cluster. Returns cluster info, kubectl version, current context, and default namespace."
@@ -279,7 +279,7 @@ export def ping-schema [] -> record {
 }
 
 # Get all Phase 1A read-only tool schemas
-export def get-readonly-schemas [] -> list<record> {
+export def get-readonly-schemas [] {
     [
         (kubectl-get-schema)
         (kubectl-describe-schema)
@@ -292,6 +292,6 @@ export def get-readonly-schemas [] -> list<record> {
 }
 
 # Get all tool schemas (currently just Phase 1A)
-export def get-all-schemas [] -> list<record> {
+export def get-all-schemas [] {
     get-readonly-schemas
 }
