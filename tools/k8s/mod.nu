@@ -7,27 +7,23 @@ use resources.nu *
 use operations.nu *
 use helm.nu *
 
-# Main entry point for MCP protocol
-export def main [
-    action: string
-    ...args: any
+# Default main command - show help
+export def main [] {
+    help main
+}
+
+# List available MCP tools
+export def "main list-tools" [] {
+    list_tools
+}
+
+# Call a specific MCP tool
+export def "main call-tool" [
+    tool_name: string
+    args: string = "{}"
 ] {
-    match $action {
-        "list-tools" => { list_tools }
-        "call-tool" => { 
-            if ($args | length) < 2 {
-                error make {
-                    msg: "call-tool requires tool name and parameters"
-                }
-            }
-            call_tool ($args | get 0) ($args | get 1)
-        }
-        _ => {
-            error make {
-                msg: $"Unknown action: ($action)"
-            }
-        }
-    }
+    let params = $args | from json
+    call_tool $tool_name $params
 }
 
 # List all available tools based on safety mode
@@ -55,9 +51,7 @@ def list_tools [] {
         }
     }
     
-    {
-        tools: $filtered_schemas
-    }
+    $filtered_schemas | to json
 }
 
 # Call a specific tool
