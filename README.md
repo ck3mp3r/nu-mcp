@@ -33,6 +33,7 @@ Combine both core command execution and extension tools.
 
 The `tools/` directory contains a growing catalog of useful MCP tools:
 
+- **Kubernetes** (`tools/k8s/`) - Complete kubectl/Helm interface with 22 tools and three-tier safety model
 - **ArgoCD** (`tools/argocd/`) - ArgoCD application and resource management via HTTP API
 - **Weather** (`tools/weather/`) - Current weather and forecasts using Open-Meteo API
 - **Finance** (`tools/finance/`) - Stock prices and financial data using Yahoo Finance API
@@ -79,6 +80,9 @@ Tools are available as individual packages or as a complete collection:
 
 ##### Individual Tools
 ```sh
+# Kubernetes tool only
+nix profile install github:ck3mp3r/nu-mcp#k8s-mcp-tools
+
 # ArgoCD tool only
 nix profile install github:ck3mp3r/nu-mcp#argocd-mcp-tools
 
