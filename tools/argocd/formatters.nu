@@ -3,26 +3,26 @@
 # Get list of read-only tool names (tools safe for MCP_READ_ONLY mode)
 export def get-readonly-tools [] {
   [
-    "list_applications"
-    "get_application"
-    "get_application_resource_tree"
-    "get_application_managed_resources"
-    "get_application_workload_logs"
-    "get_application_events"
-    "get_resource_events"
-    "get_resources"
-    "get_resource_actions"
+    "list-applications"
+    "get-application"
+    "get-application-resource-tree"
+    "get-application-managed-resources"
+    "get-application-workload-logs"
+    "get-application-events"
+    "get-resource-events"
+    "get-resources"
+    "get-resource-actions"
   ]
 }
 
 # Get list of write tool names (disabled in MCP_READ_ONLY mode)
 export def get-write-tools [] {
   [
-    "create_application"
-    "update_application"
-    "delete_application"
-    "sync_application"
-    "run_resource_action"
+    "create-application"
+    "update-application"
+    "delete-application"
+    "sync-application"
+    "run-resource-action"
   ]
 }
 
@@ -39,7 +39,7 @@ export def is-tool-allowed [tool_name: string read_only: bool] {
 export def get-tool-definitions [] {
   [
     {
-      name: "list_applications"
+      name: "list-applications"
       description: "list_applications returns list of applications"
       input_schema: {
         type: "object"
@@ -61,7 +61,7 @@ export def get-tool-definitions [] {
       }
     }
     {
-      name: "get_application"
+      name: "get-application"
       description: "get_application returns application by application name. Optionally specify the application namespace to get applications from non-default namespaces."
       input_schema: {
         type: "object"
@@ -79,7 +79,7 @@ export def get-tool-definitions [] {
       }
     }
     {
-      name: "create_application"
+      name: "create-application"
       description: "create_application creates a new ArgoCD application in the specified namespace. The application.metadata.namespace field determines where the Application resource will be created (e.g., 'argocd', 'argocd-apps', or any custom namespace)."
       input_schema: {
         type: "object"
@@ -93,7 +93,7 @@ export def get-tool-definitions [] {
       }
     }
     {
-      name: "update_application"
+      name: "update-application"
       description: "update_application updates application"
       input_schema: {
         type: "object"
@@ -111,7 +111,7 @@ export def get-tool-definitions [] {
       }
     }
     {
-      name: "delete_application"
+      name: "delete-application"
       description: "delete_application deletes application. Specify applicationNamespace if the application is in a non-default namespace to avoid permission errors."
       input_schema: {
         type: "object"
@@ -137,7 +137,7 @@ export def get-tool-definitions [] {
       }
     }
     {
-      name: "sync_application"
+      name: "sync-application"
       description: "sync_application syncs application. Specify applicationNamespace if the application is in a non-default namespace to avoid permission errors."
       input_schema: {
         type: "object"
@@ -172,7 +172,7 @@ export def get-tool-definitions [] {
       }
     }
     {
-      name: "get_application_resource_tree"
+      name: "get-application-resource-tree"
       description: "get_application_resource_tree returns resource tree for application by application name"
       input_schema: {
         type: "object"
@@ -186,7 +186,7 @@ export def get-tool-definitions [] {
       }
     }
     {
-      name: "get_application_managed_resources"
+      name: "get-application-managed-resources"
       description: "get_application_managed_resources returns managed resources for application by application name with optional filtering. Use filters to avoid token limits with large applications. Examples: kind='ConfigMap' for config maps only, namespace='production' for specific namespace, or combine multiple filters."
       input_schema: {
         type: "object"
@@ -228,7 +228,7 @@ export def get-tool-definitions [] {
       }
     }
     {
-      name: "get_application_workload_logs"
+      name: "get-application-workload-logs"
       description: "get_application_workload_logs returns logs for application workload (Deployment, StatefulSet, Pod, etc.) by application name and resource ref and optionally container name"
       input_schema: {
         type: "object"
@@ -274,7 +274,7 @@ export def get-tool-definitions [] {
       }
     }
     {
-      name: "get_application_events"
+      name: "get-application-events"
       description: "get_application_events returns events for application by application name"
       input_schema: {
         type: "object"
@@ -288,7 +288,7 @@ export def get-tool-definitions [] {
       }
     }
     {
-      name: "get_resource_events"
+      name: "get-resource-events"
       description: "get_resource_events returns events for a resource that is managed by an application"
       input_schema: {
         type: "object"
@@ -318,7 +318,7 @@ export def get-tool-definitions [] {
       }
     }
     {
-      name: "get_resources"
+      name: "get-resources"
       description: "get_resources returns manifests for resources specified by resourceRefs. If resourceRefs is empty or not provided, fetches all resources managed by the application."
       input_schema: {
         type: "object"
@@ -351,7 +351,7 @@ export def get-tool-definitions [] {
       }
     }
     {
-      name: "get_resource_actions"
+      name: "get-resource-actions"
       description: "get_resource_actions returns actions for a resource that is managed by an application"
       input_schema: {
         type: "object"
@@ -381,7 +381,7 @@ export def get-tool-definitions [] {
       }
     }
     {
-      name: "run_resource_action"
+      name: "run-resource-action"
       description: "run_resource_action runs an action on a resource"
       input_schema: {
         type: "object"

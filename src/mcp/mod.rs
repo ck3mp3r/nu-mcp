@@ -103,7 +103,7 @@ where
             );
 
             tools.push(Tool {
-                name: "run_nushell".into(),
+                name: "run-nushell".into(),
                 description: Some("Run a Nushell command and return its output".into()),
                 input_schema: Arc::new(schema),
                 annotations: None,

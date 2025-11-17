@@ -44,7 +44,7 @@ where
     ) -> Result<CallToolResult, ErrorData> {
         let tool_name = request.name.clone();
         match tool_name.as_ref() {
-            "run_nushell" => self.handle_run_nushell(request).await,
+            "run-nushell" => self.handle_run_nushell(request).await,
             tool_name => self.handle_extension_tool(request, tool_name).await,
         }
     }

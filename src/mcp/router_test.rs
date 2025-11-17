@@ -34,7 +34,7 @@ async fn test_router_run_nushell() {
     );
 
     let request = CallToolRequestParam {
-        name: "run_nushell".into(),
+        name: "run-nushell".into(),
         arguments: Some(args),
     };
 

@@ -17,7 +17,7 @@ def main [] {
 def "main list-tools" [] {
   [
     {
-      name: "list_sessions"
+      name: "list-sessions"
       description: "List all tmux sessions with their windows and panes (returns tabular data)"
       input_schema: {
         type: "object"
@@ -26,7 +26,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "send_and_capture"
+      name: "send-and-capture"
       description: "DEFAULT: Send a command to a tmux pane and capture its output. This is the standard way to interact with tmux panes."
       input_schema: {
         type: "object"
@@ -60,7 +60,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "send_command"
+      name: "send-command"
       description: "Send command to tmux pane without capturing output (fire-and-forget). Use only when you don't need output or for long-running processes."
       input_schema: {
         type: "object"
@@ -86,7 +86,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "capture_pane"
+      name: "capture-pane"
       description: "Capture current visible content of a tmux pane. For running commands and getting output, use send_and_capture instead."
       input_schema: {
         type: "object"
@@ -112,7 +112,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "get_session_info"
+      name: "get-session-info"
       description: "Get detailed information about a specific tmux session."
       input_schema: {
         type: "object"
@@ -126,7 +126,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "get_pane_process"
+      name: "get-pane-process"
       description: "Get information about the running process in a tmux pane."
       input_schema: {
         type: "object"
@@ -148,7 +148,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "find_pane_by_name"
+      name: "find-pane-by-name"
       description: "Find a pane by its name across windows in a session."
       input_schema: {
         type: "object"
@@ -166,7 +166,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "find_pane_by_context"
+      name: "find-pane-by-context"
       description: "Find a pane by context like directory path or command."
       input_schema: {
         type: "object"
@@ -184,7 +184,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "list_panes"
+      name: "list-panes"
       description: "List all panes in a session with their details."
       input_schema: {
         type: "object"
@@ -212,48 +212,48 @@ def "main call-tool" [
   }
 
   match $tool_name {
-    "list_sessions" => {
+    "list-sessions" => {
       list_sessions
     }
-    "send_command" => {
+    "send-command" => {
       let session = $parsed_args | get session
       let command = $parsed_args | get command
       let window = if "window" in $parsed_args { $parsed_args | get window } else { null }
       let pane = if "pane" in $parsed_args { $parsed_args | get pane } else { null }
       send_command $session $command $window $pane
     }
-    "capture_pane" => {
+    "capture-pane" => {
       let session = $parsed_args | get session
       let window = if "window" in $parsed_args { $parsed_args | get window } else { null }
       let pane = if "pane" in $parsed_args { $parsed_args | get pane } else { null }
       let lines = if "lines" in $parsed_args { $parsed_args | get lines } else { null }
       capture_pane $session $window $pane $lines
     }
-    "get_session_info" => {
+    "get-session-info" => {
       let session = $parsed_args | get session
       get_session_info $session
     }
-    "get_pane_process" => {
+    "get-pane-process" => {
       let session = $parsed_args | get session
       let window = if "window" in $parsed_args { $parsed_args | get window } else { null }
       let pane = if "pane" in $parsed_args { $parsed_args | get pane } else { null }
       get_pane_process $session $window $pane
     }
-    "find_pane_by_name" => {
+    "find-pane-by-name" => {
       let session = $parsed_args | get session
       let pane_name = $parsed_args | get pane_name
       find_pane_by_name $session $pane_name
     }
-    "find_pane_by_context" => {
+    "find-pane-by-context" => {
       let session = $parsed_args | get session
       let context = $parsed_args | get context
       find_pane_by_context $session $context
     }
-    "list_panes" => {
+    "list-panes" => {
       let session = $parsed_args | get session
       list_panes $session
     }
-    "send_and_capture" => {
+    "send-and-capture" => {
       let session = $parsed_args | get session
       let command = $parsed_args | get command
       let window = if "window" in $parsed_args { $parsed_args | get window } else { null }

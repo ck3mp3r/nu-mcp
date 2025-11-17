@@ -15,7 +15,7 @@ def main [] {
 def "main list-tools" [] {
   [
     {
-      name: "get_weather"
+      name: "get-weather"
       description: "Get current weather for a location"
       input_schema: {
         type: "object"
@@ -29,7 +29,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "get_forecast"
+      name: "get-forecast"
       description: "Get weather forecast for a location with specified number of days"
       input_schema: {
         type: "object"
@@ -59,10 +59,10 @@ def "main call-tool" [
   let parsed_args = $args | from json
 
   match $tool_name {
-    "get_weather" => {
+    "get-weather" => {
       get_weather ($parsed_args | get location)
     }
-    "get_forecast" => {
+    "get-forecast" => {
       let location = $parsed_args | get location
       let days = if "days" in $parsed_args { $parsed_args | get days } else { 5 }
       get_forecast $location $days

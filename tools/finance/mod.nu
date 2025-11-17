@@ -15,7 +15,7 @@ def main [] {
 def "main list-tools" [] {
   [
     {
-      name: "get_ticker_price"
+      name: "get-ticker-price"
       description: "Get the latest price for a stock ticker symbol"
       input_schema: {
         type: "object"
@@ -39,7 +39,7 @@ def "main call-tool" [
   let parsed_args = $args | from json
 
   match $tool_name {
-    "get_ticker_price" => {
+    "get-ticker-price" => {
       get_ticker_price ($parsed_args | get symbol)
     }
     _ => {

@@ -71,23 +71,23 @@ export def get-safety-mode [] {
 # Define read-only tools (7 tools)
 export def readonly-tools [] {
   [
-    "kube_get"
-    "kube_describe"
-    "kube_logs"
-    "kube_context"
-    "kube_explain"
-    "kube_api_resources"
-    "kube_ping"
+    "kube-get"
+    "kube-describe"
+    "kube-logs"
+    "kube-context"
+    "kube-explain"
+    "kube-api-resources"
+    "kube-ping"
   ]
 }
 
 # Define destructive tools (5 tools)
 export def destructive-tools [] {
   [
-    "kube_delete"
-    "helm_uninstall"
-    "kube_cleanup"
-    "kube_node"
+    "kube-delete"
+    "helm-uninstall"
+    "kube-cleanup"
+    "kube-node"
   ]
 }
 

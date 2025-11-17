@@ -54,34 +54,34 @@ def "main call-tool" [
   }
 
   match $tool_name {
-    "list_applications" => {
+    "list-applications" => {
       let search = if "search" in $parsed_args { $parsed_args | get search } else { null }
       let limit = if "limit" in $parsed_args { $parsed_args | get limit } else { null }
       let offset = if "offset" in $parsed_args { $parsed_args | get offset } else { null }
       list_applications $search $limit $offset
     }
-    "get_application" => {
+    "get-application" => {
       let name = $parsed_args | get applicationName
       let app_namespace = if "appNamespace" in $parsed_args { $parsed_args | get appNamespace } else { null }
       get_application $name $app_namespace
     }
-    "create_application" => {
+    "create-application" => {
       let app = $parsed_args | get application
       create_application $app
     }
-    "update_application" => {
+    "update-application" => {
       let name = $parsed_args | get applicationName
       let app = $parsed_args | get application
       update_application $name $app
     }
-    "delete_application" => {
+    "delete-application" => {
       let name = $parsed_args | get applicationName
       let app_namespace = if "appNamespace" in $parsed_args { $parsed_args | get appNamespace } else { null }
       let cascade = if "cascade" in $parsed_args { $parsed_args | get cascade } else { null }
       let policy = if "propagationPolicy" in $parsed_args { $parsed_args | get propagationPolicy } else { null }
       delete_application $name $app_namespace $cascade $policy
     }
-    "sync_application" => {
+    "sync-application" => {
       let name = $parsed_args | get applicationName
       let app_namespace = if "appNamespace" in $parsed_args { $parsed_args | get appNamespace } else { null }
       let dry_run = if "dryRun" in $parsed_args { $parsed_args | get dryRun } else { null }
@@ -90,11 +90,11 @@ def "main call-tool" [
       let sync_options = if "syncOptions" in $parsed_args { $parsed_args | get syncOptions } else { null }
       sync_application $name $app_namespace $dry_run $prune $revision $sync_options
     }
-    "get_application_resource_tree" => {
+    "get-application-resource-tree" => {
       let name = $parsed_args | get applicationName
       get_resource_tree $name
     }
-    "get_application_managed_resources" => {
+    "get-application-managed-resources" => {
       let name = $parsed_args | get applicationName
       let namespace = if "namespace" in $parsed_args { $parsed_args | get namespace } else { null }
       let resource_name = if "name" in $parsed_args { $parsed_args | get name } else { null }
@@ -105,7 +105,7 @@ def "main call-tool" [
       let project = if "project" in $parsed_args { $parsed_args | get project } else { null }
       get_managed_resources $name $namespace $resource_name $version $group $kind $app_namespace $project
     }
-    "get_application_workload_logs" => {
+    "get-application-workload-logs" => {
       let name = $parsed_args | get applicationName
       let app_namespace = if "applicationNamespace" in $parsed_args { $parsed_args | get applicationNamespace } else { null }
       let namespace = if "namespace" in $parsed_args { $parsed_args | get namespace } else { null }
@@ -117,11 +117,11 @@ def "main call-tool" [
       let tail_lines = if "tailLines" in $parsed_args { $parsed_args | get tailLines } else { null }
       get_logs $name $app_namespace $namespace $resource_name $group $kind $version $container $tail_lines
     }
-    "get_application_events" => {
+    "get-application-events" => {
       let name = $parsed_args | get applicationName
       get_application_events $name
     }
-    "get_resource_events" => {
+    "get-resource-events" => {
       let name = $parsed_args | get applicationName
       let app_namespace = $parsed_args | get applicationNamespace
       let resource_uid = $parsed_args | get resourceUID
@@ -129,13 +129,13 @@ def "main call-tool" [
       let resource_name = $parsed_args | get resourceName
       get_events $name $resource_namespace $resource_name $resource_uid
     }
-    "get_resources" => {
+    "get-resources" => {
       let name = $parsed_args | get applicationName
       let app_namespace = $parsed_args | get applicationNamespace
       let resource_refs = if "resourceRefs" in $parsed_args { $parsed_args | get resourceRefs } else { null }
       get_resources $name $app_namespace $resource_refs
     }
-    "get_resource_actions" => {
+    "get-resource-actions" => {
       let name = $parsed_args | get applicationName
       let app_namespace = if "applicationNamespace" in $parsed_args { $parsed_args | get applicationNamespace } else { null }
       let namespace = if "namespace" in $parsed_args { $parsed_args | get namespace } else { null }
@@ -143,7 +143,7 @@ def "main call-tool" [
       let resource_name = if "resourceName" in $parsed_args { $parsed_args | get resourceName } else { null }
       get_resource_actions $name $app_namespace $namespace $kind $resource_name
     }
-    "run_resource_action" => {
+    "run-resource-action" => {
       let name = $parsed_args | get applicationName
       let action = $parsed_args | get action
       let app_namespace = if "applicationNamespace" in $parsed_args { $parsed_args | get applicationNamespace } else { null }
