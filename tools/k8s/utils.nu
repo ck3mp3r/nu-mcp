@@ -192,27 +192,42 @@ export def run-kubectl [
     # Parse output based on format
     if $output == "json" {
       try {
-        $result | from json
-      } catch {
-        # If JSON parsing fails, return as text
-        $result | str trim
+        let parsed = ($result | from json)
+        $parsed
+      } catch { |err|
+        # JSON parsing failed - return error with context
+        {
+          error: "JSONParseError"
+          message: "Failed to parse kubectl JSON output"
+          raw_output: ($result | str trim)
+          parse_error: ($err | get msg? | default "Unknown parse error")
+          command: $cmd_str
+          isError: true
+        }
       }
     } else if $output == "yaml" {
       try {
-        $result | from yaml
-      } catch {
-        $result | str trim
+        let parsed = ($result | from yaml)
+        $parsed
+      } catch { |err|
+        {
+          error: "YAMLParseError"
+          message: "Failed to parse kubectl YAML output"
+          raw_output: ($result | str trim)
+          parse_error: ($err | get msg? | default "Unknown parse error")
+          command: $cmd_str
+          isError: true
+        }
       }
     } else {
-      # Return as text for other formats
       $result | str trim
     }
-  } catch {
-    # Return error information
-    let error_msg = $in | str trim
+  } catch { |err|
+    # kubectl command execution failed
     {
       error: "KubectlCommandFailed"
-      message: $error_msg
+      message: "kubectl command execution failed"
+      details: ($err | get msg? | default "Unknown error")
       command: $cmd_str
       isError: true
     }

@@ -80,39 +80,77 @@ export def kubectl-get [
 
   # Summarize events
   if $resource_type == "events" {
-    let formatted_events = (
-      $masked_result | get items | each {|event|
-        {
-          type: ($event | get type? | default "")
-          reason: ($event | get reason? | default "")
-          message: ($event | get message? | default "")
-          involvedObject: {
-            kind: ($event | get involvedObject.kind? | default "")
-            name: ($event | get involvedObject.name? | default "")
-            namespace: ($event | get involvedObject.namespace? | default "")
+    try {
+      let items_list = ($masked_result | get items)
+      if ($items_list | describe | str contains "list") {
+        let formatted_events = (
+          $items_list | each {|event|
+            {
+              type: ($event | get type? | default "")
+              reason: ($event | get reason? | default "")
+              message: ($event | get message? | default "")
+              involvedObject: {
+                kind: ($event | get involvedObject.kind? | default "")
+                name: ($event | get involvedObject.name? | default "")
+                namespace: ($event | get involvedObject.namespace? | default "")
+              }
+              firstTimestamp: ($event | get firstTimestamp? | default "")
+              lastTimestamp: ($event | get lastTimestamp? | default "")
+              count: ($event | get count? | default 0)
+            }
           }
-          firstTimestamp: ($event | get firstTimestamp? | default "")
-          lastTimestamp: ($event | get lastTimestamp? | default "")
-          count: ($event | get count? | default 0)
-        }
+        )
+        return (format-tool-response {events: $formatted_events})
       }
-    )
-    return (format-tool-response {events: $formatted_events})
+    } catch { |err|
+      return (format-tool-response {
+        error: "EventSummarizationFailed"
+        message: "Failed to summarize events"
+        details: ($err | get msg? | default "Unknown error")
+        isError: true
+      } --error true)
+    }
   }
 
   # Summarize other resources
-  let items = (
-    $masked_result | get items | each {|item|
-      {
-        name: ($item | get metadata.name? | default "")
-        namespace: ($item | get metadata.namespace? | default "")
-        kind: ($item | get kind? | default $resource_type)
-        status: (get-resource-status $item)
-        createdAt: ($item | get metadata.creationTimestamp? | default "")
-      }
+  try {
+    let items_list = ($masked_result | get items)
+    if ($items_list | describe | str contains "list") {
+      let items = (
+        $items_list | each {|item|
+          try {
+            {
+              name: ($item | get metadata.name? | default "")
+              namespace: ($item | get metadata.namespace? | default "")
+              kind: ($item | get kind? | default $resource_type)
+              status: (get-resource-status $item)
+              createdAt: ($item | get metadata.creationTimestamp? | default "")
+            }
+          } catch {
+            {
+              name: "unknown"
+              namespace: ""
+              kind: $resource_type
+              status: "Error"
+              createdAt: ""
+              error: "Failed to parse item"
+            }
+          }
+        }
+      )
+      return (format-tool-response {items: $items})
     }
-  )
-  format-tool-response {items: $items}
+  } catch { |err|
+    return (format-tool-response {
+      error: "ResourceSummarizationFailed"
+      message: "Failed to summarize resources"
+      details: ($err | get msg? | default "Unknown error")
+      isError: true
+    } --error true)
+  }
+
+  # Fallback if summarization logic doesn't match
+  format-tool-response $masked_result
 }
 
 # kube_describe - Describe a Kubernetes resource
