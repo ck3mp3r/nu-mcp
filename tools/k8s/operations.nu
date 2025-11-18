@@ -153,12 +153,10 @@ export def kubectl-context [
       # Execute context switch
       let result = try {
         ^kubectl config use-context $name | complete
-      } catch { |err|
+      } catch {
         {
           error: "ContextSwitchFailed"
           message: $"Failed to switch to context '($name)'"
-          details: ($err | get msg? | default "Unknown error")
-          command: $"kubectl config use-context ($name)"
           isError: true
         }
       }

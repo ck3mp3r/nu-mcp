@@ -102,13 +102,14 @@ export def kubectl-get [
         )
         return (format-tool-response {events: $formatted_events})
       }
-    } catch { |err|
-      return (format-tool-response {
-        error: "EventSummarizationFailed"
-        message: "Failed to summarize events"
-        details: ($err | get msg? | default "Unknown error")
-        isError: true
-      } --error true)
+    } catch {
+      return (
+        format-tool-response {
+          error: "EventSummarizationFailed"
+          message: "Failed to process events"
+          isError: true
+        } --error true
+      )
     }
   }
 
@@ -140,13 +141,14 @@ export def kubectl-get [
       )
       return (format-tool-response {items: $items})
     }
-  } catch { |err|
-    return (format-tool-response {
-      error: "ResourceSummarizationFailed"
-      message: "Failed to summarize resources"
-      details: ($err | get msg? | default "Unknown error")
-      isError: true
-    } --error true)
+  } catch {
+    return (
+      format-tool-response {
+        error: "ResourceSummarizationFailed"
+        message: "Failed to process resources"
+        isError: true
+      } --error true
+    )
   }
 
   # Fallback if summarization logic doesn't match

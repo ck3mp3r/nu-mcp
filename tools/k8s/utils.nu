@@ -17,11 +17,10 @@ export def get-kubectl-version [] {
     let version_output = (kubectl version --client --output json)
     let parsed = ($version_output | from json)
     $parsed | get clientVersion
-  } catch { |err|
+  } catch {
     {
       error: "KubectlVersionFailed"
-      message: "Failed to get kubectl version"
-      details: ($err | get msg? | default "kubectl not found or not accessible")
+      message: "kubectl not found or not accessible"
       isError: true
     }
   }
@@ -43,9 +42,7 @@ export def list-contexts [] {
     let parsed = ($contexts_output | from json)
     let contexts = ($parsed | get contexts)
     $contexts | select name context.cluster context.user context.namespace | rename name cluster user namespace
-  } catch { |err|
-    # Return empty list on error rather than failing
-    # This is defensive but logs could be added here
+  } catch {
     []
   }
 }
@@ -197,43 +194,31 @@ export def run-kubectl [
     # Parse output based on format
     if $output == "json" {
       try {
-        let parsed = ($result | from json)
-        $parsed
-      } catch { |err|
-        # JSON parsing failed - return error with context
+        $result | from json
+      } catch {
         {
           error: "JSONParseError"
-          message: "Failed to parse kubectl JSON output"
-          raw_output: ($result | str trim)
-          parse_error: ($err | get msg? | default "Unknown parse error")
-          command: $cmd_str
+          message: "Invalid JSON response from kubectl"
           isError: true
         }
       }
     } else if $output == "yaml" {
       try {
-        let parsed = ($result | from yaml)
-        $parsed
-      } catch { |err|
+        $result | from yaml
+      } catch {
         {
           error: "YAMLParseError"
-          message: "Failed to parse kubectl YAML output"
-          raw_output: ($result | str trim)
-          parse_error: ($err | get msg? | default "Unknown parse error")
-          command: $cmd_str
+          message: "Invalid YAML response from kubectl"
           isError: true
         }
       }
     } else {
       $result | str trim
     }
-  } catch { |err|
-    # kubectl command execution failed
+  } catch {
     {
       error: "KubectlCommandFailed"
-      message: "kubectl command execution failed"
-      details: ($err | get msg? | default "Unknown error")
-      command: $cmd_str
+      message: ($in | str trim)
       isError: true
     }
   }
