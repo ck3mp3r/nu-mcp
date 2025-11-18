@@ -376,3 +376,51 @@ export def is-non-namespaced-resource [
 
   $resource_type | str downcase | $in in $non_namespaced
 }
+
+# Extract status from various resource types (mirrors TypeScript getResourceStatus)
+export def get-resource-status [resource: record] {
+  # Pod status
+  if ($resource | get status.phase? | default null) != null {
+    return ($resource | get status.phase)
+  }
+
+  # Deployment, ReplicaSet, StatefulSet status
+  if ($resource | get status.readyReplicas? | default null) != null {
+    let ready = ($resource | get status.readyReplicas? | default 0)
+    let total = ($resource | get status.replicas? | default 0)
+    return $"($ready)/($total) ready"
+  }
+
+  # Service status
+  if ($resource | get spec.type? | default null) != null {
+    return ($resource | get spec.type)
+  }
+
+  # Node status
+  if ($resource | get status.conditions? | default null) != null {
+    let ready_condition = ($resource | get status.conditions | where type == "Ready" | first)
+    if ($ready_condition | default null) != null {
+      if ($ready_condition | get status) == "True" {
+        return "Ready"
+      } else {
+        return "NotReady"
+      }
+    }
+  }
+
+  # Job/CronJob status
+  if ($resource | get status.succeeded? | default null) != null {
+    if ($resource | get status.succeeded) {
+      return "Completed"
+    } else {
+      return "Running"
+    }
+  }
+
+  # PV/PVC status
+  if ($resource | get status.phase? | default null) != null {
+    return ($resource | get status.phase)
+  }
+
+  return "Active"
+}
