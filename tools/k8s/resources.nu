@@ -56,21 +56,16 @@ export def kubectl-get [
     $result
   }
 
-  # Mirror TypeScript: Format the results for better readability
-  # Check if this is a list operation
+  # Summarize list operations to reduce payload size
   let is_list_operation = ($name == "")
 
   if $is_list_operation and ($output == "json") {
-    # Try to parse and summarize the JSON
     if ($masked_result | describe | str contains "record") {
-      # Check if it's a Kubernetes List kind with items
       let kind = ($masked_result | get kind? | default "")
       let has_items = ($masked_result | get items? | default null) != null
 
       if ($kind | str ends-with "List") and $has_items {
-        # Summarize based on resource type (mirrors TypeScript exactly)
         if $resource_type == "events" {
-          # Format events with 7 fields
           let formatted_events = (
             $masked_result | get items | each {|event|
               {
@@ -91,7 +86,6 @@ export def kubectl-get [
 
           return (format-tool-response {events: $formatted_events})
         } else {
-          # Format other resources with 5 fields
           let items = (
             $masked_result | get items | each {|item|
               {
@@ -110,7 +104,6 @@ export def kubectl-get [
     }
   }
 
-  # For non-list operations or non-json output, return as-is
   format-tool-response $masked_result
 }
 
