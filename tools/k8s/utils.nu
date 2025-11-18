@@ -379,22 +379,24 @@ export def is-non-namespaced-resource [
 
 # Extract status summary from a Kubernetes resource
 export def get-resource-status [resource: record] {
-  if ($resource | is-empty) {
-    return "Unknown"
-  }
+  if ($resource | is-empty) { return "Unknown" }
 
+  # Pod status
   let pod_phase = try { $resource.status.phase? }
   if $pod_phase != null { return $pod_phase }
 
+  # Deployment, ReplicaSet, StatefulSet status
   let ready_replicas = try { $resource.status.readyReplicas? }
   if $ready_replicas != null {
     let total = try { $resource.status.replicas? } | default 0
     return $"($ready_replicas)/($total) ready"
   }
 
+  # Service status
   let service_type = try { $resource.spec.type? }
   if $service_type != null { return $service_type }
 
+  # Node status
   let conditions = try { $resource.status.conditions? }
   if $conditions != null {
     let ready_condition = $conditions | where type == "Ready" | first | default null
@@ -403,13 +405,11 @@ export def get-resource-status [resource: record] {
     }
   }
 
+  # Job/CronJob status
   let succeeded = try { $resource.status.succeeded? }
   if $succeeded != null {
     return (if $succeeded { "Completed" } else { "Running" })
   }
-
-  let phase = try { $resource.status.phase? }
-  if $phase != null { return $phase }
 
   "Active"
 }
