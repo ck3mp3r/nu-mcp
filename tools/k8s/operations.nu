@@ -635,7 +635,6 @@ export def kube-port-forward-stop [
 }
 
 # ============================================================================
-# Phase 2: Destructive Operations
 # ============================================================================
 
 # kube_node - Manage Kubernetes nodes (cordon, drain, uncordon)

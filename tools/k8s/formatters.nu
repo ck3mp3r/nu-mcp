@@ -16,7 +16,6 @@ export def context-parameter [] {
   }
 }
 
-# Phase 1A: Read-Only Tools (7 tools)
 
 # 1. kube_get - Get/list Kubernetes resources
 export def kubectl-get-schema [] {
@@ -277,7 +276,6 @@ export def ping-schema [] {
   }
 }
 
-# Phase 1B: Non-Destructive Write Operations (10 tools)
 
 # 8. kube_apply - Apply YAML manifest
 export def kubectl-apply-schema [] {
@@ -645,7 +643,6 @@ export def helm-upgrade-schema [] {
 }
 
 # ============================================================================
-# Phase 2: Destructive Operations
 # ============================================================================
 
 # Delete Kubernetes resources

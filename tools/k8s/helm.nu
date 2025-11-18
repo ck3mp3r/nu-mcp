@@ -177,7 +177,6 @@ export def helm-upgrade [
 }
 
 # ============================================================================
-# Phase 2: Destructive Operations
 # ============================================================================
 
 # helm_uninstall - Uninstall Helm release
