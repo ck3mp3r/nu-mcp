@@ -14,11 +14,15 @@ export def check-kubectl [] {
 # Get kubectl version info
 export def get-kubectl-version [] {
   try {
-    kubectl version --client --output json | from json | get clientVersion
-  } catch {
+    let version_output = (kubectl version --client --output json)
+    let parsed = ($version_output | from json)
+    $parsed | get clientVersion
+  } catch { |err|
     {
-      error: "kubectl not found or not accessible"
-      message: "Please install kubectl and ensure it's in your PATH"
+      error: "KubectlVersionFailed"
+      message: "Failed to get kubectl version"
+      details: ($err | get msg? | default "kubectl not found or not accessible")
+      isError: true
     }
   }
 }
@@ -35,12 +39,13 @@ export def get-current-context [] {
 # List all available contexts
 export def list-contexts [] {
   try {
-    kubectl config get-contexts --output json
-    | from json
-    | get contexts
-    | select name context.cluster context.user context.namespace
-    | rename name cluster user namespace
-  } catch {
+    let contexts_output = (kubectl config get-contexts --output json)
+    let parsed = ($contexts_output | from json)
+    let contexts = ($parsed | get contexts)
+    $contexts | select name context.cluster context.user context.namespace | rename name cluster user namespace
+  } catch { |err|
+    # Return empty list on error rather than failing
+    # This is defensive but logs could be added here
     []
   }
 }

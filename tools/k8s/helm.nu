@@ -62,7 +62,7 @@ export def helm-install [
       success: true
       output: $output
     }
-  } catch {
+  } catch { |err|
     # Clean up temp values file if it exists
     if $temp_values_file != "" {
       try { rm -f $temp_values_file } catch { }
@@ -70,7 +70,9 @@ export def helm-install [
 
     {
       error: "HelmInstallFailed"
-      message: ($in | str trim)
+      message: "Helm install command failed"
+      details: ($err | get msg? | default ($in | str trim))
+      command: $"helm (($args | str join ' '))"
       isError: true
     }
   }
@@ -148,7 +150,7 @@ export def helm-upgrade [
       success: true
       output: $output
     }
-  } catch {
+  } catch { |err|
     # Clean up temp values file if it exists
     if $temp_values_file != "" {
       try { rm -f $temp_values_file } catch { }
@@ -156,7 +158,9 @@ export def helm-upgrade [
 
     {
       error: "HelmUpgradeFailed"
-      message: ($in | str trim)
+      message: "Helm upgrade command failed"
+      details: ($err | get msg? | default ($in | str trim))
+      command: $"helm (($args | str join ' '))"
       isError: true
     }
   }
@@ -195,10 +199,12 @@ export def helm-uninstall [
       success: true
       output: $output
     }
-  } catch {
+  } catch { |err|
     {
       error: "HelmUninstallFailed"
-      message: ($in | str trim)
+      message: "Helm uninstall command failed"
+      details: ($err | get msg? | default ($in | str trim))
+      command: $"helm (($args | str join ' '))"
       isError: true
     }
   }
