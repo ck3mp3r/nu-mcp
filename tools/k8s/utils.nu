@@ -379,47 +379,65 @@ export def is-non-namespaced-resource [
 
 # Extract status from various resource types (mirrors TypeScript getResourceStatus)
 export def get-resource-status [resource: record] {
+  # Guard against empty or malformed resources
+  if ($resource | is-empty) {
+    return "Unknown"
+  }
+
   # Pod status
-  if ($resource | get status.phase? | default null) != null {
-    return ($resource | get status.phase)
+  try {
+    if ($resource | get status.phase? | default null) != null {
+      return ($resource | get status.phase)
+    }
   }
 
   # Deployment, ReplicaSet, StatefulSet status
-  if ($resource | get status.readyReplicas? | default null) != null {
-    let ready = ($resource | get status.readyReplicas? | default 0)
-    let total = ($resource | get status.replicas? | default 0)
-    return $"($ready)/($total) ready"
+  try {
+    if ($resource | get status.readyReplicas? | default null) != null {
+      let ready = ($resource | get status.readyReplicas? | default 0)
+      let total = ($resource | get status.replicas? | default 0)
+      return $"($ready)/($total) ready"
+    }
   }
 
   # Service status
-  if ($resource | get spec.type? | default null) != null {
-    return ($resource | get spec.type)
+  try {
+    if ($resource | get spec.type? | default null) != null {
+      return ($resource | get spec.type)
+    }
   }
 
   # Node status
-  if ($resource | get status.conditions? | default null) != null {
-    let ready_condition = ($resource | get status.conditions | where type == "Ready" | first)
-    if ($ready_condition | default null) != null {
-      if ($ready_condition | get status) == "True" {
-        return "Ready"
-      } else {
-        return "NotReady"
+  try {
+    if ($resource | get status.conditions? | default null) != null {
+      let conditions = ($resource | get status.conditions | where type == "Ready")
+      if ($conditions | length) > 0 {
+        let ready_condition = ($conditions | first)
+        if ($ready_condition | get status) == "True" {
+          return "Ready"
+        } else {
+          return "NotReady"
+        }
       }
     }
   }
 
   # Job/CronJob status
-  if ($resource | get status.succeeded? | default null) != null {
-    if ($resource | get status.succeeded) {
-      return "Completed"
-    } else {
-      return "Running"
+  try {
+    if ($resource | get status.succeeded? | default null) != null {
+      if ($resource | get status.succeeded) {
+        return "Completed"
+      } else {
+        return "Running"
+      }
     }
   }
 
   # PV/PVC status
-  if ($resource | get status.phase? | default null) != null {
-    return ($resource | get status.phase)
+  try {
+    if ($resource | get status.phase? | default null) != null {
+      return ($resource | get status.phase)
+    }
   }
 
   return "Active"
