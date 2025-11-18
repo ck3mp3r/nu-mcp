@@ -384,60 +384,54 @@ export def get-resource-status [resource: record] {
     return "Unknown"
   }
 
-  # Pod status
-  try {
-    if ($resource | get status.phase? | default null) != null {
-      return ($resource | get status.phase)
-    }
+  # Pod status - safe navigation with do -i
+  let pod_phase = (do -i { $resource | get status.phase? } | default null)
+  if $pod_phase != null {
+    return $pod_phase
   }
 
   # Deployment, ReplicaSet, StatefulSet status
-  try {
-    if ($resource | get status.readyReplicas? | default null) != null {
-      let ready = ($resource | get status.readyReplicas? | default 0)
-      let total = ($resource | get status.replicas? | default 0)
-      return $"($ready)/($total) ready"
-    }
+  let ready_replicas = (do -i { $resource | get status.readyReplicas? } | default null)
+  if $ready_replicas != null {
+    let ready = (do -i { $resource | get status.readyReplicas } | default 0)
+    let total = (do -i { $resource | get status.replicas } | default 0)
+    return $"($ready)/($total) ready"
   }
 
   # Service status
-  try {
-    if ($resource | get spec.type? | default null) != null {
-      return ($resource | get spec.type)
-    }
+  let service_type = (do -i { $resource | get spec.type? } | default null)
+  if $service_type != null {
+    return $service_type
   }
 
-  # Node status
-  try {
-    if ($resource | get status.conditions? | default null) != null {
-      let conditions = ($resource | get status.conditions | where type == "Ready")
-      if ($conditions | length) > 0 {
-        let ready_condition = ($conditions | first)
-        if ($ready_condition | get status) == "True" {
-          return "Ready"
-        } else {
-          return "NotReady"
-        }
+  # Node status - use idiomatic empty list handling
+  let conditions = (do -i { $resource | get status.conditions? } | default null)
+  if $conditions != null {
+    # Idiomatic: use do -i to handle empty list from where, then default to null
+    let ready_condition = (do -i { $conditions | where type == "Ready" | first } | default null)
+    if $ready_condition != null {
+      if ($ready_condition | get status) == "True" {
+        return "Ready"
+      } else {
+        return "NotReady"
       }
     }
   }
 
   # Job/CronJob status
-  try {
-    if ($resource | get status.succeeded? | default null) != null {
-      if ($resource | get status.succeeded) {
-        return "Completed"
-      } else {
-        return "Running"
-      }
+  let succeeded = (do -i { $resource | get status.succeeded? } | default null)
+  if $succeeded != null {
+    if $succeeded {
+      return "Completed"
+    } else {
+      return "Running"
     }
   }
 
-  # PV/PVC status
-  try {
-    if ($resource | get status.phase? | default null) != null {
-      return ($resource | get status.phase)
-    }
+  # PV/PVC status (recheck phase for PV/PVC which might not have been caught earlier)
+  let phase = (do -i { $resource | get status.phase? } | default null)
+  if $phase != null {
+    return $phase
   }
 
   return "Active"
