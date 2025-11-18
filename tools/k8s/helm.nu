@@ -176,9 +176,6 @@ export def helm-upgrade [
   }
 }
 
-# ============================================================================
-# ============================================================================
-
 # helm_uninstall - Uninstall Helm release
 export def helm-uninstall [
   params: record

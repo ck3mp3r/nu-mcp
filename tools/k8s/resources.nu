@@ -336,9 +336,6 @@ export def kubectl-patch [
   }
 }
 
-# ============================================================================
-# ============================================================================
-
 # Delete Kubernetes resources
 export def kubectl-delete [
   params: record

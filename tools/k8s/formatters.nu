@@ -16,7 +16,6 @@ export def context-parameter [] {
   }
 }
 
-
 # 1. kube_get - Get/list Kubernetes resources
 export def kubectl-get-schema [] {
   {
@@ -275,7 +274,6 @@ export def ping-schema [] {
     }
   }
 }
-
 
 # 8. kube_apply - Apply YAML manifest
 export def kubectl-apply-schema [] {
@@ -642,9 +640,6 @@ export def helm-upgrade-schema [] {
   }
 }
 
-# ============================================================================
-# ============================================================================
-
 # Delete Kubernetes resources
 export def kubectl-delete-schema [] {
   {
@@ -797,9 +792,7 @@ export def node-management-schema [] {
   }
 }
 
-# ============================================================================
 # Schema Collection Functions
-# ============================================================================
 
 # Get all Phase 1A read-only tool schemas
 export def get-readonly-schemas [] {
