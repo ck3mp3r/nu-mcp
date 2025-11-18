@@ -59,52 +59,60 @@ export def kubectl-get [
   # Summarize list operations to reduce payload size
   let is_list_operation = ($name == "")
 
-  if $is_list_operation and ($output == "json") {
-    if ($masked_result | describe | str contains "record") {
-      let kind = ($masked_result | get kind? | default "")
-      let has_items = ($masked_result | get items? | default null) != null
-
-      if ($kind | str ends-with "List") and $has_items {
-        if $resource_type == "events" {
-          let formatted_events = (
-            $masked_result | get items | each {|event|
-              {
-                type: ($event | get type? | default "")
-                reason: ($event | get reason? | default "")
-                message: ($event | get message? | default "")
-                involvedObject: {
-                  kind: ($event | get involvedObject.kind? | default "")
-                  name: ($event | get involvedObject.name? | default "")
-                  namespace: ($event | get involvedObject.namespace? | default "")
-                }
-                firstTimestamp: ($event | get firstTimestamp? | default "")
-                lastTimestamp: ($event | get lastTimestamp? | default "")
-                count: ($event | get count? | default 0)
-              }
-            }
-          )
-
-          return (format-tool-response {events: $formatted_events})
-        } else {
-          let items = (
-            $masked_result | get items | each {|item|
-              {
-                name: ($item | get metadata.name? | default "")
-                namespace: ($item | get metadata.namespace? | default "")
-                kind: ($item | get kind? | default $resource_type)
-                status: (get-resource-status $item)
-                createdAt: ($item | get metadata.creationTimestamp? | default "")
-              }
-            }
-          )
-
-          return (format-tool-response {items: $items})
-        }
-      }
-    }
+  # Return early if not a list operation or not JSON
+  if not ($is_list_operation and ($output == "json")) {
+    return (format-tool-response $masked_result)
   }
 
-  format-tool-response $masked_result
+  # Return early if not a record
+  if not ($masked_result | describe | str contains "record") {
+    return (format-tool-response $masked_result)
+  }
+
+  # Check if this is a Kubernetes list with items
+  let kind = ($masked_result | get kind? | default "")
+  let has_items = ($masked_result | get items? | default null) != null
+
+  # Return early if not a list kind
+  if not (($kind | str ends-with "List") and $has_items) {
+    return (format-tool-response $masked_result)
+  }
+
+  # Summarize events
+  if $resource_type == "events" {
+    let formatted_events = (
+      $masked_result | get items | each {|event|
+        {
+          type: ($event | get type? | default "")
+          reason: ($event | get reason? | default "")
+          message: ($event | get message? | default "")
+          involvedObject: {
+            kind: ($event | get involvedObject.kind? | default "")
+            name: ($event | get involvedObject.name? | default "")
+            namespace: ($event | get involvedObject.namespace? | default "")
+          }
+          firstTimestamp: ($event | get firstTimestamp? | default "")
+          lastTimestamp: ($event | get lastTimestamp? | default "")
+          count: ($event | get count? | default 0)
+        }
+      }
+    )
+    return (format-tool-response {events: $formatted_events})
+  }
+
+  # Summarize other resources
+  let items = (
+    $masked_result | get items | each {|item|
+      {
+        name: ($item | get metadata.name? | default "")
+        namespace: ($item | get metadata.namespace? | default "")
+        kind: ($item | get kind? | default $resource_type)
+        status: (get-resource-status $item)
+        createdAt: ($item | get metadata.creationTimestamp? | default "")
+      }
+    }
+  )
+  format-tool-response {items: $items}
 }
 
 # kube_describe - Describe a Kubernetes resource
