@@ -379,56 +379,43 @@ export def is-non-namespaced-resource [
 
 # Extract status from various resource types (mirrors TypeScript getResourceStatus)
 export def get-resource-status [resource: record] {
-  # Guard against empty or malformed resources
   if ($resource | is-empty) {
     return "Unknown"
   }
 
   # Pod status
-  try {
-    let phase = $resource.status.phase?
-    if $phase != null { return $phase }
-  }
+  let pod_phase = try { $resource.status.phase? }
+  if $pod_phase != null { return $pod_phase }
 
   # Deployment, ReplicaSet, StatefulSet status
-  try {
-    let ready = $resource.status.readyReplicas?
-    if $ready != null {
-      let total = $resource.status.replicas? | default 0
-      return $"($ready)/($total) ready"
-    }
+  let ready_replicas = try { $resource.status.readyReplicas? }
+  if $ready_replicas != null {
+    let total = try { $resource.status.replicas? } | default 0
+    return $"($ready_replicas)/($total) ready"
   }
 
   # Service status
-  try {
-    let svc_type = $resource.spec.type?
-    if $svc_type != null { return $svc_type }
-  }
+  let service_type = try { $resource.spec.type? }
+  if $service_type != null { return $service_type }
 
-  # Node status - handle potentially empty list from filter
-  try {
-    let conditions = $resource.status.conditions?
-    if $conditions != null {
-      let ready_cond = ($conditions | where type == "Ready" | first | default null)
-      if $ready_cond != null {
-        return (if ($ready_cond.status == "True") { "Ready" } else { "NotReady" })
-      }
+  # Node status
+  let conditions = try { $resource.status.conditions? }
+  if $conditions != null {
+    let ready_condition = $conditions | where type == "Ready" | first | default null
+    if $ready_condition != null {
+      return (if ($ready_condition.status == "True") { "Ready" } else { "NotReady" })
     }
   }
 
   # Job/CronJob status
-  try {
-    let succeeded = $resource.status.succeeded?
-    if $succeeded != null {
-      return (if $succeeded { "Completed" } else { "Running" })
-    }
+  let succeeded = try { $resource.status.succeeded? }
+  if $succeeded != null {
+    return (if $succeeded { "Completed" } else { "Running" })
   }
 
   # PV/PVC status
-  try {
-    let phase = $resource.status.phase?
-    if $phase != null { return $phase }
-  }
+  let phase = try { $resource.status.phase? }
+  if $phase != null { return $phase }
 
-  return "Active"
+  "Active"
 }
