@@ -353,30 +353,16 @@ export def mask-secrets [data: any] {
   }
 }
 
-# Format MCP tool response
+# Format tool response - just return JSON
+# The Rust MCP server will wrap this in Content::text() automatically
 export def format-tool-response [
   content: any
   --error = false
 ] {
   if $error {
-    {
-      content: [
-        {
-          type: "text"
-          text: ($content | to json --indent 2)
-        }
-      ]
-      isError: true
-    }
+    error make {msg: ($content | to json --indent 2)}
   } else {
-    {
-      content: [
-        {
-          type: "text"
-          text: ($content | to json --indent 2)
-        }
-      ]
-    }
+    $content | to json --indent 2
   }
 }
 

@@ -87,9 +87,59 @@ def "main call-tool" [
     tool_name: string
     args: any = "{}"  # Can be string or record
 ] {
-    # Returns: Tool output (any format)
+    # Returns: Plain text or JSON string
+    # DO NOT wrap in MCP Content format - the Rust server does this automatically
 }
 ```
+
+### Tool Output Format
+
+**CRITICAL**: Tools must return plain text or JSON strings, NOT MCP-wrapped content.
+
+The Rust MCP server (`src/mcp/formatter.rs`) automatically wraps tool output in the MCP `Content` format:
+```rust
+Content::text(output)
+```
+
+**Correct output examples:**
+
+```nushell
+# Plain text output (like weather tool)
+"Weather in London: 15°C, Partly cloudy"
+
+# JSON output (like most tools)
+{city: "London", temp: 15} | to json
+
+# Structured data as JSON string
+{items: [{name: "app1"}, {name: "app2"}]} | to json --indent 2
+```
+
+**IMPORTANT**: If your tool uses HTTP APIs that return JSON (via `http get`, `http post`, etc.), Nushell automatically parses the JSON response into nushell records/tables. You MUST convert back to JSON before returning:
+
+```nushell
+# ❌ WRONG - Returns nushell record, not JSON
+export def list-items [] {
+  http get "https://api.example.com/items"  # Returns nushell record
+}
+
+# ✅ CORRECT - Converts to JSON string
+export def list-items [] {
+  http get "https://api.example.com/items" | to json --indent 2
+}
+```
+
+**WRONG - Do not wrap in MCP format:**
+
+```nushell
+# ❌ WRONG - Double wrapping!
+{
+  content: [
+    {type: "text", text: ($data | to json)}
+  ]
+}
+```
+
+The above creates double-wrapped content that clients cannot parse. Always return raw text/JSON and let the Rust server handle MCP formatting.
 
 ---
 

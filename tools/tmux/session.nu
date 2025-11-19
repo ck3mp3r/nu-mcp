@@ -68,7 +68,7 @@ export def list_sessions [] {
       }
     }
 
-    $all_items | table
+    $all_items | to json --indent 2
   } catch {
     "Error: Failed to list tmux sessions. Make sure tmux is running."
   }
@@ -263,8 +263,8 @@ export def list_panes [session: string] {
       }
     }
 
-    # Create proper nested table structure with expansion
-    $all_panes | select window window_name pane process directory status | group-by window window_name --to-table | update items {|row| $row.items | select pane process directory status } | table --expand
+    # Return panes as JSON
+    $all_panes | to json --indent 2
   } catch {
     $"Error: Failed to list panes for session '($session)'. Check that the session exists."
   }

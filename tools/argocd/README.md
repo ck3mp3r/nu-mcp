@@ -45,6 +45,8 @@ argocd version
 4. **Token Management**: ArgoCD CLI stores tokens in `~/.argocd/config`
 5. **API Calls**: Makes HTTP API calls using CLI-managed tokens
 
+**IMPORTANT**: When providing a `server` parameter to any tool, it is assumed the user has already logged in via `argocd login`. The tools will use the existing CLI session. If auto-discovery finds an in-cluster URL (*.svc.cluster.local), you must set up port-forward first, have the user login via `argocd login`, then provide the localhost server URL.
+
 ## Credential Discovery
 
 The tool automatically discovers credentials using these strategies (in order):

@@ -25,7 +25,7 @@ export def get-managed-resources [
   }
 
   let response = api-request "get" $"/api/v1/applications/($name)/managed-resources" $instance --params $params
-  {items: ($response.items? | default [])}
+  {items: ($response.items? | default [])} | to json --indent 2
 }
 
 # Get logs for application workload
@@ -62,7 +62,7 @@ export def get-workload-logs [
     $params = ($params | insert tailLines ($tail_lines | into string))
   }
 
-  api-request "get" $"/api/v1/applications/($name)/logs" $instance --params $params
+  api-request "get" $"/api/v1/applications/($name)/logs" $instance --params $params | to json --indent 2
 }
 
 # Get events for specific resource
@@ -87,7 +87,7 @@ export def get-resource-events [
     $params = ($params | insert resourceUID $resource_uid)
   }
 
-  api-request "get" $"/api/v1/applications/($name)/events" $instance --params $params
+  api-request "get" $"/api/v1/applications/($name)/events" $instance --params $params | to json --indent 2
 }
 
 # Get resource manifests
@@ -113,7 +113,7 @@ export def get-resources [
 
     let response = api-request "get" $"/api/v1/applications/($name)/resource" $instance --params $params
     $response.manifest? | default null
-  }
+  } | to json --indent 2
 }
 
 # Get available actions for a resource
@@ -139,7 +139,7 @@ export def get-resource-actions [
   }
 
   let response = api-request "get" $"/api/v1/applications/($name)/resource/actions" $instance --params $params
-  {actions: ($response.actions? | default [])}
+  {actions: ($response.actions? | default [])} | to json --indent 2
 }
 
 # Run a resource action
@@ -166,5 +166,5 @@ export def run-resource-action [
     $params = ($params | insert resourceName $resource_name)
   }
 
-  api-request "post" $"/api/v1/applications/($name)/resource/actions" $instance --body $body --params $params
+  api-request "post" $"/api/v1/applications/($name)/resource/actions" $instance --body $body --params $params | to json --indent 2
 }

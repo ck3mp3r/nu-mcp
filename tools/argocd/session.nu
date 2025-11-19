@@ -5,6 +5,16 @@
 export def get-token [instance: record] {
   let ctx = ctx-name $instance
 
+  # If creds is null, user has already logged in via argocd CLI
+  # Just verify the session is valid and use existing token
+  if $instance.creds == null {
+    if not (is-valid $ctx $instance.server) {
+      error make {msg: $"No valid argocd CLI session found for ($instance.server). Please login using: argocd login"}
+    }
+    return (read-token $ctx)
+  }
+
+  # Auto-discovery mode: login if needed
   if (is-valid $ctx $instance.server) {
     read-token $ctx
   } else {
@@ -114,5 +124,10 @@ def read-token [ctx: string] {
 
 # Generate context name for instance
 def ctx-name [instance: record] {
-  $"argocd-($instance.namespace)"
+  # When using explicit server (namespace is null), use the server host as context name
+  if $instance.namespace == null {
+    $instance.server | str replace --regex '^https?://' ''
+  } else {
+    $"argocd-($instance.namespace)"
+  }
 }

@@ -12,14 +12,24 @@ nu -c "use utils.nu *; calculate_price_change 100.0 95.0"
 ```
 
 ## Testing Complete Tools
+
+**CRITICAL**: Always test using the `call-tool` function, NOT by calling internal functions directly!
+
 ```bash
 # Test tool discovery
 nu tools/weather/mod.nu list-tools
 
-# Test tool execution
+# Test tool execution - ALWAYS use call-tool
 nu tools/weather/mod.nu call-tool get_weather '{"location": "London"}'
 nu tools/finance/mod.nu call-tool get_ticker_price '{"symbol": "AAPL"}'
+nu tools/argocd/mod.nu call-tool list_applications '{"namespace": "argocd"}'
+
+# WRONG - Do not call internal functions directly for testing
+# nu -c "use tools/argocd/cluster.nu *; resolve {server: 'https://localhost:8080'}"
+# This bypasses the actual tool flow and may give false results
 ```
+
+The `call-tool` function is the entry point that mimics how the MCP server will invoke tools. Testing internal functions directly may give different results than actual tool execution.
 
 ## Integration Testing
 ```bash
