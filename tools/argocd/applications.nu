@@ -3,10 +3,10 @@
 use utils.nu *
 
 # List all applications
-export def list_applications [
+export def list-applications [
+  instance: record # ArgoCD instance
   search?: string # Optional search filter (label selector)
   limit?: int # Optional limit
-  offset?: int # Optional offset
 ] {
   mut params = {}
 
@@ -14,14 +14,12 @@ export def list_applications [
     $params = ($params | insert selector $search)
   }
 
-  let response = (api-request "get" "/api/v1/applications" --params $params)
+  let response = api-request "get" "/api/v1/applications" $instance --params $params
   let all_items = $response.items? | default []
 
-  # Apply pagination if requested
-  let items = if ($offset != null or $limit != null) {
-    let start = ($offset | default 0)
-    let end = if ($limit != null) { $start + $limit } else { ($all_items | length) }
-    $all_items | range $start..<$end
+  # Apply limit if requested
+  let items = if $limit != null {
+    $all_items | first $limit
   } else {
     $all_items
   }
@@ -31,13 +29,14 @@ export def list_applications [
     metadata: {
       totalItems: ($all_items | length)
       returnedItems: ($items | length)
-      hasMore: (($limit != null) and (($offset | default 0) + $limit < ($all_items | length)))
+      hasMore: (($limit != null) and ($limit < ($all_items | length)))
     }
   }
 }
 
 # Get application details
-export def get_application [
+export def get-application [
+  instance: record # ArgoCD instance
   name: string # Application name
   app_namespace?: string # Application namespace
 ] {
@@ -47,26 +46,45 @@ export def get_application [
     $params = ($params | insert appNamespace $app_namespace)
   }
 
-  api-request "get" $"/api/v1/applications/($name)" --params $params
+  api-request "get" $"/api/v1/applications/($name)" $instance --params $params
+}
+
+# Get application resource tree
+export def get-application-resource-tree [
+  instance: record # ArgoCD instance
+  name: string # Application name
+] {
+  api-request "get" $"/api/v1/applications/($name)/resource-tree" $instance
+}
+
+# Get application events
+export def get-application-events [
+  instance: record # ArgoCD instance
+  name: string # Application name
+] {
+  api-request "get" $"/api/v1/applications/($name)/events" $instance
 }
 
 # Create a new application
-export def create_application [
+export def create-application [
+  instance: record # ArgoCD instance
   application: record # Application specification
 ] {
-  api-request "post" "/api/v1/applications" --body $application
+  api-request "post" "/api/v1/applications" $instance --body $application
 }
 
 # Update an existing application
-export def update_application [
+export def update-application [
+  instance: record # ArgoCD instance
   name: string # Application name
   application: record # Updated application specification
 ] {
-  api-request "put" $"/api/v1/applications/($name)" --body $application
+  api-request "put" $"/api/v1/applications/($name)" $instance --body $application
 }
 
 # Delete an application
-export def delete_application [
+export def delete-application [
+  instance: record # ArgoCD instance
   name: string # Application name
   app_namespace?: string # Application namespace
   cascade?: bool # Delete with cascade
@@ -86,11 +104,12 @@ export def delete_application [
     $params = ($params | insert propagationPolicy $propagation_policy)
   }
 
-  api-request "delete" $"/api/v1/applications/($name)" --params $params
+  api-request "delete" $"/api/v1/applications/($name)" $instance --params $params
 }
 
 # Sync an application
-export def sync_application [
+export def sync-application [
+  instance: record # ArgoCD instance
   name: string # Application name
   app_namespace?: string # Application namespace
   dry_run?: bool # Perform dry run
@@ -121,5 +140,5 @@ export def sync_application [
     $params = ($params | insert appNamespace $app_namespace)
   }
 
-  api-request "post" $"/api/v1/applications/($name)/sync" --body $sync_request --params $params
+  api-request "post" $"/api/v1/applications/($name)/sync" $instance --body $sync_request --params $params
 }

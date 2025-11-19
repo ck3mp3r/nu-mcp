@@ -2,23 +2,13 @@
 
 use utils.nu *
 
-# Get application resource tree
-export def get_resource_tree [
-  name: string # Application name
-] {
-  api-request "get" $"/api/v1/applications/($name)/resource-tree"
-}
-
-# Get managed resources
-export def get_managed_resources [
+# Get managed resources for an application
+export def get-managed-resources [
+  instance: record # ArgoCD instance
   name: string # Application name
   namespace?: string # Filter by namespace
   resource_name?: string # Filter by resource name
-  version?: string # Filter by version
-  group?: string # Filter by group
   kind?: string # Filter by kind
-  app_namespace?: string # Application namespace
-  project?: string # Filter by project
 ] {
   mut params = {}
 
@@ -30,46 +20,26 @@ export def get_managed_resources [
     $params = ($params | insert name $resource_name)
   }
 
-  if ($version != null) {
-    $params = ($params | insert version $version)
-  }
-
-  if ($group != null) {
-    $params = ($params | insert group $group)
-  }
-
   if ($kind != null) {
     $params = ($params | insert kind $kind)
   }
 
-  if ($app_namespace != null) {
-    $params = ($params | insert appNamespace $app_namespace)
-  }
-
-  if ($project != null) {
-    $params = ($params | insert project $project)
-  }
-
-  let response = (api-request "get" $"/api/v1/applications/($name)/managed-resources" --params $params)
+  let response = api-request "get" $"/api/v1/applications/($name)/managed-resources" $instance --params $params
   {items: ($response.items? | default [])}
 }
 
-# Get logs for application or specific workload
-export def get_logs [
+# Get logs for application workload
+export def get-workload-logs [
+  instance: record # ArgoCD instance
   name: string # Application name
-  app_namespace?: string # Application namespace
   resource_namespace?: string # Resource namespace
   resource_name?: string # Resource name
-  group?: string # Resource group
   kind?: string # Resource kind
-  version?: string # Resource version
   container?: string # Container name
   tail_lines?: int # Number of lines to tail
 ] {
-  mut params = {}
-
-  if ($app_namespace != null) {
-    $params = ($params | insert appNamespace $app_namespace)
+  mut params = {
+    follow: "false"
   }
 
   if ($resource_namespace != null) {
@@ -80,16 +50,8 @@ export def get_logs [
     $params = ($params | insert resourceName $resource_name)
   }
 
-  if ($group != null) {
-    $params = ($params | insert group $group)
-  }
-
   if ($kind != null) {
     $params = ($params | insert kind $kind)
-  }
-
-  if ($version != null) {
-    $params = ($params | insert version $version)
   }
 
   if ($container != null) {
@@ -100,20 +62,12 @@ export def get_logs [
     $params = ($params | insert tailLines ($tail_lines | into string))
   }
 
-  $params = ($params | insert follow "false")
-
-  api-request "get" $"/api/v1/applications/($name)/logs" --params $params
-}
-
-# Get events for an application
-export def get_application_events [
-  name: string # Application name
-] {
-  api-request "get" $"/api/v1/applications/($name)/events"
+  api-request "get" $"/api/v1/applications/($name)/logs" $instance --params $params
 }
 
 # Get events for specific resource
-export def get_events [
+export def get-resource-events [
+  instance: record # ArgoCD instance
   name: string # Application name
   resource_namespace?: string # Resource namespace
   resource_name?: string # Resource name
@@ -133,61 +87,44 @@ export def get_events [
     $params = ($params | insert resourceUID $resource_uid)
   }
 
-  api-request "get" $"/api/v1/applications/($name)/events" --params $params
+  api-request "get" $"/api/v1/applications/($name)/events" $instance --params $params
 }
 
 # Get resource manifests
-export def get_resources [
+export def get-resources [
+  instance: record # ArgoCD instance
   name: string # Application name
   app_namespace: string # Application namespace
-  resource_refs?: list # List of resource references (optional, fetches all if not provided)
 ] {
-  # If no resource refs provided, get all from resource tree
-  let refs = if ($resource_refs == null or ($resource_refs | is-empty)) {
-    let tree = (get_resource_tree $name)
-    $tree.nodes? | default [] | each {|node|
-      {
-        uid: ($node.uid? | default "")
-        version: ($node.version? | default "")
-        group: ($node.group? | default "")
-        kind: ($node.kind? | default "")
-        name: ($node.name? | default "")
-        namespace: ($node.namespace? | default "")
-      }
-    }
-  } else {
-    $resource_refs
-  }
-
+  # Get resource tree first
+  let tree_response = api-request "get" $"/api/v1/applications/($name)/resource-tree" $instance
+  let nodes = $tree_response.nodes? | default []
+  
   # Fetch manifest for each resource
-  $refs | each {|ref|
+  $nodes | each {|node|
     mut params = {
       appNamespace: $app_namespace
-      namespace: $ref.namespace
-      resourceName: $ref.name
-      group: $ref.group
-      kind: $ref.kind
-      version: $ref.version
+      namespace: ($node.namespace? | default "")
+      resourceName: ($node.name? | default "")
+      group: ($node.group? | default "")
+      kind: ($node.kind? | default "")
+      version: ($node.version? | default "")
     }
 
-    let response = (api-request "get" $"/api/v1/applications/($name)/resource" --params $params)
+    let response = api-request "get" $"/api/v1/applications/($name)/resource" $instance --params $params
     $response.manifest? | default null
   }
 }
 
 # Get available actions for a resource
-export def get_resource_actions [
+export def get-resource-actions [
+  instance: record # ArgoCD instance
   name: string # Application name
-  app_namespace?: string # Application namespace
   namespace?: string # Resource namespace
   kind?: string # Resource kind
   resource_name?: string # Resource name
 ] {
   mut params = {}
-
-  if ($app_namespace != null) {
-    $params = ($params | insert appNamespace $app_namespace)
-  }
 
   if ($namespace != null) {
     $params = ($params | insert namespace $namespace)
@@ -201,25 +138,21 @@ export def get_resource_actions [
     $params = ($params | insert resourceName $resource_name)
   }
 
-  let response = (api-request "get" $"/api/v1/applications/($name)/resource/actions" --params $params)
+  let response = api-request "get" $"/api/v1/applications/($name)/resource/actions" $instance --params $params
   {actions: ($response.actions? | default [])}
 }
 
 # Run a resource action
-export def run_resource_action [
+export def run-resource-action [
+  instance: record # ArgoCD instance
   name: string # Application name
   action: string # Action name
-  app_namespace?: string # Application namespace
   namespace?: string # Resource namespace
   kind?: string # Resource kind
   resource_name?: string # Resource name
 ] {
   mut params = {}
-  mut body = {action: $action}
-
-  if ($app_namespace != null) {
-    $params = ($params | insert appNamespace $app_namespace)
-  }
+  let body = {action: $action}
 
   if ($namespace != null) {
     $params = ($params | insert namespace $namespace)
@@ -233,19 +166,5 @@ export def run_resource_action [
     $params = ($params | insert resourceName $resource_name)
   }
 
-  api-request "post" $"/api/v1/applications/($name)/resource/actions" --body $body --params $params
-}
-
-# Get application manifests
-export def get_manifests [
-  name: string # Application name
-  revision?: string # Git revision
-] {
-  mut params = {}
-
-  if ($revision != null) {
-    $params = ($params | insert revision $revision)
-  }
-
-  api-request "get" $"/api/v1/applications/($name)/manifests" --params $params
+  api-request "post" $"/api/v1/applications/($name)/resource/actions" $instance --body $body --params $params
 }

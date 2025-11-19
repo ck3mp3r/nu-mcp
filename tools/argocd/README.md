@@ -1,26 +1,87 @@
 # ArgoCD MCP Server
 
-MCP server for ArgoCD using the HTTP API. Based on [argoproj-labs/mcp-for-argocd](https://github.com/argoproj-labs/mcp-for-argocd).
+MCP server for ArgoCD with automatic discovery and CLI-based authentication.
+
+## Features
+
+- **Zero Configuration**: Automatically discovers ArgoCD instances in your Kubernetes cluster
+- **Secure Authentication**: Uses `argocd` CLI for session management (no tokens in tool calls)
+- **Multi-Instance Support**: Can work with multiple ArgoCD servers
+- **Safety Modes**: Read-only by default, with controlled write access
+
+## Requirements
+
+- **ArgoCD CLI** (`argocd`) - Must be installed and in PATH
+- **kubectl** - For Kubernetes cluster access
+- **Kubernetes Cluster** - With ArgoCD installed
+
+### Installing ArgoCD CLI
+
+```bash
+# macOS
+brew install argocd
+
+# Linux
+curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+chmod +x /usr/local/bin/argocd
+
+# Verify installation
+argocd version
+```
+
+## How It Works
+
+1. **Discovery**: The tool scans your Kubernetes cluster for ArgoCD installations
+2. **Credential Discovery**: Finds credentials from Kubernetes secrets
+3. **CLI Authentication**: Uses `argocd login` to create sessions
+4. **Token Management**: ArgoCD CLI stores tokens in `~/.argocd/config`
+5. **API Calls**: Makes HTTP API calls using CLI-managed tokens
+
+## Credential Discovery
+
+The tool automatically discovers credentials using these strategies (in order):
+
+### 1. Standard ArgoCD Installation
+```yaml
+# Secret: argocd-initial-admin-secret
+# Automatically created by ArgoCD
+# Username: admin
+```
+
+### 2. Custom MCP Credentials (Recommended)
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-mcp-credentials
+  namespace: argocd
+type: Opaque
+stringData:
+  username: mcp-user
+  password: <secure-password>
+```
+
+### 3. Service Annotation
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-server
+  namespace: argocd
+  annotations:
+    mcp.argocd/credentials-secret: custom-credentials
+```
 
 ## Configuration
 
 ### Environment Variables
 
-- `ARGOCD_BASE_URL` (required) - ArgoCD server URL
-- `ARGOCD_API_TOKEN` (required) - API authentication token
 - `TLS_REJECT_UNAUTHORIZED` (optional) - Set to `"0"` for self-signed certificates
-- `MCP_READ_ONLY` (optional) - Read-only by default. Set to `"false"` to enable write operations
-
-### Getting an API Token
-
-```bash
-argocd login <server>
-# Token stored in ~/.config/argocd/config
-```
+- `MCP_READ_ONLY` (optional) - Set to `"false"` to enable write operations (default: `"true"`)
 
 ### MCP Client Configuration
 
-Add to your MCP configuration file:
+Minimal configuration - no credentials needed!
 
 ```json
 {
@@ -29,8 +90,6 @@ Add to your MCP configuration file:
       "command": "nu-mcp",
       "args": ["--tools-dir", "/path/to/nu-mcp/tools/argocd"],
       "env": {
-        "ARGOCD_BASE_URL": "https://argocd.example.com",
-        "ARGOCD_API_TOKEN": "<your-token>",
         "TLS_REJECT_UNAUTHORIZED": "0",
         "MCP_READ_ONLY": "false"
       }
@@ -38,8 +97,6 @@ Add to your MCP configuration file:
   }
 }
 ```
-
-Note: The server is read-only by default. Set `MCP_READ_ONLY: "false"` to enable write operations.
 
 ## Available Tools
 
@@ -62,17 +119,106 @@ Disabled by default. Enable with `MCP_READ_ONLY="false"`:
 - `sync_application` - Trigger sync operation
 - `run_resource_action` - Execute resource action
 
-## Testing
+## Usage
+
+### Auto-Discovery (Default)
+
+The tool automatically discovers and authenticates to ArgoCD:
 
 ```bash
-export ARGOCD_BASE_URL="https://argocd.example.com"
-export ARGOCD_API_TOKEN="<token>"
-export TLS_REJECT_UNAUTHORIZED="0"
+# List discovered ArgoCD instances
+nu tools/argocd/mod.nu list-instances
 
-# List applications
-source mod.nu
-main call-tool list_applications {}
+# List applications (auto-discovers from current kubectl context)
+nu tools/argocd/mod.nu call-tool list_applications '{}'
 
 # Get application details
-main call-tool get_application {applicationName: "my-app"}
+nu tools/argocd/mod.nu call-tool get_application '{"applicationName": "my-app"}'
 ```
+
+### Explicit Instance Selection
+
+Specify which ArgoCD instance to use:
+
+```bash
+# By namespace
+nu tools/argocd/mod.nu call-tool list_applications '{"namespace": "argocd-prod"}'
+
+# By server URL
+nu tools/argocd/mod.nu call-tool list_applications '{"server": "https://argocd.example.com"}'
+```
+
+## Testing
+
+### With Port-Forward (Development)
+
+```bash
+# Port-forward to local ArgoCD
+kubectl port-forward svc/argocd-server -n argocd 8080:80
+
+# Set environment for self-signed certs
+export TLS_REJECT_UNAUTHORIZED="0"
+
+# Test discovery
+nu tools/argocd/mod.nu list-instances
+
+# Test tool calls
+nu tools/argocd/mod.nu call-tool list_applications '{}'
+```
+
+### With LoadBalancer (Production)
+
+```bash
+# Tool automatically discovers LoadBalancer IP
+nu tools/argocd/mod.nu list-instances
+
+# Use discovered instance
+nu tools/argocd/mod.nu call-tool list_applications '{}'
+```
+
+## Troubleshooting
+
+### ArgoCD CLI Not Found
+
+```
+Error: Failed to login to ArgoCD: External command failed
+```
+
+**Solution**: Install ArgoCD CLI (see Requirements section)
+
+### No ArgoCD Instances Found
+
+```
+Error: No ArgoCD instances found in cluster
+```
+
+**Solutions**:
+- Label your ArgoCD namespace: `kubectl label namespace argocd app.kubernetes.io/part-of=argocd`
+- Specify namespace explicitly in tool call: `{"namespace": "argocd"}`
+
+### No Credentials Found
+
+```
+Error: No credentials found for ArgoCD in namespace argocd
+```
+
+**Solutions**:
+- Check if `argocd-initial-admin-secret` exists
+- Create `argocd-mcp-credentials` secret (see Credential Discovery section)
+
+### Token Expired
+
+The tool automatically re-authenticates when tokens expire. No manual intervention needed.
+
+## Security
+
+✅ **Secure**:
+- Credentials stored in Kubernetes secrets
+- Tokens managed by ArgoCD CLI in `~/.argocd/config`
+- No tokens passed via command-line arguments
+- Leverages Kubernetes RBAC
+
+✅ **Transparent**:
+- Auto-discovery eliminates manual configuration
+- Auto-authentication eliminates token management
+- Multi-instance support without static config
