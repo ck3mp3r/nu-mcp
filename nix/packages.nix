@@ -1,7 +1,7 @@
 {
   pkgs,
-  cargoToml,
   mkToolPackage,
+  ...
 }: {
   # Individual tool packages
   argocd-mcp-tools = mkToolPackage {
@@ -9,6 +9,7 @@
     src = ../tools/argocd;
     installPath = "argocd";
     description = "ArgoCD MCP tool for nu-mcp - provides ArgoCD application and resource management via HTTP API";
+    buildInputs = [pkgs.argocd];
   };
 
   weather-mcp-tools = mkToolPackage {
