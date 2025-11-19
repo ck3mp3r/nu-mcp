@@ -17,6 +17,7 @@ export def kubectl-get [
   let field_selector = $params.fieldSelector? | default ""
   let sort_by = $params.sortBy? | default ""
   let context = $params.context? | default ""
+  let delegate = $params.delegate? | default false
 
   # Build kubectl arguments
   mut args = ["get" $resource_type]
@@ -41,8 +42,27 @@ export def kubectl-get [
     $args = ($args | append ["--sort-by" $sort_by])
   }
 
+  # If delegating, return the command string
+  if $delegate {
+    return (
+      {
+        args: $args
+        namespace: $namespace
+        context: $context
+        output: $output
+        all_namespaces: $all_namespaces
+      } | build-kubectl-command
+    )
+  }
+
   # Execute kubectl command
-  let result = run-kubectl $args --namespace $namespace --context $context --output $output --all-namespaces $all_namespaces
+  let result = {
+    args: $args
+    namespace: $namespace
+    context: $context
+    output: $output
+    all_namespaces: $all_namespaces
+  } | run-kubectl
 
   # Check for errors
   if ($result | describe | str contains "record") and ($result | get isError? | default false) {
@@ -165,12 +185,32 @@ export def kubectl-describe [
   let namespace = $params.namespace? | default ""
   let all_namespaces = $params.allNamespaces? | default false
   let context = $params.context? | default ""
+  let delegate = $params.delegate? | default false
 
   # Build kubectl arguments
   let args = ["describe" $resource_type $name]
 
+  # If delegating, return the command string
+  if $delegate {
+    return (
+      {
+        args: $args
+        namespace: $namespace
+        context: $context
+        output: "text"
+        all_namespaces: $all_namespaces
+      } | build-kubectl-command
+    )
+  }
+
   # Execute kubectl command (describe outputs text, not JSON)
-  let result = run-kubectl $args --namespace $namespace --context $context --output "text" --all-namespaces $all_namespaces
+  let result = {
+    args: $args
+    namespace: $namespace
+    context: $context
+    output: "text"
+    all_namespaces: $all_namespaces
+  } | run-kubectl
 
   # Check for errors
   if ($result | describe | str contains "record") and ($result | get isError? | default false) {
@@ -228,11 +268,46 @@ export def kubectl-apply [
     $args = ($args | append "--force")
   }
 
+  let delegate = $params.delegate? | default false
+
+  # If delegating, return the command string
+  if $delegate {
+    return (
+      if $manifest != "" {
+        {
+          args: $args
+          stdin: $manifest
+          namespace: $namespace
+          context: $context
+          output: "json"
+        } | build-kubectl-command
+      } else {
+        {
+          args: $args
+          namespace: $namespace
+          context: $context
+          output: "json"
+        } | build-kubectl-command
+      }
+    )
+  }
+
   # Execute kubectl command
   let result = if $manifest != "" {
-    run-kubectl $args --stdin $manifest --namespace $namespace --context $context --output "json"
+    {
+      args: $args
+      stdin: $manifest
+      namespace: $namespace
+      context: $context
+      output: "json"
+    } | run-kubectl
   } else {
-    run-kubectl $args --namespace $namespace --context $context --output "json"
+    {
+      args: $args
+      namespace: $namespace
+      context: $context
+      output: "json"
+    } | run-kubectl
   }
 
   # Check for errors
@@ -258,6 +333,7 @@ export def kubectl-create [
   let dry_run = $params.dryRun? | default false
   let validate = $params.validate? | default true
   let context = $params.context? | default ""
+  let delegate = $params.delegate? | default false
 
   # Validate that either manifest or filename is provided
   if $manifest == "" and $filename == "" {
@@ -290,11 +366,44 @@ export def kubectl-create [
     $args = ($args | append "--validate=false")
   }
 
+  # If delegating, return the command string
+  if $delegate {
+    return (
+      if $manifest != "" {
+        {
+          args: $args
+          stdin: $manifest
+          namespace: $namespace
+          context: $context
+          output: "json"
+        } | build-kubectl-command
+      } else {
+        {
+          args: $args
+          namespace: $namespace
+          context: $context
+          output: "json"
+        } | build-kubectl-command
+      }
+    )
+  }
+
   # Execute kubectl command
   let result = if $manifest != "" {
-    run-kubectl $args --stdin $manifest --namespace $namespace --context $context --output "json"
+    {
+      args: $args
+      stdin: $manifest
+      namespace: $namespace
+      context: $context
+      output: "json"
+    } | run-kubectl
   } else {
-    run-kubectl $args --namespace $namespace --context $context --output "json"
+    {
+      args: $args
+      namespace: $namespace
+      context: $context
+      output: "json"
+    } | run-kubectl
   }
 
   # Check for errors
@@ -322,6 +431,7 @@ export def kubectl-patch [
   let patch_file = $params.patchFile? | default ""
   let dry_run = $params.dryRun? | default false
   let context = $params.context? | default ""
+  let delegate = $params.delegate? | default false
 
   # Validate that either patchData or patchFile is provided
   if $patch_data == null and $patch_file == "" {
@@ -359,8 +469,25 @@ export def kubectl-patch [
     $args = ($args | append "--dry-run=client")
   }
 
+  # If delegating, return the command string
+  if $delegate {
+    return (
+      {
+        args: $args
+        namespace: $namespace
+        context: $context
+        output: "json"
+      } | build-kubectl-command
+    )
+  }
+
   # Execute kubectl command
-  let result = run-kubectl $args --namespace $namespace --context $context --output "json"
+  let result = {
+    args: $args
+    namespace: $namespace
+    context: $context
+    output: "json"
+  } | run-kubectl
 
   # Check for errors
   if ($result | describe | str contains "record") and ($result | get isError? | default false) {
@@ -391,6 +518,7 @@ export def kubectl-delete [
   let force = $params.force? | default false
   let grace_period = $params.gracePeriodSeconds? | default null
   let context = $params.context? | default ""
+  let delegate = $params.delegate? | default false
 
   # Validate input - need at least one way to identify resources
   if ($resource_type == "") and ($manifest == "") and ($filename == "") {
@@ -424,8 +552,26 @@ export def kubectl-delete [
     $manifest | save -f $temp_file
     $args = ($args | append ["-f" $temp_file])
 
+    # If delegating, return the command string
+    if $delegate {
+      let cmd = {
+        args: $args
+        namespace: $namespace
+        context: $context
+        output: "text"
+      } | build-kubectl-command
+      # Clean up temp file
+      rm -f $temp_file
+      return $cmd
+    }
+
     # Execute the command
-    let result = run-kubectl $args --namespace $namespace --context $context --output "text"
+    let result = {
+      args: $args
+      namespace: $namespace
+      context: $context
+      output: "text"
+    } | run-kubectl
 
     # Clean up temp file
     rm -f $temp_file
@@ -474,8 +620,25 @@ export def kubectl-delete [
     $args = ($args | append $"--grace-period=($grace_period)")
   }
 
+  # If delegating, return the command string
+  if $delegate {
+    return (
+      {
+        args: $args
+        namespace: $namespace
+        context: $context
+        output: "text"
+      } | build-kubectl-command
+    )
+  }
+
   # Execute kubectl command
-  let result = run-kubectl $args --namespace $namespace --context $context --output "text"
+  let result = {
+    args: $args
+    namespace: $namespace
+    context: $context
+    output: "text"
+  } | run-kubectl
 
   # Check for errors
   if ($result | describe | str contains "record") and ($result | get isError? | default false) {

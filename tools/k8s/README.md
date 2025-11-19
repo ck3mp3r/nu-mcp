@@ -152,6 +152,60 @@ MCP_K8S_MODE=destructive          # + Destructive operations (22 tools)
 
 See "Switching Modes" section above for configuration examples.
 
+## Delegation Mode
+
+All kubectl command tools support a `delegate` parameter that returns the command string instead of executing it. This enables LLMs to delegate command execution to other tools (e.g., tmux, remote sessions).
+
+### How Delegation Works
+
+**Normal Execution** (default):
+```json
+{
+  "resourceType": "pods",
+  "namespace": "default"
+}
+// Returns: Pod data (executed)
+```
+
+**Delegation Mode**:
+```json
+{
+  "resourceType": "pods",
+  "namespace": "default",
+  "delegate": true
+}
+// Returns: "kubectl get pods --namespace default --output json"
+```
+
+### Use Cases
+
+**Execute in a tmux pane:**
+```
+1. LLM calls: kube_get({resourceType: "pods", delegate: true})
+   Returns: "kubectl get pods --namespace default --output json"
+
+2. LLM calls: tmux_send_and_capture({
+     session: "dev",
+     command: "kubectl get pods --namespace default --output json"
+   })
+   Executes in tmux session
+```
+
+**Execute in a remote session:**
+- Get kubectl command from k8s tool with `delegate: true`
+- Pass command to SSH/remote execution tool
+- Command runs in the remote context
+
+### Supported Tools
+
+Delegation is supported in all kubectl command execution tools:
+- `kube_get`, `kube_describe`, `kube_logs`
+- `kube_apply`, `kube_create`, `kube_patch`
+- `kube_scale`, `kube_rollout`, `kube_delete`
+- `kube_exec`, and more
+
+**Note:** Delegation respects safety modes - tools will still check permissions before returning commands.
+
 ## Security Features
 
 - **Automatic secret masking**: Sensitive data in secrets is masked

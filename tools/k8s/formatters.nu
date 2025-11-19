@@ -16,6 +16,14 @@ export def context-parameter [] {
   }
 }
 
+export def delegate-parameter [] {
+  {
+    type: "boolean"
+    description: "If true, return the kubectl command string instead of executing it. Useful for delegation to other tools like tmux."
+    default: false
+  }
+}
+
 # 1. kube_get - Get/list Kubernetes resources
 export def kubectl-get-schema [] {
   {
@@ -57,6 +65,7 @@ export def kubectl-get-schema [] {
           description: "Sort events by a field (default: lastTimestamp). Only applicable for events."
         }
         context: (context-parameter)
+        delegate: (delegate-parameter)
       }
       required: ["resourceType"]
     }
@@ -86,6 +95,7 @@ export def kubectl-describe-schema [] {
           default: false
         }
         context: (context-parameter)
+        delegate: (delegate-parameter)
       }
       required: ["resourceType" "name"]
     }
@@ -146,6 +156,7 @@ export def kubectl-logs-schema [] {
           description: "Filter resources by label selector"
         }
         context: (context-parameter)
+        delegate: (delegate-parameter)
       }
       required: ["name"]
     }
@@ -220,6 +231,7 @@ export def explain-resource-schema [] {
           default: "plaintext"
         }
         context: (context-parameter)
+        delegate: (delegate-parameter)
       }
       required: ["resource"]
     }
@@ -256,6 +268,7 @@ export def list-api-resources-schema [] {
           default: "wide"
         }
         context: (context-parameter)
+        delegate: (delegate-parameter)
       }
       required: []
     }
@@ -303,6 +316,7 @@ export def kubectl-apply-schema [] {
           default: false
         }
         context: (context-parameter)
+        delegate: (delegate-parameter)
       }
       required: []
     }
@@ -337,6 +351,7 @@ export def kubectl-create-schema [] {
           default: true
         }
         context: (context-parameter)
+        delegate: (delegate-parameter)
       }
       required: []
     }
@@ -380,6 +395,7 @@ export def kubectl-patch-schema [] {
           default: false
         }
         context: (context-parameter)
+        delegate: (delegate-parameter)
       }
       required: ["resourceType" "name"]
     }
@@ -409,6 +425,7 @@ export def kubectl-scale-schema [] {
           default: "deployment"
         }
         context: (context-parameter)
+        delegate: (delegate-parameter)
       }
       required: ["name" "replicas"]
     }
@@ -458,6 +475,7 @@ export def kubectl-rollout-schema [] {
           default: false
         }
         context: (context-parameter)
+        delegate: (delegate-parameter)
       }
       required: ["subCommand" "resourceType" "name" "namespace"]
     }
@@ -494,6 +512,7 @@ export def exec-in-pod-schema [] {
           description: "Timeout for command - 60000 milliseconds if not specified"
         }
         context: (context-parameter)
+        delegate: (delegate-parameter)
       }
       required: ["name" "command"]
     }
@@ -529,6 +548,7 @@ export def port-forward-schema [] {
           description: "Namespace of the resource"
         }
         context: (context-parameter)
+        delegate: (delegate-parameter)
       }
       required: ["resourceType" "resourceName" "localPort" "targetPort"]
     }
@@ -593,6 +613,7 @@ export def helm-install-schema [] {
           default: true
         }
         context: (context-parameter)
+        delegate: (delegate-parameter)
       }
       required: ["name" "chart" "namespace"]
     }
@@ -634,6 +655,7 @@ export def helm-upgrade-schema [] {
           default: false
         }
         context: (context-parameter)
+        delegate: (delegate-parameter)
       }
       required: ["name" "chart" "namespace"]
     }
@@ -690,6 +712,7 @@ export def kubectl-delete-schema [] {
           type: "string"
           description: "Kubernetes context to use (optional - defaults to current context)"
         }
+        delegate: (delegate-parameter)
       }
       required: ["resourceType" "name" "namespace"]
     }
@@ -716,6 +739,7 @@ export def helm-uninstall-schema [] {
           type: "string"
           description: "Kubernetes context to use (optional - defaults to current context)"
         }
+        delegate: (delegate-parameter)
       }
       required: ["name" "namespace"]
     }
@@ -786,6 +810,7 @@ export def node-management-schema [] {
           description: "Explicit confirmation to drain the node (required for drain operation)"
           default: false
         }
+        delegate: (delegate-parameter)
       }
       required: ["operation"]
     }

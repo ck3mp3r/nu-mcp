@@ -20,6 +20,7 @@ export def kubectl-logs [
   let follow = $params.follow? | default false
   let label_selector = $params.labelSelector? | default ""
   let context = $params.context? | default ""
+  let delegate = $params.delegate? | default false
 
   # Build kubectl arguments
   mut args = ["logs"]
@@ -70,8 +71,25 @@ export def kubectl-logs [
     $args = ($args | append "--follow")
   }
 
+  # If delegating, return the command string
+  if $delegate {
+    return (
+      {
+        args: $args
+        namespace: $namespace
+        context: $context
+        output: "text"
+      } | build-kubectl-command
+    )
+  }
+
   # Execute kubectl command (logs are plain text)
-  let result = run-kubectl $args --namespace $namespace --context $context --output "text"
+  let result = {
+    args: $args
+    namespace: $namespace
+    context: $context
+    output: "text"
+  } | run-kubectl
 
   # Check for errors
   if ($result | describe | str contains "record") and ($result | get isError? | default false) {
@@ -196,6 +214,7 @@ export def explain-resource [
   let recursive = $params.recursive? | default false
   let output = $params.output? | default "plaintext"
   let context = $params.context? | default ""
+  let delegate = $params.delegate? | default false
 
   # Build kubectl arguments
   mut args = ["explain" $resource]
@@ -215,8 +234,23 @@ export def explain-resource [
     $args = ($args | append ["--output" $output])
   }
 
+  # If delegating, return the command string
+  if $delegate {
+    return (
+      {
+        args: $args
+        context: $context
+        output: "text"
+      } | build-kubectl-command
+    )
+  }
+
   # Execute kubectl command
-  let result = run-kubectl $args --context $context --output "text"
+  let result = {
+    args: $args
+    context: $context
+    output: "text"
+  } | run-kubectl
 
   # Check for errors
   if ($result | describe | str contains "record") and ($result | get isError? | default false) {
@@ -241,6 +275,7 @@ export def list-api-resources [
   let verbs = $params.verbs? | default []
   let output = $params.output? | default "json"
   let context = $params.context? | default ""
+  let delegate = $params.delegate? | default false
 
   # Build kubectl arguments
   mut args = ["api-resources"]
@@ -271,8 +306,23 @@ export def list-api-resources [
     $args = ($args | append ["--output" $output])
   }
 
+  # If delegating, return the command string
+  if $delegate {
+    return (
+      {
+        args: $args
+        context: $context
+        output: "text"
+      } | build-kubectl-command
+    )
+  }
+
   # Execute kubectl command
-  let result = run-kubectl $args --context $context --output "text"
+  let result = {
+    args: $args
+    context: $context
+    output: "text"
+  } | run-kubectl
 
   # Check for errors
   if ($result | describe | str contains "record") and ($result | get isError? | default false) {
@@ -360,12 +410,30 @@ export def kubectl-scale [
   let replicas = $params.replicas
   let resource_type = $params.resourceType? | default "deployment"
   let context = $params.context? | default ""
+  let delegate = $params.delegate? | default false
 
   # Build kubectl arguments
   let args = ["scale" $resource_type $name $"--replicas=($replicas)"]
 
+  # If delegating, return the command string
+  if $delegate {
+    return (
+      {
+        args: $args
+        namespace: $namespace
+        context: $context
+        output: "text"
+      } | build-kubectl-command
+    )
+  }
+
   # Execute kubectl command
-  let result = run-kubectl $args --namespace $namespace --context $context --output "text"
+  let result = {
+    args: $args
+    namespace: $namespace
+    context: $context
+    output: "text"
+  } | run-kubectl
 
   # Check for errors
   if ($result | describe | str contains "record") and ($result | get isError? | default false) {
@@ -396,6 +464,7 @@ export def kubectl-rollout [
   let timeout = $params.timeout? | default ""
   let watch = $params.watch? | default false
   let context = $params.context? | default ""
+  let delegate = $params.delegate? | default false
 
   # Build kubectl arguments
   mut args = ["rollout" $sub_command $"($resource_type)/($name)"]
@@ -415,8 +484,25 @@ export def kubectl-rollout [
     $args = ($args | append "--watch")
   }
 
+  # If delegating, return the command string
+  if $delegate {
+    return (
+      {
+        args: $args
+        namespace: $namespace
+        context: $context
+        output: "text"
+      } | build-kubectl-command
+    )
+  }
+
   # Execute kubectl command
-  let result = run-kubectl $args --namespace $namespace --context $context --output "text"
+  let result = {
+    args: $args
+    namespace: $namespace
+    context: $context
+    output: "text"
+  } | run-kubectl
 
   # Check for errors
   if ($result | describe | str contains "record") and ($result | get isError? | default false) {
@@ -445,6 +531,7 @@ export def exec-in-pod [
   let shell = $params.shell? | default ""
   let timeout = $params.timeout? | default 60000
   let context = $params.context? | default ""
+  let delegate = $params.delegate? | default false
 
   # Build kubectl arguments
   mut args = ["exec" $name]
@@ -466,8 +553,25 @@ export def exec-in-pod [
     $args = ($args | append $cmd_parts)
   }
 
+  # If delegating, return the command string
+  if $delegate {
+    return (
+      {
+        args: $args
+        namespace: $namespace
+        context: $context
+        output: "text"
+      } | build-kubectl-command
+    )
+  }
+
   # Execute kubectl command
-  let result = run-kubectl $args --namespace $namespace --context $context --output "text"
+  let result = {
+    args: $args
+    namespace: $namespace
+    context: $context
+    output: "text"
+  } | run-kubectl
 
   # Check for errors
   if ($result | describe | str contains "record") and ($result | get isError? | default false) {
