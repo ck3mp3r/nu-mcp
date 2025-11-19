@@ -198,11 +198,13 @@ All kubectl command tools support a `delegate` parameter that returns the comman
 
 ### Supported Tools
 
-Delegation is supported in all kubectl command execution tools:
+Delegation is supported in most kubectl command execution tools:
 - `kube_get`, `kube_describe`, `kube_logs`
 - `kube_apply`, `kube_create`, `kube_patch`
 - `kube_scale`, `kube_rollout`, `kube_delete`
 - `kube_exec`, and more
+
+**Note:** `kube_port_forward` does not support delegation since port forwarding is a long-running blocking operation that requires process management. Use tmux or similar tools to run port-forward commands directly in background sessions.
 
 **Note:** Delegation respects safety modes - tools will still check permissions before returning commands.
 

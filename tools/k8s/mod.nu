@@ -4,7 +4,13 @@
 use utils.nu *
 use formatters.nu *
 use resources.nu *
-use operations.nu *
+use logs.nu *
+use context.nu *
+use workload.nu *
+use exec.nu *
+use port_forward.nu *
+use node.nu *
+use cleanup.nu *
 use helm.nu *
 
 # Default main command - show help
@@ -98,7 +104,7 @@ def call_tool [
     "kube_delete" => { kubectl-delete $params }
     "helm_uninstall" => { helm-uninstall $params }
     "kube_node" => { node-management $params }
-    "kube_cleanup" => { cleanup $params }
+    "kube_cleanup" => { kube-cleanup $params }
 
     # Unknown tool
     _ => {

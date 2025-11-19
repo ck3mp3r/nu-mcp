@@ -548,7 +548,6 @@ export def port-forward-schema [] {
           description: "Namespace of the resource"
         }
         context: (context-parameter)
-        delegate: (delegate-parameter)
       }
       required: ["resourceType" "resourceName" "localPort" "targetPort"]
     }
