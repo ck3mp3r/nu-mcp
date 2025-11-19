@@ -121,60 +121,98 @@ Disabled by default. Enable with `MCP_READ_ONLY="false"`:
 
 ## Usage
 
-### Auto-Discovery (Default)
+### Port-Forward Workflow (Recommended for Development)
 
-The tool automatically discovers and authenticates to ArgoCD:
-
+**Step 1: Set up port-forward using k8s tools**
 ```bash
-# List discovered ArgoCD instances
-nu tools/argocd/mod.nu list-instances
-
-# List applications (auto-discovers from current kubectl context)
-nu tools/argocd/mod.nu call-tool list_applications '{}'
-
-# Get application details
-nu tools/argocd/mod.nu call-tool get_application '{"applicationName": "my-app"}'
+# Use k8s MCP tools or kubectl directly
+kubectl port-forward -n argocd svc/argocd-server 8080:443
 ```
 
-### Explicit Instance Selection
-
-Specify which ArgoCD instance to use:
-
+**Step 2: Use ArgoCD tools with explicit server + namespace**
 ```bash
-# By namespace
-nu tools/argocd/mod.nu call-tool list_applications '{"namespace": "argocd-prod"}'
-
-# By server URL
-nu tools/argocd/mod.nu call-tool list_applications '{"server": "https://argocd.example.com"}'
-```
-
-## Testing
-
-### With Port-Forward (Development)
-
-```bash
-# Port-forward to local ArgoCD
-kubectl port-forward svc/argocd-server -n argocd 8080:80
-
 # Set environment for self-signed certs
 export TLS_REJECT_UNAUTHORIZED="0"
 
-# Test discovery
-nu tools/argocd/mod.nu list-instances
+# Call ArgoCD tools with server and namespace
+nu tools/argocd/mod.nu call-tool list_applications '{
+  "server": "https://localhost:8080",
+  "namespace": "argocd"
+}'
 
-# Test tool calls
-nu tools/argocd/mod.nu call-tool list_applications '{}'
+# Get specific application
+nu tools/argocd/mod.nu call-tool get_application '{
+  "applicationName": "my-app",
+  "server": "https://localhost:8080",
+  "namespace": "argocd"
+}'
 ```
 
-### With LoadBalancer (Production)
+**Why both parameters?**
+- `server`: The URL to connect to (localhost from port-forward)
+- `namespace`: Where to discover credentials from Kubernetes secrets
+
+This clean separation means:
+- You control the port-forward with k8s tools
+- ArgoCD tools just need to know the URL and where to find credentials
+- No magic, no auto-discovery complexity for local dev
+
+### LoadBalancer/Ingress Workflow (Production)
+
+**Option 1: Auto-Discovery (discovers server URL from k8s)**
+```bash
+# List all discovered ArgoCD instances
+nu tools/argocd/mod.nu list-instances
+
+# Use auto-discovery by namespace only
+nu tools/argocd/mod.nu call-tool list_applications '{
+  "namespace": "argocd-prod"
+}'
+```
+
+**Option 2: Explicit Server URL**
+```bash
+# Provide external URL + namespace for credentials
+nu tools/argocd/mod.nu call-tool list_applications '{
+  "server": "https://argocd.example.com",
+  "namespace": "argocd-prod"
+}'
+```
+
+### Auto-Discovery Only (Legacy)
+
+Let the tool discover both server and credentials:
 
 ```bash
-# Tool automatically discovers LoadBalancer IP
-nu tools/argocd/mod.nu list-instances
-
-# Use discovered instance
+# Uses current kubectl context namespace
 nu tools/argocd/mod.nu call-tool list_applications '{}'
+
+# Or specify namespace to discover from
+nu tools/argocd/mod.nu call-tool list_applications '{"namespace": "argocd"}'
 ```
+
+**Note**: Auto-discovery works for LoadBalancer services but is unnecessary when you're already port-forwarding.
+
+### Token Usage Optimization
+
+By default, `list_applications` returns summarized results to reduce token usage:
+
+```bash
+# Default: summarized (only essential fields)
+nu tools/argocd/mod.nu call-tool list_applications '{
+  "namespace": "argocd",
+  "limit": 10
+}'
+
+# Full objects (use sparingly, consumes many tokens)
+nu tools/argocd/mod.nu call-tool list_applications '{
+  "namespace": "argocd",
+  "summarize": false,
+  "limit": 2
+}'
+```
+
+**Token savings**: Summarization reduces token usage by ~90% (70k vs 200k+ for 11 apps)
 
 ## Troubleshooting
 
@@ -186,15 +224,50 @@ Error: Failed to login to ArgoCD: External command failed
 
 **Solution**: Install ArgoCD CLI (see Requirements section)
 
+### Connection Refused (Port-Forward)
+
+```
+Error: API request failed: I/O error
+```
+
+**Solutions**:
+1. Verify port-forward is running: `ps aux | grep "kubectl.*port-forward.*argocd"`
+2. Check you're using the correct port in `server` parameter
+3. Ensure `TLS_REJECT_UNAUTHORIZED="0"` is set for self-signed certs
+
+**Correct workflow**:
+```bash
+# 1. Start port-forward
+kubectl port-forward -n argocd svc/argocd-server 8080:443
+
+# 2. Use that port in your tool call
+export TLS_REJECT_UNAUTHORIZED="0"
+nu tools/argocd/mod.nu call-tool list_applications '{
+  "server": "https://localhost:8080",
+  "namespace": "argocd"
+}'
+```
+
 ### No ArgoCD Instances Found
 
 ```
 Error: No ArgoCD instances found in cluster
 ```
 
+**When this happens**:
+- You're using auto-discovery (no `server` parameter provided)
+- The tool can't find ArgoCD in your cluster
+
 **Solutions**:
-- Label your ArgoCD namespace: `kubectl label namespace argocd app.kubernetes.io/part-of=argocd`
-- Specify namespace explicitly in tool call: `{"namespace": "argocd"}`
+1. **Use explicit server** (recommended for port-forward):
+   ```bash
+   {"server": "https://localhost:8080", "namespace": "argocd"}
+   ```
+
+2. **Or fix discovery** by labeling namespace:
+   ```bash
+   kubectl label namespace argocd app.kubernetes.io/part-of=argocd
+   ```
 
 ### No Credentials Found
 
@@ -203,8 +276,23 @@ Error: No credentials found for ArgoCD in namespace argocd
 ```
 
 **Solutions**:
-- Check if `argocd-initial-admin-secret` exists
+- Check if `argocd-initial-admin-secret` exists: `kubectl get secret -n argocd argocd-initial-admin-secret`
 - Create `argocd-mcp-credentials` secret (see Credential Discovery section)
+
+### Token Limit Exceeded
+
+```
+Error: prompt is too long: 200150 tokens > 200000 maximum
+```
+
+**Solution**: Use summarization (enabled by default):
+```bash
+# Summarized results (default)
+{"namespace": "argocd", "limit": 10}
+
+# Or explicit
+{"namespace": "argocd", "summarize": true}
+```
 
 ### Token Expired
 
