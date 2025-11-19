@@ -127,6 +127,9 @@ def ctx-name [instance: record] {
   # When using explicit server (namespace is null), use the server host as context name
   if $instance.namespace == null {
     $instance.server | str replace --regex '^https?://' ''
+  } else if ($instance.server | str contains "localhost") {
+    # For port-forwarded localhost, use the server URL as context
+    $instance.server | str replace --regex '^https?://' ''
   } else {
     $"argocd-($instance.namespace)"
   }

@@ -37,6 +37,7 @@ export def parse [ns: string] {
       namespace: $ns
       server: (get-server $ns)
       creds: (get-creds $ns)
+      in_cluster: ((get-server $ns) | str contains ".svc.cluster.local")
     }
   } catch {
     null
@@ -144,6 +145,19 @@ export def resolve [args: record] {
     if $instance == null {
       error make {msg: $"ArgoCD instance not found in namespace ($args.namespace)"}
     }
+
+    # Check if it's in-cluster and provide instructions
+    if $instance.in_cluster? == true {
+      error make {
+        msg: $"ArgoCD found in namespace '($instance.namespace)' with in-cluster URL: ($instance.server)
+
+ACTION REQUIRED: Use k8s tool to set up port-forward:
+  kube_port_forward with: resourceType='service', resourceName='argocd-server', namespace='($instance.namespace)', localPort=8080, targetPort=443
+
+Then retry ArgoCD with: server='https://localhost:8080', namespace='($instance.namespace)'"
+      }
+    }
+
     return $instance
   }
 
@@ -155,6 +169,17 @@ export def resolve [args: record] {
   if ($current_ns | str starts-with "argocd") {
     let instance = parse $current_ns
     if $instance != null {
+      # Check if it's in-cluster
+      if $instance.in_cluster? == true {
+        error make {
+          msg: $"ArgoCD found in namespace '($instance.namespace)' with in-cluster URL: ($instance.server)
+
+ACTION REQUIRED: Use k8s tool to set up port-forward:
+  kube_port_forward with: resourceType='service', resourceName='argocd-server', namespace='($instance.namespace)', localPort=8080, targetPort=443
+
+Then retry ArgoCD with: server='https://localhost:8080', namespace='($instance.namespace)'"
+        }
+      }
       return $instance
     }
   }
@@ -165,7 +190,21 @@ export def resolve [args: record] {
     error make {msg: "No ArgoCD instances found in cluster"}
   }
 
-  $instances | first
+  let first_instance = $instances | first
+
+  # Check if it's in-cluster
+  if $first_instance.in_cluster? == true {
+    error make {
+      msg: $"ArgoCD found in namespace '($first_instance.namespace)' with in-cluster URL: ($first_instance.server)
+
+ACTION REQUIRED: Use k8s tool to set up port-forward:
+  kube_port_forward with: resourceType='service', resourceName='argocd-server', namespace='($first_instance.namespace)', localPort=8080, targetPort=443
+
+Then retry ArgoCD with: server='https://localhost:8080', namespace='($first_instance.namespace)'"
+    }
+  }
+
+  $first_instance
 }
 
 # Cache management
