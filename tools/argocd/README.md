@@ -11,7 +11,9 @@ MCP server for ArgoCD with automatic discovery and CLI-based authentication.
 
 ## Requirements
 
-- **ArgoCD CLI** (`argocd`) - Must be installed and in PATH
+**Critical**: These tools will **NOT work** without the ArgoCD CLI installed and available on PATH.
+
+- **ArgoCD CLI** (`argocd`) - **REQUIRED** - Must be installed and on PATH at runtime
 - **kubectl** - For Kubernetes cluster access
 - **Kubernetes Cluster** - With ArgoCD installed
 
@@ -25,9 +27,15 @@ brew install argocd
 curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
 chmod +x /usr/local/bin/argocd
 
+# Nix / NixOS
+nix-shell -p argocd
+# Or add to your environment
+
 # Verify installation
 argocd version
 ```
+
+**Note**: If using via Nix devenv (this repository), `argocd` is automatically available in the shell.
 
 ## How It Works
 
