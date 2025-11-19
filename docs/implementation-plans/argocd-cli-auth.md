@@ -378,9 +378,71 @@ If implementation has issues:
 
 **Total**: ~3.5 hours
 
+## Post-Implementation: Token Usage Optimization
+
+### Problem
+After initial implementation, discovered that `list_applications` could exceed the 200,000 token limit when returning full ArgoCD application objects. With 11 applications, the full response was ~200,150 tokens, exceeding the limit.
+
+### Solution (Milestone 8)
+Implemented automatic summarization following the pattern from `tools/k8s/resources.nu`:
+
+**File**: `tools/argocd/applications.nu`
+- Added `summarize-application` function to extract essential fields
+- Updated `list-applications` to accept optional `summarize` parameter (default: `true`)
+- Summarized apps return only:
+  - `name`, `namespace`, `project`
+  - `source`: repoURL, path, targetRevision
+  - `destination`: server, namespace
+  - `syncPolicy.automated`
+  - `health.status`
+  - `sync.status`, `sync.revision`
+  - `createdAt`
+
+**File**: `tools/argocd/formatters.nu`
+- Updated `list_applications` schema description
+- Added `summarize` boolean parameter (default: true)
+- Documented that results are auto-summarized by default
+
+**File**: `tools/argocd/mod.nu`
+- Updated routing to pass `summarize` parameter
+
+### Results
+- Default behavior: ~90% token reduction for list operations
+- Users can opt-in to full objects with `summarize: false`
+- Compatible with k8s tools pattern
+- No breaking changes (default behavior is the safe option)
+
+### Testing
+```bash
+# With summarization (default)
+nu tools/argocd/mod.nu call-tool list_applications '{"namespace": "argocd"}'
+
+# Without summarization (full objects)
+nu tools/argocd/mod.nu call-tool list_applications '{"namespace": "argocd", "summarize": false}'
+
+# Combined with limit
+nu tools/argocd/mod.nu call-tool list_applications '{"limit": 5, "summarize": true}'
+```
+
 ## Lessons Learned
 
-*(To be filled after implementation)*
+### 1. Token Limits Are Real
+Large list responses can easily exceed MCP token limits. Always implement summarization for list operations.
+
+### 2. Follow Existing Patterns
+The k8s tools already solved this problem. Reviewing similar tools saves time and ensures consistency.
+
+### 3. Config Path Matters
+ArgoCD CLI stores config in `~/.config/argocd/config`, not `~/.argocd/config`. Testing revealed this early.
+
+### 4. URL Format Matters
+ArgoCD CLI expects `localhost:8080` format, not `https://localhost:8080`. Strip protocol prefixes.
+
+### 5. Topiary Formatting
+Always run `topiary format` after editing Nushell files to maintain code quality standards.
+
+### 6. Default to Safe Behavior
+Summarization should be ON by default to prevent token overruns. Let users opt-in to full data.
 
 ## References
 

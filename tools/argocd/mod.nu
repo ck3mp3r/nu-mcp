@@ -66,7 +66,8 @@ def "main call-tool" [
     "list_applications" => {
       let search = if "search" in $parsed { $parsed.search } else { null }
       let limit = if "limit" in $parsed { $parsed.limit } else { null }
-      list-applications $instance $search $limit
+      let summarize = if "summarize" in $parsed { $parsed.summarize } else { null }
+      list-applications $instance $search $limit $summarize
     }
     "get_application" => {
       let app_namespace = if "appNamespace" in $parsed { $parsed.appNamespace } else { null }

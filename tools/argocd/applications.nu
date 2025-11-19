@@ -2,11 +2,44 @@
 
 use utils.nu *
 
+# Summarize application to reduce token usage
+# Extracts only essential fields from full application object
+def summarize-application [
+  app: record
+] {
+  {
+    name: ($app | get metadata.name? | default "unknown")
+    namespace: ($app | get metadata.namespace? | default "")
+    project: ($app | get spec.project? | default "")
+    source: {
+      repoURL: ($app | get spec.source.repoURL? | default "")
+      path: ($app | get spec.source.path? | default "")
+      targetRevision: ($app | get spec.source.targetRevision? | default "")
+    }
+    destination: {
+      server: ($app | get spec.destination.server? | default "")
+      namespace: ($app | get spec.destination.namespace? | default "")
+    }
+    syncPolicy: {
+      automated: ($app | get spec.syncPolicy.automated? | default null)
+    }
+    health: {
+      status: ($app | get status.health.status? | default "Unknown")
+    }
+    sync: {
+      status: ($app | get status.sync.status? | default "Unknown")
+      revision: ($app | get status.sync.revision? | default "")
+    }
+    createdAt: ($app | get metadata.creationTimestamp? | default "")
+  }
+}
+
 # List all applications
 export def list-applications [
   instance: record # ArgoCD instance
   search?: string # Optional search filter (label selector)
   limit?: int # Optional limit
+  summarize?: bool # Summarize results to reduce token usage (default: true)
 ] {
   mut params = {}
 
@@ -18,10 +51,18 @@ export def list-applications [
   let all_items = $response.items? | default []
 
   # Apply limit if requested
-  let items = if $limit != null {
+  let limited_items = if $limit != null {
     $all_items | first $limit
   } else {
     $all_items
+  }
+
+  # Apply summarization if requested (default: true)
+  let should_summarize = if ($summarize == null) { true } else { $summarize }
+  let items = if $should_summarize {
+    $limited_items | each {|app| summarize-application $app }
+  } else {
+    $limited_items
   }
 
   {
@@ -30,6 +71,7 @@ export def list-applications [
       totalItems: ($all_items | length)
       returnedItems: ($items | length)
       hasMore: (($limit != null) and ($limit < ($all_items | length)))
+      summarized: $should_summarize
     }
   }
 }

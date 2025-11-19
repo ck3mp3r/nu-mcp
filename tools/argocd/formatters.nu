@@ -40,7 +40,7 @@ export def get-tool-definitions [] {
   [
     {
       name: "list_applications"
-      description: "list_applications returns list of applications"
+      description: "list_applications returns list of applications. Results are automatically summarized by default to reduce token usage - only essential fields like name, status, health, sync state, and source/destination info are returned. Set summarize=false to get full application objects."
       input_schema: {
         type: "object"
         properties: {
@@ -52,9 +52,9 @@ export def get-tool-definitions [] {
             type: "integer"
             description: "Maximum number of applications to return. Use this to reduce token usage when there are many applications. Optional."
           }
-          offset: {
-            type: "integer"
-            description: "Number of applications to skip before returning results. Use with limit for pagination. Optional."
+          summarize: {
+            type: "boolean"
+            description: "Summarize results to reduce token usage by returning only essential fields (default: true). Set to false to get full application objects. Optional."
           }
         }
         additionalProperties: false
