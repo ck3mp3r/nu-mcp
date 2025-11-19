@@ -8,8 +8,7 @@
     pname = "argocd-mcp-tools";
     src = ../tools/argocd;
     installPath = "argocd";
-    description = "ArgoCD MCP tool for nu-mcp - provides ArgoCD application and resource management via HTTP API";
-    propagatedBuildInputs = [pkgs.argocd];
+    description = "ArgoCD MCP tool for nu-mcp - provides ArgoCD application and resource management via HTTP API. Requires argocd CLI to be installed and on PATH.";
   };
 
   weather-mcp-tools = mkToolPackage {
