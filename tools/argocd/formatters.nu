@@ -44,6 +44,14 @@ export def get-tool-definitions [] {
       input_schema: {
         type: "object"
         properties: {
+          namespace: {
+            type: "string"
+            description: "Kubernetes namespace where ArgoCD is installed (e.g., 'argocd'). Used to discover credentials. Optional if server is in cache."
+          }
+          server: {
+            type: "string"
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080' for port-forward, 'https://argocd.example.com' for LoadBalancer). Optional if using auto-discovery."
+          }
           search: {
             type: "string"
             description: "Search applications by name. This is a partial match on the application name and does not support glob patterns (e.g. '*'). Optional."

@@ -121,7 +121,20 @@ def try-secret [
 
 # Resolve instance from args or discover
 export def resolve [args: record] {
-  # Check for explicit namespace parameter
+  # Check for explicit server + namespace (for port-forward scenarios)
+  if ("server" in $args) and ("namespace" in $args) {
+    let creds = get-creds $args.namespace
+    if $creds == null {
+      error make {msg: $"No credentials found in namespace ($args.namespace)"}
+    }
+    return {
+      server: $args.server
+      namespace: $args.namespace
+      creds: $creds
+    }
+  }
+
+  # Check for explicit namespace parameter (auto-discover server)
   if "namespace" in $args {
     let instance = parse $args.namespace
     if $instance == null {
@@ -130,7 +143,7 @@ export def resolve [args: record] {
     return $instance
   }
 
-  # Check for explicit server parameter
+  # Check for explicit server parameter only (lookup in cache)
   if "server" in $args {
     let all = cache
     let found = $all | where server == $args.server
