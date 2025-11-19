@@ -33,7 +33,7 @@ def is-valid [ctx: string server: string] {
 # Login via ArgoCD CLI
 def login [instance: record] {
   let ctx = ctx-name $instance
-  
+
   # Strip https:// or http:// from server for argocd CLI
   let server = $instance.server | str replace --regex '^https?://' ''
 
@@ -83,26 +83,26 @@ def read-token [ctx: string] {
 
     let contexts = $config.contexts? | default []
     let matching_contexts = $contexts | where name == $ctx
-    
+
     if ($matching_contexts | is-empty) {
       error make {
         msg: $"Context '($ctx)' not found in ArgoCD config"
       }
     }
-    
+
     let context = $matching_contexts | first
     let user_name = $context.user
-    
+
     # Look up the user's auth token
     let users = $config.users? | default []
     let matching_users = $users | where name == $user_name
-    
+
     if ($matching_users | is-empty) {
       error make {
         msg: $"User '($user_name)' not found in ArgoCD config"
       }
     }
-    
+
     let user = $matching_users | first
     $user.auth-token
   } catch {
