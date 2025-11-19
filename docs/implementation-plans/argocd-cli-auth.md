@@ -211,42 +211,68 @@ nu -c "
 **Test Scenarios**:
 
 1. **Discovery**:
-   - [ ] List discovered instances
-   - [ ] Discover from labeled namespace
-   - [ ] Cache works and expires correctly
+   - [x] List discovered instances
+   - [x] Discover from labeled namespace
+   - [x] Cache works and expires correctly
 
 2. **Authentication**:
-   - [ ] Login with username/password
-   - [ ] Read token from config
-   - [ ] Validate existing session
-   - [ ] Re-login on expiration
+   - [x] Login with username/password
+   - [x] Read token from config
+   - [x] Validate existing session
+   - [x] Re-login on expiration
 
 3. **Tool Execution**:
-   - [ ] `list_applications` with auto-discovery
-   - [ ] `get_application` with explicit namespace
-   - [ ] Tools work with cached session
-   - [ ] Tools re-authenticate when needed
+   - [x] `list_applications` with auto-discovery
+   - [x] `get_application` with explicit namespace
+   - [x] Tools work with cached session
+   - [x] Tools re-authenticate when needed
 
 4. **Error Handling**:
-   - [ ] No ArgoCD instances found
-   - [ ] Invalid credentials
-   - [ ] ArgoCD CLI not installed
-   - [ ] Expired session re-authenticates
+   - [x] No ArgoCD instances found
+   - [x] Invalid credentials
+   - [x] ArgoCD CLI not installed
+   - [x] Expired session re-authenticates
+
+5. **Token Usage Optimization** (Milestone 8):
+   - [x] Summarized list returns reduced data
+   - [x] Full list with `summarize: false` returns complete objects
+   - [x] Limit parameter works with summarization
+   - [x] Metadata includes summarization status
 
 **Test Commands**:
 ```bash
-# Test discovery
-nu tools/argocd/mod.nu list-instances
+# Setup port-forward for testing
+kubectl port-forward -n argocd svc/argocd-server 8080:443
 
-# Test with auto-discovery (uses current context or first found)
-nu tools/argocd/mod.nu call-tool list_applications '{}'
+# Test with summarization (default)
+with-env {TLS_REJECT_UNAUTHORIZED: "0"} {
+  nu tools/argocd/mod.nu call-tool list_applications '{"namespace": "argocd"}'
+}
 
-# Test with explicit namespace
-nu tools/argocd/mod.nu call-tool list_applications '{"namespace": "argocd"}'
+# Test without summarization (full objects)
+with-env {TLS_REJECT_UNAUTHORIZED: "0"} {
+  nu tools/argocd/mod.nu call-tool list_applications '{"namespace": "argocd", "summarize": false, "limit": 2}'
+}
 
-# Test with explicit server
-nu tools/argocd/mod.nu call-tool list_applications '{"server": "https://argocd.example.com"}'
+# Test with limit
+with-env {TLS_REJECT_UNAUTHORIZED: "0"} {
+  nu tools/argocd/mod.nu call-tool list_applications '{"namespace": "argocd", "limit": 5}'
+}
+
+# Test get_application
+with-env {TLS_REJECT_UNAUTHORIZED: "0"} {
+  nu tools/argocd/mod.nu call-tool get_application '{"applicationName": "gitea", "namespace": "argocd"}'
+}
 ```
+
+**Test Results**:
+- ✅ Listing 11 applications with summarization: ~70k tokens (vs 200k+ without)
+- ✅ Full objects still available with `summarize: false`
+- ✅ Limit parameter correctly restricts results
+- ✅ Metadata shows `summarized: true/false` and `hasMore` status
+- ✅ Authentication via ArgoCD CLI works correctly
+- ✅ Token reading from `~/.config/argocd/config` works
+- ✅ Instance discovery from Kubernetes namespace works
 
 ### Milestone 7: Documentation
 **Files to Update**:
@@ -358,13 +384,14 @@ If implementation has issues:
 
 ## Success Criteria
 
-- [ ] No API tokens in tool call parameters
-- [ ] Auto-discovery works for standard ArgoCD installations
-- [ ] Multi-instance support with explicit selection
-- [ ] All existing tools work with new authentication
-- [ ] Clear error messages for common problems
-- [ ] Documentation complete and accurate
-- [ ] Tested with real ArgoCD instance
+- [x] No API tokens in tool call parameters
+- [x] Auto-discovery works for standard ArgoCD installations  
+- [x] Multi-instance support with explicit selection
+- [x] All existing tools work with new authentication
+- [x] Clear error messages for common problems
+- [x] Documentation complete and accurate
+- [x] Tested with real ArgoCD instance
+- [x] Token usage optimization prevents MCP limit errors (Milestone 8)
 
 ## Timeline Estimate
 
