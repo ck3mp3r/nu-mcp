@@ -33,10 +33,13 @@ def is-valid [ctx: string server: string] {
 # Login via ArgoCD CLI
 def login [instance: record] {
   let ctx = ctx-name $instance
+  
+  # Strip https:// or http:// from server for argocd CLI
+  let server = $instance.server | str replace --regex '^https?://' ''
 
   mut args = [
     "login"
-    $instance.server
+    $server
     "--username"
     $instance.creds.username
     "--password"
@@ -68,7 +71,7 @@ def login [instance: record] {
 # Read token from ArgoCD CLI config
 def read-token [ctx: string] {
   try {
-    let config_path = $"($env.HOME)/.argocd/config"
+    let config_path = $"($env.HOME)/.config/argocd/config"
 
     if not ($config_path | path exists) {
       error make {
@@ -78,18 +81,30 @@ def read-token [ctx: string] {
 
     let config = open $config_path | from yaml
 
-    let context = $config.contexts?
-    | default []
-    | where name == $ctx
-    | first?
-
-    if ($context | is-empty) {
+    let contexts = $config.contexts? | default []
+    let matching_contexts = $contexts | where name == $ctx
+    
+    if ($matching_contexts | is-empty) {
       error make {
         msg: $"Context '($ctx)' not found in ArgoCD config"
       }
     }
-
-    $context.user.auth-token
+    
+    let context = $matching_contexts | first
+    let user_name = $context.user
+    
+    # Look up the user's auth token
+    let users = $config.users? | default []
+    let matching_users = $users | where name == $user_name
+    
+    if ($matching_users | is-empty) {
+      error make {
+        msg: $"User '($user_name)' not found in ArgoCD config"
+      }
+    }
+    
+    let user = $matching_users | first
+    $user.auth-token
   } catch {
     error make {
       msg: $"Failed to read token: ($in.msg)"
