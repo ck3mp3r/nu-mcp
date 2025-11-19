@@ -40,10 +40,18 @@ export def get-tool-definitions [] {
   [
     {
       name: "list_applications"
-      description: "list_applications returns list of applications"
+      description: "list_applications returns list of applications. Results are automatically summarized by default to reduce token usage - only essential fields like name, status, health, sync state, and source/destination info are returned. Set summarize=false to get full application objects."
       input_schema: {
         type: "object"
         properties: {
+          namespace: {
+            type: "string"
+            description: "Kubernetes namespace where ArgoCD is installed (e.g., 'argocd'). Used to discover credentials. Optional if server is in cache."
+          }
+          server: {
+            type: "string"
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080' for port-forward, 'https://argocd.example.com' for LoadBalancer). Optional if using auto-discovery."
+          }
           search: {
             type: "string"
             description: "Search applications by name. This is a partial match on the application name and does not support glob patterns (e.g. '*'). Optional."
@@ -52,9 +60,9 @@ export def get-tool-definitions [] {
             type: "integer"
             description: "Maximum number of applications to return. Use this to reduce token usage when there are many applications. Optional."
           }
-          offset: {
-            type: "integer"
-            description: "Number of applications to skip before returning results. Use with limit for pagination. Optional."
+          summarize: {
+            type: "boolean"
+            description: "Summarize results to reduce token usage by returning only essential fields (default: true). Set to false to get full application objects. Optional."
           }
         }
         additionalProperties: false

@@ -20,6 +20,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.fenix.follows = "fenix";
     };
+    topiary-nu = {
+      url = "github:ck3mp3r/flakes?dir=topiary-nu";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs @ {
@@ -37,6 +41,7 @@
         supportedTargets = ["aarch64-darwin" "aarch64-linux" "x86_64-linux"];
         overlays = [
           inputs.fenix.overlays.default
+          inputs.topiary-nu.overlays.default
         ];
         pkgs = import inputs.nixpkgs {inherit system overlays;};
 
@@ -49,9 +54,12 @@
           src,
           installPath,
           description,
+          buildInputs ? [],
+          nativeBuildInputs ? [],
+          propagatedBuildInputs ? [],
         }:
           pkgs.stdenv.mkDerivation {
-            inherit pname src;
+            inherit pname src buildInputs nativeBuildInputs propagatedBuildInputs;
             version = cargoToml.package.version;
 
             dontBuild = true;
@@ -65,6 +73,12 @@
 
               runHook postInstall
             '';
+
+            # Ensure propagated dependencies are properly handled
+            passthru = {
+              # Make dependencies easily accessible for debugging
+              runtimeDependencies = propagatedBuildInputs;
+            };
 
             meta = with pkgs.lib; {
               inherit description;
