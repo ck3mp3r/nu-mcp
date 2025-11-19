@@ -1275,6 +1275,45 @@ export def get-paginated [
 
 ---
 
+## Code Formatting with Topiary
+
+After implementing your tool, format all Nushell code with topiary:
+
+### Format All Tool Files
+
+```bash
+# Format all .nu files in your tool directory
+topiary format tools/<tool-name>/*.nu --skip-idempotence --tolerate-parsing-errors
+
+# Check what changed
+git diff tools/<tool-name>/
+
+# Add formatted files
+git add tools/<tool-name>/*.nu
+
+# Commit formatting separately
+git commit -m "style(<tool-name>): format nushell code with topiary"
+```
+
+### Why Topiary?
+
+- **Consistency**: Ensures all Nushell code follows the same formatting style
+- **Readability**: Standardizes whitespace, indentation, and structure
+- **Collaboration**: Reduces formatting-related diffs in code reviews
+
+### Topiary Flags
+
+- `--skip-idempotence`: Skip checking that formatting twice gives same output
+- `--tolerate-parsing-errors`: Continue formatting even if some parsing errors occur (needed for complex Nushell syntax)
+
+### When to Format
+
+1. **After Implementation**: Before final commit, format all new/modified `.nu` files
+2. **Separate Commit**: Keep formatting changes in a separate commit from functional changes
+3. **Before PR**: Always format before creating a pull request
+
+---
+
 ## Pre-Commit Review Checklist
 
 Before committing your tool, verify:
@@ -1284,6 +1323,7 @@ Before committing your tool, verify:
 - [ ] All exports are intentional (no accidental exports)
 - [ ] Private functions don't have `export`
 - [ ] **Consistent naming: snake_case for tool names, kebab-case for function names**
+- [ ] **Code formatted with topiary**
 - [ ] No hardcoded values (use config/env vars)
 - [ ] No sensitive data in code
 
@@ -1332,9 +1372,10 @@ Before committing your tool, verify:
    - Milestone 6: Formatting
    - Milestone 7: Documentation
    - Milestone 8: Testing
-5. **Review** → Use pre-commit checklist
-6. **Commit** → Commit to feature branch
-7. **Pull Request** → Create PR for review
+5. **Format** → Format Nushell code with topiary
+6. **Review** → Use pre-commit checklist
+7. **Commit** → Commit to feature branch
+8. **Pull Request** → Create PR for review
 
 ---
 
