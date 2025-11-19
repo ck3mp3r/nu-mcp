@@ -99,7 +99,7 @@ export def get-resources [
   # Get resource tree first
   let tree_response = api-request "get" $"/api/v1/applications/($name)/resource-tree" $instance
   let nodes = $tree_response.nodes? | default []
-  
+
   # Fetch manifest for each resource
   $nodes | each {|node|
     mut params = {

@@ -41,6 +41,7 @@
         supportedTargets = ["aarch64-darwin" "aarch64-linux" "x86_64-linux"];
         overlays = [
           inputs.fenix.overlays.default
+          inputs.topiary-nu.overlays.default
         ];
         pkgs = import inputs.nixpkgs {inherit system overlays;};
 

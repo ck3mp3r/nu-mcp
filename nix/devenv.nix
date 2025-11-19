@@ -8,7 +8,14 @@
   packages = [
     inputs.fenix.packages.${pkgs.system}.stable.toolchain
     pkgs.cargo-tarpaulin
+    pkgs.topiary
+    pkgs.topiary-nu
   ];
+
+  env = {
+    TOPIARY_CONFIG_FILE = "${pkgs.topiary-nu}/languages.ncl";
+    TOPIARY_LANGUAGE_DIR = "${pkgs.topiary-nu}/languages";
+  };
 
   scripts = {
     check = {

@@ -255,6 +255,24 @@
         "type": "github"
       }
     },
+    "flake-utils": {
+      "inputs": {
+        "systems": "systems"
+      },
+      "locked": {
+        "lastModified": 1731533236,
+        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
     "git-hooks": {
       "inputs": {
         "flake-compat": [
@@ -477,7 +495,8 @@
         "fenix": "fenix",
         "flake-parts": "flake-parts_2",
         "nixpkgs": "nixpkgs",
-        "rustnix": "rustnix"
+        "rustnix": "rustnix",
+        "topiary-nu": "topiary-nu"
       }
     },
     "rust-analyzer-src": {
@@ -521,6 +540,78 @@
         "dir": "rustnix",
         "owner": "ck3mp3r",
         "repo": "flakes",
+        "type": "github"
+      }
+    },
+    "systems": {
+      "locked": {
+        "lastModified": 1681028828,
+        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "owner": "nix-systems",
+        "repo": "default",
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-systems",
+        "repo": "default",
+        "type": "github"
+      }
+    },
+    "topiary-nu": {
+      "inputs": {
+        "flake-utils": "flake-utils",
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "topiary-nushell": "topiary-nushell",
+        "tree-sitter-nu": "tree-sitter-nu"
+      },
+      "locked": {
+        "dir": "topiary-nu",
+        "lastModified": 1763512406,
+        "narHash": "sha256-DhQYdlazpOd8lzbcC6rOO51cwfTszKtNDWmg9UMYPzo=",
+        "owner": "ck3mp3r",
+        "repo": "flakes",
+        "rev": "695a66df00dcdcb06e45b952eca04183c14335bf",
+        "type": "github"
+      },
+      "original": {
+        "dir": "topiary-nu",
+        "owner": "ck3mp3r",
+        "repo": "flakes",
+        "type": "github"
+      }
+    },
+    "topiary-nushell": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1762748434,
+        "narHash": "sha256-rV0BNLVg+cKJtAprKLPLpfwOvYjCSMjfCKzS/kSUFu0=",
+        "owner": "blindFS",
+        "repo": "topiary-nushell",
+        "rev": "e5c4db10057d2223e00a1f8957987b243350c903",
+        "type": "github"
+      },
+      "original": {
+        "owner": "blindFS",
+        "repo": "topiary-nushell",
+        "type": "github"
+      }
+    },
+    "tree-sitter-nu": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1761314688,
+        "narHash": "sha256-WY1qZbRLLTKNcyt7eQTzoQ2YKwyWSuUpVdt3YST6yx8=",
+        "owner": "nushell",
+        "repo": "tree-sitter-nu",
+        "rev": "47d4b4f5369c0cae866724758ae88ef07e10e4f1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nushell",
+        "repo": "tree-sitter-nu",
         "type": "github"
       }
     }

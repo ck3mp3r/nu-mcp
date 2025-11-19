@@ -12,76 +12,76 @@ export def api-request [
 ] {
   # Get authenticated token via session module
   let token = session get-token $instance
-  
+
   # Build URL
   let url = build-url $instance.server $path $params
-  
+
   # Build headers
   let headers = {
     "Authorization": $"Bearer ($token)"
     "Content-Type": "application/json"
   }
-  
+
   # Make HTTP call
   http-call $method $url $headers $body
 }
 
 # Build URL with query parameters
-def build-url [server: string, path: string, params: record] {
-  let query = if ($params | is-empty) { 
-    "" 
+def build-url [server: string path: string params: record] {
+  let query = if ($params | is-empty) {
+    ""
   } else {
-    $params 
-    | transpose k v 
+    $params
+    | transpose k v
     | each {|r| $"($r.k)=($r.v | url encode)" }
     | str join "&"
     | $"?($in)"
   }
-  
+
   $"($server)($path)($query)"
 }
 
 # HTTP call wrapper with TLS handling
-def http-call [method: string, url: string, headers: record, body: any] {
+def http-call [method: string url: string headers: record body: any] {
   let skip_tls = $env.TLS_REJECT_UNAUTHORIZED? | default "1" | $in == "0"
-  
+
   try {
     match $method {
-      "get" => { 
-        if $skip_tls { 
-          http get --headers $headers --insecure $url 
-        } else { 
-          http get --headers $headers $url 
-        } 
+      "get" => {
+        if $skip_tls {
+          http get --headers $headers --insecure $url
+        } else {
+          http get --headers $headers $url
+        }
       }
-      "post" => { 
+      "post" => {
         let content = if $body != null { $body | to json } else { "" }
-        if $skip_tls { 
-          http post --headers $headers --insecure --content-type "application/json" $url $content 
-        } else { 
-          http post --headers $headers --content-type "application/json" $url $content 
+        if $skip_tls {
+          http post --headers $headers --insecure --content-type "application/json" $url $content
+        } else {
+          http post --headers $headers --content-type "application/json" $url $content
         }
       }
       "put" => {
         let content = if $body != null { $body | to json } else { "" }
-        if $skip_tls { 
-          http put --headers $headers --insecure --content-type "application/json" $url $content 
-        } else { 
-          http put --headers $headers --content-type "application/json" $url $content 
+        if $skip_tls {
+          http put --headers $headers --insecure --content-type "application/json" $url $content
+        } else {
+          http put --headers $headers --content-type "application/json" $url $content
         }
       }
-      "delete" => { 
-        if $skip_tls { 
-          http delete --headers $headers --insecure $url 
-        } else { 
-          http delete --headers $headers $url 
-        } 
+      "delete" => {
+        if $skip_tls {
+          http delete --headers $headers --insecure $url
+        } else {
+          http delete --headers $headers $url
+        }
       }
       _ => {
-        error make { msg: $"Unsupported HTTP method: ($method)" }
+        error make {msg: $"Unsupported HTTP method: ($method)"}
       }
     }
   } catch {|err|
-    error make { msg: $"API request failed: ($err.msg)" }
+    error make {msg: $"API request failed: ($err.msg)"}
   }
 }

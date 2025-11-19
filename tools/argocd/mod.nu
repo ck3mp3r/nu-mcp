@@ -30,7 +30,7 @@ def "main list-tools" [] {
 
   # Filter tools based on read-only mode
   let tools = if $read_only {
-    $all_tools | where {|tool| is-tool-allowed $tool.name $read_only}
+    $all_tools | where {|tool| is-tool-allowed $tool.name $read_only }
   } else {
     $all_tools
   }
