@@ -56,9 +56,10 @@
           description,
           buildInputs ? [],
           nativeBuildInputs ? [],
+          propagatedBuildInputs ? [],
         }:
           pkgs.stdenv.mkDerivation {
-            inherit pname src buildInputs nativeBuildInputs;
+            inherit pname src buildInputs nativeBuildInputs propagatedBuildInputs;
             version = cargoToml.package.version;
 
             dontBuild = true;
@@ -70,22 +71,14 @@
               mkdir -p $out/share/nushell/mcp-tools/${installPath}
               cp -r * $out/share/nushell/mcp-tools/${installPath}/
 
-              # Create wrapper scripts if buildInputs are provided
-              if [ -n "${toString buildInputs}" ]; then
-                mkdir -p $out/bin
-                for input in ${toString buildInputs}; do
-                  if [ -d "$input/bin" ]; then
-                    for binary in "$input"/bin/*; do
-                      if [ -f "$binary" ] && [ -x "$binary" ]; then
-                        ln -sf "$binary" "$out/bin/$(basename "$binary")"
-                      fi
-                    done
-                  fi
-                done
-              fi
-
               runHook postInstall
             '';
+
+            # Ensure propagated dependencies are properly handled
+            passthru = {
+              # Make dependencies easily accessible for debugging
+              runtimeDependencies = propagatedBuildInputs;
+            };
 
             meta = with pkgs.lib; {
               inherit description;
