@@ -5,7 +5,7 @@
 export def find [] {
   try {
     let namespaces = (
-      kubectl get ns -l app.kubernetes.io/part-of=argocd -ojsonpath= '{.items[*].metadata.name}'
+      kubectl get ns -l app.kubernetes.io/part-of=argocd -ojsonpath='{.items[*].metadata.name}'
       | str trim
     )
 
@@ -103,7 +103,7 @@ def try-secret [
 ] {
   try {
     let secret_data = (
-      kubectl get secret $name -n $ns -ojsonpath= '{.data}'
+      kubectl get secret $name -n $ns -ojsonpath='{.data}'
       | from json
     )
 
@@ -142,7 +142,7 @@ export def resolve [args: record] {
 
   # Try current kubectl context namespace
   let current_ns = try {
-    kubectl config view --minify -ojsonpath= '{.contexts[0].context.namespace}' | str trim
+    kubectl config view --minify -ojsonpath='{.contexts[0].context.namespace}' | str trim
   } catch { "" }
 
   if ($current_ns | str starts-with "argocd") {

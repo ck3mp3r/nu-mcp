@@ -10,6 +10,7 @@
     pkgs.cargo-tarpaulin
     pkgs.topiary
     pkgs.topiary-nu
+    pkgs.argocd
   ];
 
   env = {
