@@ -130,7 +130,20 @@ def try-secret [
 
 # Resolve instance from args or discover
 export def resolve [args: record] {
-  # Explicit server: user has already logged in via argocd CLI, skip all discovery
+  # Explicit server + namespace: use provided server with discovered creds
+  if ("server" in $args) and ("namespace" in $args) {
+    let creds = get-creds $args.namespace
+    if $creds == null {
+      error make {msg: $"No credentials found in namespace ($args.namespace)"}
+    }
+    return {
+      server: $args.server
+      namespace: $args.namespace
+      creds: $creds
+    }
+  }
+
+  # Explicit server only: user has already logged in via argocd CLI, skip all discovery
   if "server" in $args {
     return {
       server: $args.server
