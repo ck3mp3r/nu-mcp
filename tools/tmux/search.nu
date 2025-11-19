@@ -49,7 +49,7 @@ export def find_pane_by_name [session: string pane_name: string] {
     if ($found_panes | length) == 0 {
       $"No pane named '($pane_name)' found in session '($session)'"
     } else {
-      $found_panes | select session window pane title command status path target | table
+      $found_panes | to json --indent 2
     }
   } catch {
     $"Error: Failed to search for pane '($pane_name)' in session '($session)'. Check that the session exists."
@@ -116,7 +116,7 @@ export def find_pane_by_context [session: string context: string] {
     if ($found_panes | length) == 0 {
       $"No pane matching context '($context)' found in session '($session)'"
     } else {
-      $found_panes | select session window pane title command status path target | table
+      $found_panes | to json --indent 2
     }
   } catch {
     $"Error: Failed to search for context '($context)' in session '($session)'. Check that the session exists."

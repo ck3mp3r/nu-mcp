@@ -46,11 +46,11 @@ export def get-tool-definitions [] {
         properties: {
           namespace: {
             type: "string"
-            description: "Kubernetes namespace where ArgoCD is installed (e.g., 'argocd'). Used to discover credentials. Optional if server is in cache."
+            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080' for port-forward, 'https://argocd.example.com' for LoadBalancer). Optional if using auto-discovery."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
           }
           search: {
             type: "string"

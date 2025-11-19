@@ -64,18 +64,16 @@ export def get_pane_process [session: string window?: string pane?: string] {
       $"PID ($pane_pid): ($current_command)"
     }
 
-    [
-      {
-        target: $target
-        pane_index: $pane_index
-        status: $active_status
-        size: $pane_size
-        current_path: $current_path
-        current_command: $current_command
-        process_id: $pane_pid
-        process_details: $process_info
-      }
-    ] | table
+    {
+      target: $target
+      pane_index: $pane_index
+      status: $active_status
+      size: $pane_size
+      current_path: $current_path
+      current_command: $current_command
+      process_id: $pane_pid
+      process_details: $process_info
+    } | to json --indent 2
   } catch {
     $"Error: Failed to get pane process info for '($session)'. Check that the session/pane exists."
   }

@@ -19,7 +19,7 @@ export def context-parameter [] {
 export def delegate-parameter [] {
   {
     type: "boolean"
-    description: "If true, return the kubectl command string instead of executing it. Useful for delegation to other tools like tmux."
+    description: "If true, return the kubectl command string instead of executing it."
     default: false
   }
 }

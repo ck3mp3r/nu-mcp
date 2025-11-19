@@ -73,7 +73,7 @@ export def list-applications [
       hasMore: (($limit != null) and ($limit < ($all_items | length)))
       summarized: $should_summarize
     }
-  }
+  } | to json --indent 2
 }
 
 # Get application details
@@ -88,7 +88,7 @@ export def get-application [
     $params = ($params | insert appNamespace $app_namespace)
   }
 
-  api-request "get" $"/api/v1/applications/($name)" $instance --params $params
+  api-request "get" $"/api/v1/applications/($name)" $instance --params $params | to json --indent 2
 }
 
 # Get application resource tree
@@ -96,7 +96,7 @@ export def get-application-resource-tree [
   instance: record # ArgoCD instance
   name: string # Application name
 ] {
-  api-request "get" $"/api/v1/applications/($name)/resource-tree" $instance
+  api-request "get" $"/api/v1/applications/($name)/resource-tree" $instance | to json --indent 2
 }
 
 # Get application events
@@ -104,7 +104,7 @@ export def get-application-events [
   instance: record # ArgoCD instance
   name: string # Application name
 ] {
-  api-request "get" $"/api/v1/applications/($name)/events" $instance
+  api-request "get" $"/api/v1/applications/($name)/events" $instance | to json --indent 2
 }
 
 # Create a new application
@@ -112,7 +112,7 @@ export def create-application [
   instance: record # ArgoCD instance
   application: record # Application specification
 ] {
-  api-request "post" "/api/v1/applications" $instance --body $application
+  api-request "post" "/api/v1/applications" $instance --body $application | to json --indent 2
 }
 
 # Update an existing application
@@ -121,7 +121,7 @@ export def update-application [
   name: string # Application name
   application: record # Updated application specification
 ] {
-  api-request "put" $"/api/v1/applications/($name)" $instance --body $application
+  api-request "put" $"/api/v1/applications/($name)" $instance --body $application | to json --indent 2
 }
 
 # Delete an application
@@ -146,7 +146,7 @@ export def delete-application [
     $params = ($params | insert propagationPolicy $propagation_policy)
   }
 
-  api-request "delete" $"/api/v1/applications/($name)" $instance --params $params
+  api-request "delete" $"/api/v1/applications/($name)" $instance --params $params | to json --indent 2
 }
 
 # Sync an application
@@ -182,5 +182,5 @@ export def sync-application [
     $params = ($params | insert appNamespace $app_namespace)
   }
 
-  api-request "post" $"/api/v1/applications/($name)/sync" $instance --body $sync_request --params $params
+  api-request "post" $"/api/v1/applications/($name)/sync" $instance --body $sync_request --params $params | to json --indent 2
 }

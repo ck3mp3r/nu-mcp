@@ -3,23 +3,31 @@
 
 # Find all ArgoCD instances in the cluster
 export def find [] {
-  try {
-    let namespaces = (
-      kubectl get ns -l app.kubernetes.io/part-of=argocd -ojsonpath='{.items[*].metadata.name}'
-      | str trim
-    )
-
-    if ($namespaces | is-empty) {
-      return []
-    }
-
-    $namespaces
+  # Phase 1: Try to find namespaces with the standard ArgoCD label
+  let labeled = try {
+    kubectl get ns -l app.kubernetes.io/part-of=argocd -ojsonpath='{.items[*].metadata.name}'
+    | str trim
     | split row ' '
-    | each {|ns| parse $ns }
-    | compact
+    | where {|ns| not ($ns | is-empty) }
   } catch {
     []
   }
+
+  if not ($labeled | is-empty) {
+    return ($labeled | each {|ns| parse $ns } | compact)
+  }
+
+  # Phase 2: Fallback to checking common ArgoCD namespace names
+  ["argocd" "argocd-system" "argo-cd"]
+  | each {|ns|
+    try {
+      kubectl get svc argocd-server -n $ns -o name | complete
+      | if $in.exit_code == 0 { parse $ns } else { null }
+    } catch {
+      null
+    }
+  }
+  | compact
 }
 
 # Parse single ArgoCD instance
@@ -121,20 +129,16 @@ def try-secret [
 
 # Resolve instance from args or discover
 export def resolve [args: record] {
-  # Check for explicit server + namespace (for port-forward scenarios)
-  if ("server" in $args) and ("namespace" in $args) {
-    let creds = get-creds $args.namespace
-    if $creds == null {
-      error make {msg: $"No credentials found in namespace ($args.namespace)"}
-    }
+  # Explicit server: user has already logged in via argocd CLI, skip all discovery
+  if "server" in $args {
     return {
       server: $args.server
-      namespace: $args.namespace
-      creds: $creds
+      namespace: null
+      creds: null
     }
   }
 
-  # Check for explicit namespace parameter (auto-discover server)
+  # Check for explicit namespace parameter (auto-discover server and creds from k8s)
   if "namespace" in $args {
     let instance = parse $args.namespace
     if $instance == null {
@@ -143,17 +147,7 @@ export def resolve [args: record] {
     return $instance
   }
 
-  # Check for explicit server parameter only (lookup in cache)
-  if "server" in $args {
-    let all = cache
-    let found = $all | where server == $args.server
-    if ($found | is-empty) {
-      error make {msg: $"ArgoCD instance not found with server ($args.server)"}
-    }
-    return ($found | first)
-  }
-
-  # Try current kubectl context namespace
+  # Full auto-discovery: try current kubectl context namespace
   let current_ns = try {
     kubectl config view --minify -ojsonpath='{.contexts[0].context.namespace}' | str trim
   } catch { "" }
