@@ -14,11 +14,14 @@ export def check-kubectl [] {
 # Get kubectl version info
 export def get-kubectl-version [] {
   try {
-    kubectl version --client --output json | from json | get clientVersion
+    let version_output = (kubectl version --client --output json)
+    let parsed = ($version_output | from json)
+    $parsed | get clientVersion
   } catch {
     {
-      error: "kubectl not found or not accessible"
-      message: "Please install kubectl and ensure it's in your PATH"
+      error: "KubectlVersionFailed"
+      message: "kubectl not found or not accessible"
+      isError: true
     }
   }
 }
@@ -35,11 +38,10 @@ export def get-current-context [] {
 # List all available contexts
 export def list-contexts [] {
   try {
-    kubectl config get-contexts --output json
-    | from json
-    | get contexts
-    | select name context.cluster context.user context.namespace
-    | rename name cluster user namespace
+    let contexts_output = (kubectl config get-contexts --output json)
+    let parsed = ($contexts_output | from json)
+    let contexts = ($parsed | get contexts)
+    $contexts | select name context.cluster context.user context.namespace | rename name cluster user namespace
   } catch {
     []
   }
@@ -130,15 +132,17 @@ export def permission-denied-error [tool_name: string] {
   }
 }
 
-# Main kubectl command wrapper
-export def run-kubectl [
-  args: list<string>
-  --stdin: string = ""
-  --namespace: string = ""
-  --context: string = ""
-  --output: string = "json"
-  --all-namespaces = false
-] {
+# Build kubectl command string from parameters (pure function, no execution)
+export def build-kubectl-command [] {
+  let params = $in
+
+  # Extract parameters with defaults
+  let args = $params.args
+  let namespace = $params.namespace? | default ""
+  let context = $params.context? | default ""
+  let output = $params.output? | default "json"
+  let all_namespaces = $params.all_namespaces? | default false
+
   # Build base command
   mut cmd_args = ["kubectl"]
 
@@ -176,8 +180,58 @@ export def run-kubectl [
     $cmd_args = ($cmd_args | append ["--output" $output])
   }
 
-  # Capture command string for error reporting
-  let cmd_str = ($cmd_args | str join " ")
+  # Return command string
+  $cmd_args | str join " "
+}
+
+# Main kubectl command wrapper - accepts piped parameters and executes
+export def run-kubectl [] {
+  let params = $in
+
+  # Extract parameters with defaults
+  let args = $params.args
+  let stdin = $params.stdin? | default ""
+  let namespace = $params.namespace? | default ""
+  let context = $params.context? | default ""
+  let output = $params.output? | default "json"
+  let all_namespaces = $params.all_namespaces? | default false
+
+  # Build base command
+  mut cmd_args = ["kubectl"]
+
+  # Add context if specified (global flag, goes before subcommand)
+  let ctx = if $context != "" {
+    $context
+  } else {
+    $env.KUBE_CONTEXT? | default ""
+  }
+
+  if $ctx != "" {
+    $cmd_args = ($cmd_args | append ["--context" $ctx])
+  }
+
+  # Add the actual kubectl command arguments (e.g., "get", "pods")
+  $cmd_args = ($cmd_args | append $args)
+
+  # Add namespace if specified (command-specific flag, after subcommand)
+  if not $all_namespaces and $namespace != "" {
+    $cmd_args = ($cmd_args | append ["--namespace" $namespace])
+  } else if not $all_namespaces {
+    let default_ns = $env.KUBE_NAMESPACE? | default "default"
+    if $default_ns != "" {
+      $cmd_args = ($cmd_args | append ["--namespace" $default_ns])
+    }
+  }
+
+  # Add all-namespaces flag if specified
+  if $all_namespaces {
+    $cmd_args = ($cmd_args | append ["--all-namespaces"])
+  }
+
+  # Add output format if applicable
+  if $output in ["json" "yaml"] and not ("--output" in $args or "-o" in $args) {
+    $cmd_args = ($cmd_args | append ["--output" $output])
+  }
 
   # Execute kubectl command
   try {
@@ -194,26 +248,29 @@ export def run-kubectl [
       try {
         $result | from json
       } catch {
-        # If JSON parsing fails, return as text
-        $result | str trim
+        {
+          error: "JSONParseError"
+          message: "Invalid JSON response from kubectl"
+          isError: true
+        }
       }
     } else if $output == "yaml" {
       try {
         $result | from yaml
       } catch {
-        $result | str trim
+        {
+          error: "YAMLParseError"
+          message: "Invalid YAML response from kubectl"
+          isError: true
+        }
       }
     } else {
-      # Return as text for other formats
       $result | str trim
     }
   } catch {
-    # Return error information
-    let error_msg = $in | str trim
     {
       error: "KubectlCommandFailed"
-      message: $error_msg
-      command: $cmd_str
+      message: ($in | str trim)
       isError: true
     }
   }
@@ -375,4 +432,36 @@ export def is-non-namespaced-resource [
   ]
 
   $resource_type | str downcase | $in in $non_namespaced
+}
+
+# Extract status summary from a Kubernetes resource
+export def get-resource-status [resource: record] {
+  if ($resource | is-empty) { return "Unknown" }
+
+  let pod_phase = try { $resource.status.phase? }
+  if $pod_phase != null { return $pod_phase }
+
+  let ready_replicas = try { $resource.status.readyReplicas? }
+  if $ready_replicas != null {
+    let total = try { $resource.status.replicas? } | default 0
+    return $"($ready_replicas)/($total) ready"
+  }
+
+  let service_type = try { $resource.spec.type? }
+  if $service_type != null { return $service_type }
+
+  let conditions = try { $resource.status.conditions? }
+  if $conditions != null {
+    let ready_condition = $conditions | where type == "Ready" | first | default null
+    if $ready_condition != null {
+      return (if ($ready_condition.status == "True") { "Ready" } else { "NotReady" })
+    }
+  }
+
+  let succeeded = try { $resource.status.succeeded? }
+  if $succeeded != null {
+    return (if $succeeded { "Completed" } else { "Running" })
+  }
+
+  "Active"
 }
