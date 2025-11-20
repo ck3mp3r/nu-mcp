@@ -1,0 +1,34 @@
+# nu-mcp: Model Context Protocol Server for Nushell
+
+> A Rust-based MCP server that exposes Nushell as a scripting engine with an extensible tool system for building modular, language-agnostic development tools.
+
+nu-mcp enables AI agents to execute Nushell commands and access a growing catalog of specialized tools through the Model Context Protocol (MCP). Tools are implemented as modular Nushell scripts that can wrap CLI utilities (kubectl, argocd), APIs (weather, finance), or terminal multiplexers (tmux).
+
+Key features:
+- **Core Mode**: Execute arbitrary Nushell commands via `run_nushell` tool
+- **Extension Mode**: Load tools from directories (kubernetes, argocd, weather, finance, tmux, context7)
+- **Hybrid Mode**: Combine both core execution and extension tools
+- **Security Sandbox**: Configurable directory restrictions for command execution
+- **Nix Integration**: Reproducible builds with immutable tool packages
+
+## Tool Development
+
+- [Tool Development Guide](docs/tool-development.md): **Essential reading for implementing new tools** - covers architecture, workflow, naming conventions, module organization, SOLID principles, testing, and common pitfalls
+- [Implementation Plans](docs/implementation-plans/README.md): Template and examples for planning new tools before coding
+
+## Architecture & Configuration
+
+- [Configuration Guide](docs/configuration.md): Command-line options, MCP client setup, environment variables, and tool loading
+- [Security Guide](docs/security.md): Sandbox model, environment restrictions, permission handling, and tool safety modes
+- [Testing Guide](docs/testing.md): Manual testing workflow, integration testing, and debugging tools
+- [Best Practices](docs/best-practices.md): Development patterns, code quality standards, and tool design guidelines
+
+## Project Information
+
+- [README](README.md): Quick start, installation (Nix, Homebrew), available tools catalog, and basic usage
+- [Multiple Instances](docs/multiple-instances.md): Running multiple MCP servers with different tool configurations
+
+## Optional
+
+- [ArgoCD CLI Auth Plan](docs/implementation-plans/argocd-cli-auth.md): Implementation details for ArgoCD CLI authentication
+- [Kubernetes Delegation Feature](docs/implementation-plans/k8s-delegation-feature.md): Design for delegating kubectl commands to MCP client
