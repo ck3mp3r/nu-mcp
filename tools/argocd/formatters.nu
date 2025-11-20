@@ -82,6 +82,14 @@ export def get-tool-definitions [] {
             type: "string"
             description: "Namespace of the application (optional)"
           }
+          namespace: {
+            type: "string"
+            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+          }
+          server: {
+            type: "string"
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+          }
         }
         required: ["applicationName"]
       }
@@ -95,6 +103,14 @@ export def get-tool-definitions [] {
           application: {
             type: "object"
             description: "Application specification (ArgoCD Application manifest)"
+          }
+          namespace: {
+            type: "string"
+            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+          }
+          server: {
+            type: "string"
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
           }
         }
         required: ["application"]
@@ -113,6 +129,14 @@ export def get-tool-definitions [] {
           application: {
             type: "object"
             description: "Updated application specification"
+          }
+          namespace: {
+            type: "string"
+            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+          }
+          server: {
+            type: "string"
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
           }
         }
         required: ["applicationName" "application"]
@@ -139,6 +163,14 @@ export def get-tool-definitions [] {
           propagationPolicy: {
             type: "string"
             description: "Deletion propagation policy (e.g., 'Foreground', 'Background', 'Orphan')"
+          }
+          namespace: {
+            type: "string"
+            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+          }
+          server: {
+            type: "string"
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
           }
         }
         required: ["applicationName"]
@@ -175,6 +207,14 @@ export def get-tool-definitions [] {
             items: {type: "string"}
             description: "Additional sync options (e.g., ['CreateNamespace=true', 'PrunePropagationPolicy=foreground'])"
           }
+          namespace: {
+            type: "string"
+            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+          }
+          server: {
+            type: "string"
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+          }
         }
         required: ["applicationName"]
       }
@@ -188,6 +228,14 @@ export def get-tool-definitions [] {
           applicationName: {
             type: "string"
             description: "Name of the application"
+          }
+          namespace: {
+            type: "string"
+            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+          }
+          server: {
+            type: "string"
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
           }
         }
         required: ["applicationName"]
@@ -230,6 +278,10 @@ export def get-tool-definitions [] {
           project: {
             type: "string"
             description: "Filter by Argo CD project"
+          }
+          server: {
+            type: "string"
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
           }
         }
         required: ["applicationName"]
@@ -277,6 +329,10 @@ export def get-tool-definitions [] {
             type: "integer"
             description: "Number of lines to tail from logs"
           }
+          server: {
+            type: "string"
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+          }
         }
         required: ["applicationName"]
       }
@@ -290,6 +346,14 @@ export def get-tool-definitions [] {
           applicationName: {
             type: "string"
             description: "Name of the application"
+          }
+          namespace: {
+            type: "string"
+            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+          }
+          server: {
+            type: "string"
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
           }
         }
         required: ["applicationName"]
@@ -320,6 +384,14 @@ export def get-tool-definitions [] {
           resourceUID: {
             type: "string"
             description: "Resource UID"
+          }
+          namespace: {
+            type: "string"
+            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+          }
+          server: {
+            type: "string"
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
           }
         }
         required: ["applicationName" "applicationNamespace" "resourceUID" "resourceNamespace" "resourceName"]
@@ -354,6 +426,14 @@ export def get-tool-definitions [] {
             }
             description: "List of resource references (optional)"
           }
+          namespace: {
+            type: "string"
+            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+          }
+          server: {
+            type: "string"
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+          }
         }
         required: ["applicationName" "applicationNamespace"]
       }
@@ -383,6 +463,10 @@ export def get-tool-definitions [] {
           resourceName: {
             type: "string"
             description: "Resource name"
+          }
+          server: {
+            type: "string"
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
           }
         }
         required: ["applicationName"]
@@ -417,6 +501,10 @@ export def get-tool-definitions [] {
           resourceName: {
             type: "string"
             description: "Resource name"
+          }
+          server: {
+            type: "string"
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
           }
         }
         required: ["applicationName" "action"]
