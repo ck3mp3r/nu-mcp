@@ -2,6 +2,23 @@
 # Based on official TOON specification: https://github.com/xaviviro/python-toon
 # Reduces token usage by 30-60% compared to JSON for LLM interactions
 
+# Check if TOON encoding is enabled via MCP_TOON environment variable
+export def is-toon-enabled [] {
+  ($env.MCP_TOON? | default "false") == "true"
+}
+
+# Smart output: TOON if enabled, JSON otherwise
+# Usage: $data | to-output
+export def to-output [] {
+  let input = $in
+
+  if (is-toon-enabled) {
+    $input | to toon
+  } else {
+    $input | to json --indent 2
+  }
+}
+
 # Encode data to TOON format
 export def "to toon" [] {
   let input = $in

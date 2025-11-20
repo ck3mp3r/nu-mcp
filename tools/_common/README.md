@@ -8,12 +8,22 @@ Shared utilities for all MCP tools.
 
 Token-Oriented Object Notation (TOON) encoder for reducing token usage by 30-60% compared to JSON.
 
+**Configuration:**
+
+- `MCP_TOON=true`: Enable TOON encoding (default: `false` - uses JSON)
+
 **Usage:**
 
 ```nushell
 use toon.nu *
 
-# Encode table data
+# Check if TOON is enabled
+is-toon-enabled  # Returns true if MCP_TOON=true
+
+# Smart output: TOON if enabled, JSON otherwise
+[{id: 1, name: "Alice"}, {id: 2, name: "Bob"}] | to-output
+
+# Explicit TOON encoding
 [{id: 1, name: "Alice"}, {id: 2, name: "Bob"}] | to toon
 # Output:
 # [2,]{id,name}:
@@ -26,6 +36,12 @@ use toon.nu *
 # name: Alice
 # age: 30
 ```
+
+**Functions:**
+
+- `to toon`: Encode data to TOON format (always)
+- `to-output`: Smart encoding - TOON if `MCP_TOON=true`, JSON otherwise
+- `is-toon-enabled`: Check if TOON is enabled via environment variable
 
 ## Using in Tools
 

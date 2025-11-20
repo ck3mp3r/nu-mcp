@@ -116,6 +116,7 @@ metadata:
 
 - `MCP_INSECURE_TLS` (optional) - Set to `"true"` to disable TLS verification for non-localhost URLs with self-signed certificates
 - `MCP_READ_ONLY` (optional) - Set to `"false"` to enable write operations (default: `"true"`)
+- `MCP_TOON` (optional) - Set to `"true"` to use TOON format for list operations (30-60% token reduction, default: `"false"` - uses JSON)
 
 **Note**: TLS verification is automatically disabled for localhost URLs (port-forward scenarios).
 

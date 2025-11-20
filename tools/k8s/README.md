@@ -140,6 +140,10 @@ KUBE_NAMESPACE=default            # Defaults to "default"
 MCP_K8S_MODE=readonly             # Read-only (default - 7 tools)
 MCP_K8S_MODE=non-destructive      # + Non-destructive writes (17 tools)
 MCP_K8S_MODE=destructive          # + Destructive operations (22 tools)
+
+# Output Format
+MCP_TOON=true                     # Use TOON format for list operations (30-60% token reduction)
+                                  # Default: false (uses JSON)
 ```
 
 **Note:** If no environment variables are set, the server will:

@@ -57,8 +57,8 @@ export def list-applications [
     $limited_items
   }
 
-  # Always use TOON format for lists
-  $items | to toon
+  # Use TOON or JSON based on MCP_TOON setting
+  $items | to-output
 }
 
 # Get application details

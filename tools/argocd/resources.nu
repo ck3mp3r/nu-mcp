@@ -27,7 +27,7 @@ export def get-managed-resources [
 
   let response = api-request "get" $"/api/v1/applications/($name)/managed-resources" $instance --params $params
   let items = $response.items? | default []
-  $items | to toon
+  $items | to-output
 }
 
 # Get logs for application workload
@@ -142,7 +142,7 @@ export def get-resource-actions [
 
   let response = api-request "get" $"/api/v1/applications/($name)/resource/actions" $instance --params $params
   let actions = $response.actions? | default []
-  $actions | to toon
+  $actions | to-output
 }
 
 # Run a resource action

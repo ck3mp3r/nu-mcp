@@ -122,11 +122,15 @@ export def kubectl-get [
             }
           }
         )
-        # Use TOON format for event lists
-        return ($formatted_events | to toon)
+        # Use TOON or JSON based on MCP_TOON setting
+        return ($formatted_events | to-output)
       }
-      # If not a list/table, return empty TOON
-      return "[0]:"
+      # If not a list/table, return empty based on format
+      if (is-toon-enabled) {
+        return "[0]:"
+      } else {
+        return ([] | to json --indent 2)
+      }
     } catch {
       return (
         format-tool-response {
@@ -167,11 +171,15 @@ export def kubectl-get [
           }
         }
       )
-      # Use TOON format for lists to reduce token usage
-      return ($items | to toon)
+      # Use TOON or JSON based on MCP_TOON setting
+      return ($items | to-output)
     }
-    # If not a list/table, return empty TOON
-    return "[0]:"
+    # If not a list/table, return empty based on format
+    if (is-toon-enabled) {
+      return "[0]:"
+    } else {
+      return ([] | to json --indent 2)
+    }
   } catch {
     return (
       format-tool-response {
