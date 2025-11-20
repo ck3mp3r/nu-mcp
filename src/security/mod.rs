@@ -1,4 +1,29 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+/// Manually resolve a relative path with .. components
+/// Returns the resolved path
+fn resolve_relative_path(base: &Path, relative: &str) -> Option<PathBuf> {
+    let mut result = PathBuf::from(base);
+
+    // Process each component of the relative path
+    for part in relative.split('/') {
+        match part {
+            "" | "." => {
+                // Empty or current directory - do nothing
+            }
+            ".." => {
+                // Parent directory - pop
+                result.pop();
+            }
+            _ => {
+                // Regular component - push
+                result.push(part);
+            }
+        }
+    }
+
+    Some(result)
+}
 
 /// Extract words from a command that are NOT inside quotes.
 /// This handles Nushell's quoting rules including:
@@ -95,15 +120,6 @@ fn is_likely_filesystem_path(word: &str) -> bool {
 }
 
 pub fn validate_path_safety(command: &str, sandbox_dir: &Path) -> Result<(), String> {
-    // Only check for path traversal patterns
-    if command.contains("../")
-        || command.contains("..\\")
-        || command.contains(".. ")
-        || command.contains(" ..")
-    {
-        return Err("Path traversal patterns (../) are not allowed".to_string());
-    }
-
     // Get canonical sandbox directory (only if it exists, otherwise skip validation)
     let canonical_sandbox = match sandbox_dir.canonicalize() {
         Ok(path) => path,
@@ -128,8 +144,9 @@ pub fn validate_path_safety(command: &str, sandbox_dir: &Path) -> Result<(), Str
             continue;
         }
 
-        // Expand home directory paths to absolute paths
+        // Determine the path to check based on word type
         let path_to_check = if word == "~" || word.starts_with("~/") {
+            // Home directory paths
             if let Some(home_dir) = std::env::var_os("HOME") {
                 if word == "~" {
                     Path::new(&home_dir).to_path_buf()
@@ -139,21 +156,61 @@ pub fn validate_path_safety(command: &str, sandbox_dir: &Path) -> Result<(), Str
             } else {
                 continue; // Skip if HOME is not set
             }
+        } else if word.contains("..") {
+            // Path with traversal - resolve relative to sandbox directory
+            // This allows cd ../ when inside the sandbox, but blocks escaping
+            sandbox_dir.join(&word)
         } else if is_likely_filesystem_path(&word) {
+            // Absolute path
             Path::new(&word).to_path_buf()
+        } else if word.contains('/') || word.contains('\\') {
+            // Relative path with slashes (e.g., "subdir/file.txt")
+            sandbox_dir.join(&word)
         } else {
-            continue; // Not an absolute or home directory path
+            // Plain word without path separators - not a path, skip
+            continue;
         };
 
-        // For existing paths, check if they're within sandbox
-        if let Ok(canonical_path) = path_to_check.canonicalize() {
-            if !canonical_path.starts_with(&canonical_sandbox) {
-                return Err(format!("Path '{}' escapes sandbox directory", &word));
+        // For paths with .., we need to check the resolved canonical path
+        if word.contains("..") {
+            // Resolve the path (handles .. components)
+            // If the path doesn't exist, canonicalize will fail, so we manually resolve
+            match path_to_check.canonicalize() {
+                Ok(canonical_path) => {
+                    // Path exists - check if it's within sandbox
+                    if !canonical_path.starts_with(&canonical_sandbox) {
+                        return Err(format!("Path '{}' would escape sandbox directory", &word));
+                    }
+                }
+                Err(_) => {
+                    // Path doesn't exist - manually check if resolved path stays in sandbox
+                    // Use a simple component-based resolution
+                    if let Some(resolved) = resolve_relative_path(sandbox_dir, &word) {
+                        // Normalize the resolved path for comparison
+                        // Since canonicalize failed (path doesn't exist), we compare the constructed path
+                        if !resolved.starts_with(&canonical_sandbox) {
+                            return Err(format!(
+                                "Path '{}' would escape sandbox directory (resolved to {})",
+                                &word,
+                                resolved.display()
+                            ));
+                        }
+                    }
+                    // If we can't resolve, be conservative and allow it
+                    // (nushell will handle the actual path resolution and fail if invalid)
+                }
             }
-        } else if path_to_check.is_absolute() {
-            // For non-existent absolute paths, check if they would be inside sandbox
-            if !path_to_check.starts_with(&canonical_sandbox) {
-                return Err(format!("Path '{}' escapes sandbox directory", &word));
+        } else {
+            // For existing paths without .., check if they're within sandbox
+            if let Ok(canonical_path) = path_to_check.canonicalize() {
+                if !canonical_path.starts_with(&canonical_sandbox) {
+                    return Err(format!("Path '{}' escapes sandbox directory", &word));
+                }
+            } else if path_to_check.is_absolute() {
+                // For non-existent absolute paths, check if they would be inside sandbox
+                if !path_to_check.starts_with(&canonical_sandbox) {
+                    return Err(format!("Path '{}' escapes sandbox directory", &word));
+                }
             }
         }
     }

@@ -168,12 +168,13 @@ cat /etc/passwd"#;
 
 #[test]
 fn test_path_traversal_in_multiline_blocked() {
-    // Even with multiline, path traversal should be blocked
+    // Path traversal that would escape sandbox should be blocked
+    let sandbox_dir = current_dir().unwrap();
     let command = r#"echo "test"
-cd ../"#;
+cd ../../../../../etc"#;
     assert!(
-        validate_path_safety(command, default_sandbox_dir()).is_err(),
-        "Path traversal in multiline command should be blocked"
+        validate_path_safety(command, &sandbox_dir).is_err(),
+        "Path traversal that escapes sandbox should be blocked"
     );
 }
 
@@ -210,6 +211,93 @@ Tested on production server
     assert!(
         validate_path_safety(pr_body, default_sandbox_dir()).is_ok(),
         "GitHub PR with multiline body containing paths should be allowed"
+    );
+}
+
+// New tests for context-aware path traversal validation
+
+#[test]
+fn test_path_traversal_within_sandbox_allowed() {
+    // IMPORTANT: The sandbox_dir is the ROOT of the sandbox, not the CWD!
+    // Commands execute FROM the sandbox root by default
+    // So cd ../ from the sandbox root would ESCAPE - that should be blocked!
+
+    // This test needs to simulate being in a subdirectory of the sandbox
+    // But since we only validate against the sandbox root, ANY ../ will escape
+    // Unless we're checking paths that stay within the sandbox even after resolution
+
+    let sandbox_dir = current_dir().unwrap();
+
+    // Paths that reference subdirectories using ../ but stay in sandbox
+    // Example: sandbox/a/../b/file.txt => sandbox/b/file.txt (stays in sandbox)
+    assert!(
+        validate_path_safety("cat subdir/../file.txt", &sandbox_dir).is_ok(),
+        "Path with ../ that resolves within sandbox should be allowed"
+    );
+
+    // Nested traversal that stays in sandbox
+    assert!(
+        validate_path_safety("ls ./a/b/../../c/file.txt", &sandbox_dir).is_ok(),
+        "Complex path with multiple ../ that stays in sandbox should be allowed"
+    );
+}
+
+#[test]
+fn test_path_traversal_escape_sandbox_blocked() {
+    let sandbox_dir = current_dir().unwrap();
+
+    // Try to escape the sandbox by going too many levels up
+    // This should be blocked
+    let too_many_levels = "../".repeat(20); // Way more than needed
+    let command = format!("cat {}etc/passwd", too_many_levels);
+
+    assert!(
+        validate_path_safety(&command, &sandbox_dir).is_err(),
+        "Path traversal escaping sandbox should be blocked"
+    );
+}
+
+#[test]
+fn test_mixed_paths_with_traversal() {
+    let sandbox_dir = current_dir().unwrap();
+
+    // Relative path with ./ and ../ that stays in sandbox
+    // ./subdir/../file.txt resolves to ./file.txt (sandbox root)
+    assert!(
+        validate_path_safety("ls subdir/../file.txt", &sandbox_dir).is_ok(),
+        "Path with ../ that resolves to sandbox should be allowed"
+    );
+
+    // Path with multiple .. components that stays in sandbox
+    // ./a/b/../../c/file.txt resolves to ./c/file.txt
+    assert!(
+        validate_path_safety("cat a/b/../../c/file.txt", &sandbox_dir).is_ok(),
+        "Complex path with multiple traversals should be allowed if stays in sandbox"
+    );
+}
+
+#[test]
+fn test_quoted_path_traversal_ignored() {
+    let sandbox_dir = current_dir().unwrap();
+
+    // Path traversal in quoted strings should be ignored (it's text, not a path)
+    assert!(
+        validate_path_safety(
+            r#"echo "The command cd ../../../ is dangerous""#,
+            &sandbox_dir
+        )
+        .is_ok(),
+        "Path traversal patterns in quoted strings should be allowed"
+    );
+
+    // Even if it would escape
+    assert!(
+        validate_path_safety(
+            r#"gh pr create --body "Use cd ../../../../etc/passwd""#,
+            &sandbox_dir
+        )
+        .is_ok(),
+        "Path traversal in PR body should be allowed"
     );
 }
 

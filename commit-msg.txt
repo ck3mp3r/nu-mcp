@@ -1,0 +1,7 @@
+feat(security): add context-aware path traversal validation
+
+Resolves parent directory navigation within sandbox boundaries.
+Allows legitimate patterns while blocking escape attempts.
+Fixes false positives for plain argument words.
+
+All 87 tests passing.
