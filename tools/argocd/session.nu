@@ -71,6 +71,11 @@ def login [instance: record] {
     $args = ($args | append "--insecure")
   }
 
+  # Add grpc-web for localhost port-forwards (avoids gRPC issues)
+  if $is_localhost {
+    $args = ($args | append "--grpc-web")
+  }
+
   try {
     let result = (^argocd ...$args | complete)
     if $result.exit_code != 0 {
