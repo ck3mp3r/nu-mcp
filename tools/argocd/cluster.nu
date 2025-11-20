@@ -33,11 +33,23 @@ export def find [] {
 # Parse single ArgoCD instance
 export def parse [ns: string] {
   try {
-    {
-      namespace: $ns
-      server: (get-server $ns)
-      creds: (get-creds $ns)
-      in_cluster: ((get-server $ns) | str contains ".svc.cluster.local")
+    let server = get-server $ns
+
+    # If no accessible server URL, mark as needing port-forward
+    if $server == null {
+      {
+        namespace: $ns
+        server: null
+        creds: (get-creds $ns)
+        needs_port_forward: true
+      }
+    } else {
+      {
+        namespace: $ns
+        server: $server
+        creds: (get-creds $ns)
+        needs_port_forward: false
+      }
     }
   } catch {
     null
@@ -49,28 +61,28 @@ def get-server [ns: string] {
   try {
     let svc = kubectl get svc argocd-server -n $ns -o json | from json
 
-    # Try LoadBalancer IP
-    let lb_ip = $svc.status?.loadBalancer?.ingress?.0?.ip?
-    if $lb_ip != null {
-      return $"https://($lb_ip)"
-    }
-
-    # Try LoadBalancer hostname
-    let lb_host = $svc.status?.loadBalancer?.ingress?.0?.hostname?
-    if $lb_host != null {
-      return $"https://($lb_host)"
-    }
-
-    # Check for annotations with external URL
+    # Check for external URL annotation
     let external_url = $svc.metadata?.annotations?."argocd.argoproj.io/external-url"?
     if $external_url != null {
       return $external_url
     }
 
-    # Fallback to in-cluster service name (for port-forward scenarios)
-    return $"https://argocd-server.($ns).svc.cluster.local"
+    # Check for LoadBalancer IP
+    let lb_ip = $svc.status?.loadBalancer?.ingress?.0?.ip?
+    if $lb_ip != null {
+      return $"https://($lb_ip)"
+    }
+
+    # Check for LoadBalancer hostname  
+    let lb_host = $svc.status?.loadBalancer?.ingress?.0?.hostname?
+    if $lb_host != null {
+      return $"https://($lb_host)"
+    }
+
+    # No accessible URL - return null, caller will error with port-forward instructions
+    null
   } catch {
-    error make {msg: $"Failed to get server URL for namespace ($ns)"}
+    error make {msg: $"Failed to get ArgoCD service in namespace ($ns)"}
   }
 }
 
@@ -159,10 +171,10 @@ export def resolve [args: record] {
       error make {msg: $"ArgoCD instance not found in namespace ($args.namespace)"}
     }
 
-    # Check if it's in-cluster and provide instructions
-    if $instance.in_cluster? == true {
+    # Check if port-forward is needed and provide instructions
+    if $instance.needs_port_forward? == true {
       error make {
-        msg: $"ArgoCD found in namespace '($instance.namespace)' with in-cluster URL: ($instance.server)
+        msg: $"ArgoCD found in namespace '($instance.namespace)' but has no accessible URL.
 
 ACTION REQUIRED: Use k8s tool to set up port-forward:
   kube_port_forward with: resourceType='service', resourceName='argocd-server', namespace='($instance.namespace)', localPort=8080, targetPort=443
@@ -182,10 +194,10 @@ Then retry ArgoCD with: server='https://localhost:8080', namespace='($instance.n
   if ($current_ns | str starts-with "argocd") {
     let instance = parse $current_ns
     if $instance != null {
-      # Check if it's in-cluster
-      if $instance.in_cluster? == true {
+      # Check if port-forward is needed
+      if $instance.needs_port_forward? == true {
         error make {
-          msg: $"ArgoCD found in namespace '($instance.namespace)' with in-cluster URL: ($instance.server)
+          msg: $"ArgoCD found in namespace '($instance.namespace)' but has no accessible URL.
 
 ACTION REQUIRED: Use k8s tool to set up port-forward:
   kube_port_forward with: resourceType='service', resourceName='argocd-server', namespace='($instance.namespace)', localPort=8080, targetPort=443
@@ -205,10 +217,10 @@ Then retry ArgoCD with: server='https://localhost:8080', namespace='($instance.n
 
   let first_instance = $instances | first
 
-  # Check if it's in-cluster
-  if $first_instance.in_cluster? == true {
+  # Check if port-forward is needed
+  if $first_instance.needs_port_forward? == true {
     error make {
-      msg: $"ArgoCD found in namespace '($first_instance.namespace)' with in-cluster URL: ($first_instance.server)
+      msg: $"ArgoCD found in namespace '($first_instance.namespace)' but has no accessible URL.
 
 ACTION REQUIRED: Use k8s tool to set up port-forward:
   kube_port_forward with: resourceType='service', resourceName='argocd-server', namespace='($first_instance.namespace)', localPort=8080, targetPort=443
