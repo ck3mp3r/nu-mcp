@@ -169,10 +169,8 @@ kubectl port-forward -n argocd svc/argocd-server 8080:443
 
 **Step 2: Use ArgoCD tools with explicit server + namespace**
 ```bash
-# Set environment for self-signed certs
-export TLS_REJECT_UNAUTHORIZED="0"
-
 # Call ArgoCD tools with server and namespace
+# Note: TLS verification is automatically disabled for localhost URLs
 nu tools/argocd/mod.nu call-tool list_applications '{
   "server": "https://localhost:8080",
   "namespace": "argocd"
@@ -271,15 +269,13 @@ Error: API request failed: I/O error
 **Solutions**:
 1. Verify port-forward is running: `ps aux | grep "kubectl.*port-forward.*argocd"`
 2. Check you're using the correct port in `server` parameter
-3. Ensure `TLS_REJECT_UNAUTHORIZED="0"` is set for self-signed certs
 
 **Correct workflow**:
 ```bash
 # 1. Start port-forward
 kubectl port-forward -n argocd svc/argocd-server 8080:443
 
-# 2. Use that port in your tool call
-export TLS_REJECT_UNAUTHORIZED="0"
+# 2. Use that port in your tool call (TLS is auto-disabled for localhost)
 nu tools/argocd/mod.nu call-tool list_applications '{
   "server": "https://localhost:8080",
   "namespace": "argocd"
