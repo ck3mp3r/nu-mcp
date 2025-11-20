@@ -43,7 +43,7 @@ def build-url [server: string path: string params: record] {
 
 # HTTP call wrapper with TLS handling
 def http-call [method: string url: string headers: record body: any] {
-  let skip_tls = $env.TLS_REJECT_UNAUTHORIZED? | default "1" | $in == "0"
+  let skip_tls = $env.MCP_INSECURE_TLS? | default "false" | $in == "true"
   let is_localhost = $url | str contains "localhost"
   let insecure = $skip_tls or $is_localhost
 

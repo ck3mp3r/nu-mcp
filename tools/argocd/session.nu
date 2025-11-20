@@ -59,7 +59,7 @@ def login [instance: record] {
   ]
 
   # Add insecure flag if TLS verification is disabled OR if using localhost
-  let skip_tls = $env.TLS_REJECT_UNAUTHORIZED? | default "1" | $in == "0"
+  let skip_tls = $env.MCP_INSECURE_TLS? | default "false" | $in == "true"
   let is_localhost = $instance.server | str contains "localhost"
   if $skip_tls or $is_localhost {
     $args = ($args | append "--insecure")

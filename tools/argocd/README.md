@@ -114,8 +114,10 @@ metadata:
 
 ### Environment Variables
 
-- `TLS_REJECT_UNAUTHORIZED` (optional) - Set to `"0"` for self-signed certificates
+- `MCP_INSECURE_TLS` (optional) - Set to `"true"` to disable TLS verification for non-localhost URLs with self-signed certificates
 - `MCP_READ_ONLY` (optional) - Set to `"false"` to enable write operations (default: `"true"`)
+
+**Note**: TLS verification is automatically disabled for localhost URLs (port-forward scenarios).
 
 ### MCP Client Configuration
 
@@ -128,7 +130,7 @@ Minimal configuration - no credentials needed!
       "command": "nu-mcp",
       "args": ["--tools-dir", "/path/to/nu-mcp/tools/argocd"],
       "env": {
-        "TLS_REJECT_UNAUTHORIZED": "0",
+        "MCP_INSECURE_TLS": "true",
         "MCP_READ_ONLY": "false"
       }
     }
