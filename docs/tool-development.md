@@ -1015,6 +1015,31 @@ cargo run -- --tools-dir ./tools
 
 ## Testing Your Tool
 
+### IMPORTANT: Testing Workflow
+
+**During development, you can ONLY test via direct Nushell tool calls until the MCP server and tools have been installed on your PATH.**
+
+The MCP server uses tools from the Nix store (immutable paths like `/nix/store/.../mcp-tools-X.X.X/`), which means:
+- Changes you make to `tools/` are NOT used by the MCP server until rebuilt and installed
+- You MUST test via direct Nushell calls during development
+- Only after building and installing can you test via the MCP server
+
+### Development Testing (Direct Nushell Calls)
+
+**This is the ONLY way to test during development:**
+
+```bash
+# Test tool discovery
+nu tools/<tool-name>/mod.nu list-tools | from json
+
+# Test tool execution with various inputs
+nu tools/<tool-name>/mod.nu call-tool tool_name '{"param": "value"}'
+
+# Test error cases
+nu tools/<tool-name>/mod.nu call-tool tool_name '{"invalid": "param"}'
+nu tools/<tool-name>/mod.nu call-tool unknown_tool '{}'
+```
+
 ### Testing Individual Modules
 ```bash
 # Test a specific module function
@@ -1036,11 +1061,16 @@ nu tools/weather/mod.nu call-tool get_weather '{"location": "London"}'
 nu tools/finance/mod.nu call-tool get_ticker_price '{"symbol": "AAPL"}'
 ```
 
-### Integration Testing
+### Integration Testing (After Build & Install)
+
+**ONLY after building and installing to PATH can you test via MCP:**
+
 ```bash
-# Test with nu-mcp server (requires build)
-cargo build
-./target/debug/nu-mcp --tools-dir=./tools
+# Build and install (this updates the Nix store)
+nix build  # or equivalent install command
+
+# Now MCP server tools will use your changes
+# Test via MCP client or tool that connects to MCP server
 ```
 
 ### Testing with Test Directory
