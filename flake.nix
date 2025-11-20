@@ -71,6 +71,14 @@
               mkdir -p $out/share/nushell/mcp-tools/${installPath}
               cp -r * $out/share/nushell/mcp-tools/${installPath}/
 
+              # Copy shared _common library from buildInputs if present
+              for dep in $buildInputs; do
+                if [ -d "$dep/share/nushell/mcp-tools/_common" ]; then
+                  mkdir -p $out/share/nushell/mcp-tools/_common
+                  cp -r $dep/share/nushell/mcp-tools/_common/* $out/share/nushell/mcp-tools/_common/
+                fi
+              done
+
               runHook postInstall
             '';
 

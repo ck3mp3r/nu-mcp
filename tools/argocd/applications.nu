@@ -1,9 +1,11 @@
 # ArgoCD Application Management using HTTP API
 
 use utils.nu *
+use ../_common/toon.nu *
 
 # Summarize application to reduce token usage
 # Extracts only essential fields from full application object
+# Flattened for TOON compatibility
 def summarize-application [
   app: record
 ] {
@@ -11,25 +13,15 @@ def summarize-application [
     name: ($app | get metadata.name? | default "unknown")
     namespace: ($app | get metadata.namespace? | default "")
     project: ($app | get spec.project? | default "")
-    source: {
-      repoURL: ($app | get spec.source.repoURL? | default "")
-      path: ($app | get spec.source.path? | default "")
-      targetRevision: ($app | get spec.source.targetRevision? | default "")
-    }
-    destination: {
-      server: ($app | get spec.destination.server? | default "")
-      namespace: ($app | get spec.destination.namespace? | default "")
-    }
-    syncPolicy: {
-      automated: ($app | get spec.syncPolicy.automated? | default null)
-    }
-    health: {
-      status: ($app | get status.health.status? | default "Unknown")
-    }
-    sync: {
-      status: ($app | get status.sync.status? | default "Unknown")
-      revision: ($app | get status.sync.revision? | default "")
-    }
+    repoURL: ($app | get spec.source.repoURL? | default "")
+    path: ($app | get spec.source.path? | default "")
+    targetRevision: ($app | get spec.source.targetRevision? | default "")
+    destServer: ($app | get spec.destination.server? | default "")
+    destNamespace: ($app | get spec.destination.namespace? | default "")
+    automated: (if ($app | get spec.syncPolicy.automated? | default null) != null { "true" } else { "false" })
+    healthStatus: ($app | get status.health.status? | default "Unknown")
+    syncStatus: ($app | get status.sync.status? | default "Unknown")
+    syncRevision: ($app | get status.sync.revision? | default "")
     createdAt: ($app | get metadata.creationTimestamp? | default "")
   }
 }
@@ -65,15 +57,8 @@ export def list-applications [
     $limited_items
   }
 
-  {
-    items: $items
-    metadata: {
-      totalItems: ($all_items | length)
-      returnedItems: ($items | length)
-      hasMore: (($limit != null) and ($limit < ($all_items | length)))
-      summarized: $should_summarize
-    }
-  } | to json --indent 2
+  # Always use TOON format for lists
+  $items | to toon
 }
 
 # Get application details

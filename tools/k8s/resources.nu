@@ -2,6 +2,7 @@
 # Implementations for kube_get, kube_describe
 
 use utils.nu *
+use ../_common/toon.nu *
 
 # kube_get - Get or list Kubernetes resources
 export def kubectl-get [
@@ -102,26 +103,30 @@ export def kubectl-get [
   if $resource_type == "events" {
     try {
       let items_list = ($masked_result | get items)
-      if ($items_list | describe | str contains "list") {
+      let items_type = ($items_list | describe)
+
+      # Check if it's a list or table (Nushell returns "table<...>" for structured lists)
+      if ($items_type | str contains "list") or ($items_type | str starts-with "table") {
         let formatted_events = (
           $items_list | each {|event|
             {
               type: ($event | get type? | default "")
               reason: ($event | get reason? | default "")
               message: ($event | get message? | default "")
-              involvedObject: {
-                kind: ($event | get involvedObject.kind? | default "")
-                name: ($event | get involvedObject.name? | default "")
-                namespace: ($event | get involvedObject.namespace? | default "")
-              }
+              objectKind: ($event | get involvedObject.kind? | default "")
+              objectName: ($event | get involvedObject.name? | default "")
+              objectNamespace: ($event | get involvedObject.namespace? | default "")
               firstTimestamp: ($event | get firstTimestamp? | default "")
               lastTimestamp: ($event | get lastTimestamp? | default "")
               count: ($event | get count? | default 0)
             }
           }
         )
-        return (format-tool-response {events: $formatted_events})
+        # Use TOON format for event lists
+        return ($formatted_events | to toon)
       }
+      # If not a list/table, return empty TOON
+      return "[0]:"
     } catch {
       return (
         format-tool-response {
@@ -136,7 +141,10 @@ export def kubectl-get [
   # Summarize other resources
   try {
     let items_list = ($masked_result | get items)
-    if ($items_list | describe | str contains "list") {
+    let items_type = ($items_list | describe)
+
+    # Check if it's a list or table (Nushell returns "table<...>" for structured lists)
+    if ($items_type | str contains "list") or ($items_type | str starts-with "table") {
       let items = (
         $items_list | each {|item|
           try {
@@ -159,8 +167,11 @@ export def kubectl-get [
           }
         }
       )
-      return (format-tool-response {items: $items})
+      # Use TOON format for lists to reduce token usage
+      return ($items | to toon)
     }
+    # If not a list/table, return empty TOON
+    return "[0]:"
   } catch {
     return (
       format-tool-response {
@@ -170,9 +181,6 @@ export def kubectl-get [
       } --error true
     )
   }
-
-  # Fallback if summarization logic doesn't match
-  format-tool-response $masked_result
 }
 
 # kube_describe - Describe a Kubernetes resource
