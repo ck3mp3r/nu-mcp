@@ -39,6 +39,9 @@ async fn test_router_run_nushell() {
     };
 
     let result = router.route_call(request).await;
+    if let Err(e) = &result {
+        eprintln!("Router error: {:?}", e);
+    }
     assert!(result.is_ok());
 
     let call_result = result.unwrap();
