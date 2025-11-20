@@ -7,6 +7,61 @@
 - Extensions run in the same security context as the server process
 - The sandbox provides directory isolation but does not restrict system resources, network access, or process spawning
 
+## Quote-Aware Path Validation
+
+The security validator understands Nushell's quoting rules to reduce false positives:
+
+### Allowed Content
+The following are **NOT** validated as filesystem paths and will not trigger security blocks:
+
+- **Quoted strings** containing paths:
+  - `gh pr create --body "Fixed issue in /etc/config"`
+  - `echo 'The file /etc/passwd is important'`
+  - Backtick-quoted: `` echo `text with /slashes` ``
+  
+- **String interpolation** with paths:
+  - `$"Config at /etc/app.conf"`
+  - `$'Log file: /var/log/app.log'`
+
+- **Multiline quoted strings** (including newlines):
+  ```nushell
+  gh pr create --body "
+  This PR fixes /etc/config
+  And updates /var/log/app.log
+  "
+  ```
+
+- **URLs** (any protocol):
+  - `curl https://example.com/api/v1/users`
+  - `git clone git://example.com/repo.git`
+
+- **Command options** with slashes:
+  - `command --format=json/yaml`
+  - `tool --output=path/to/file`
+
+### Blocked Content
+The following will still be blocked as potential sandbox escapes:
+
+- **Bare absolute paths** (not in quotes):
+  - `cat /etc/passwd` ❌
+  - `ls /tmp/secret` ❌
+
+- **Path traversal** (always blocked, even in quotes):
+  - `cd ../` ❌
+  - `ls ../../secret` ❌
+
+- **Home directory paths** outside sandbox:
+  - `cat ~/.bashrc` ❌ (if home is outside sandbox)
+
+### How It Works
+
+The validator implements Nushell-aware parsing:
+1. Extracts only **non-quoted words** from commands
+2. Skips validation for content inside single quotes `'...'`, double quotes `"..."`, backticks `` `...` ``, and string interpolation `$"..."` / `$'...'`
+3. Handles multiline strings correctly (newlines inside quotes are treated as content, not separators)
+4. Distinguishes URLs from filesystem paths
+5. Ignores command options that contain slashes (like `--format=/path`)
+
 ## Security Considerations
 - Review tool implementations before deployment
 - Use appropriate sandbox directories for your use case

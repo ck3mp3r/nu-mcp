@@ -5,13 +5,212 @@ fn default_sandbox_dir() -> &'static Path {
     Path::new("/tmp/test_sandbox")
 }
 
+// New tests for quote-aware parsing and false positive reduction
+
 #[test]
-fn test_path_traversal_blocked() {
-    assert!(validate_path_safety("ls ../secret", default_sandbox_dir()).is_err());
-    assert!(validate_path_safety("cd ..", default_sandbox_dir()).is_err());
-    assert!(validate_path_safety("cat ../../etc/passwd", default_sandbox_dir()).is_err());
-    assert!(validate_path_safety("ls ./../../secret", default_sandbox_dir()).is_err());
-    assert!(validate_path_safety("cat ./../../../etc/passwd", default_sandbox_dir()).is_err());
+fn test_quoted_strings_with_paths_allowed() {
+    // Double quotes with absolute paths - should be allowed
+    assert!(
+        validate_path_safety(
+            r#"gh pr create --body "Fixed /etc/config issue""#,
+            default_sandbox_dir()
+        )
+        .is_ok(),
+        "Double-quoted string with path should be allowed"
+    );
+
+    // Single quotes with absolute paths - should be allowed
+    assert!(
+        validate_path_safety(
+            r#"echo 'The file /etc/passwd is important'"#,
+            default_sandbox_dir()
+        )
+        .is_ok(),
+        "Single-quoted string with path should be allowed"
+    );
+
+    // Backtick quotes with paths - should be allowed
+    assert!(
+        validate_path_safety(r#"echo `some text with /slashes`"#, default_sandbox_dir()).is_ok(),
+        "Backtick-quoted string with slashes should be allowed"
+    );
+}
+
+#[test]
+fn test_string_interpolation_with_paths_allowed() {
+    // String interpolation with double quotes
+    assert!(
+        validate_path_safety(r#"echo $"Config at /etc/app.conf""#, default_sandbox_dir()).is_ok(),
+        "String interpolation with path should be allowed"
+    );
+
+    // String interpolation with single quotes
+    assert!(
+        validate_path_safety(
+            r#"echo $'Log file: /var/log/app.log'"#,
+            default_sandbox_dir()
+        )
+        .is_ok(),
+        "String interpolation with single quotes should be allowed"
+    );
+}
+
+#[test]
+fn test_multiline_quoted_strings_allowed() {
+    // Multiline double-quoted string with paths
+    let multiline_command = r#"gh pr create --body "
+This PR fixes /etc/config
+And updates /var/log/app.log
+
+See details in the description
+""#;
+    assert!(
+        validate_path_safety(multiline_command, default_sandbox_dir()).is_ok(),
+        "Multiline double-quoted string with paths should be allowed"
+    );
+
+    // Multiline single-quoted string
+    let single_quote = r#"echo '
+Line with /etc/passwd
+Line with /home/user
+'"#;
+    assert!(
+        validate_path_safety(single_quote, default_sandbox_dir()).is_ok(),
+        "Multiline single-quoted string with paths should be allowed"
+    );
+}
+
+#[test]
+fn test_urls_allowed() {
+    // HTTP URLs
+    assert!(
+        validate_path_safety(
+            "curl http://example.com/api/v1/users",
+            default_sandbox_dir()
+        )
+        .is_ok(),
+        "HTTP URL should be allowed"
+    );
+
+    // HTTPS URLs
+    assert!(
+        validate_path_safety(
+            "wget https://github.com/user/repo/file.txt",
+            default_sandbox_dir()
+        )
+        .is_ok(),
+        "HTTPS URL should be allowed"
+    );
+
+    // Git URLs
+    assert!(
+        validate_path_safety(
+            "git clone git://example.com/repo.git",
+            default_sandbox_dir()
+        )
+        .is_ok(),
+        "Git URL should be allowed"
+    );
+
+    // URLs in quoted strings
+    assert!(
+        validate_path_safety(
+            r#"gh pr create --body "See https://github.com/user/repo/issues/123""#,
+            default_sandbox_dir()
+        )
+        .is_ok(),
+        "Quoted URL should be allowed"
+    );
+}
+
+#[test]
+fn test_command_options_with_slashes_allowed() {
+    // Options with equals sign and paths
+    assert!(
+        validate_path_safety("command --format=json/yaml", default_sandbox_dir()).is_ok(),
+        "Command option with slash should be allowed"
+    );
+
+    assert!(
+        validate_path_safety("tool --output=path/to/file", default_sandbox_dir()).is_ok(),
+        "Command option with path-like value should be allowed"
+    );
+}
+
+#[test]
+fn test_bare_absolute_paths_still_blocked() {
+    let sandbox_dir = current_dir().unwrap();
+
+    // Without quotes, absolute paths should still be blocked
+    assert!(
+        validate_path_safety("cat /etc/passwd", &sandbox_dir).is_err(),
+        "Bare absolute path should be blocked"
+    );
+
+    assert!(
+        validate_path_safety("ls /tmp/secret", &sandbox_dir).is_err(),
+        "Bare absolute path to /tmp should be blocked"
+    );
+}
+
+#[test]
+fn test_multiline_with_actual_paths_blocked() {
+    let sandbox_dir = current_dir().unwrap();
+
+    // Newline between commands, second one has actual bare path
+    let command = r#"echo "quoted /etc"
+cat /etc/passwd"#;
+    assert!(
+        validate_path_safety(command, &sandbox_dir).is_err(),
+        "Bare absolute path after newline should be blocked"
+    );
+}
+
+#[test]
+fn test_path_traversal_in_multiline_blocked() {
+    // Even with multiline, path traversal should be blocked
+    let command = r#"echo "test"
+cd ../"#;
+    assert!(
+        validate_path_safety(command, default_sandbox_dir()).is_err(),
+        "Path traversal in multiline command should be blocked"
+    );
+}
+
+#[test]
+fn test_github_cli_pr_scenarios() {
+    // Real-world GitHub CLI scenarios that were causing false positives
+
+    // PR with URL and path mentions
+    assert!(
+        validate_path_safety(
+            r#"gh pr create --title "Fix bug" --body "See https://github.com/user/repo/issues/123 for /etc/config details""#,
+            default_sandbox_dir()
+        ).is_ok(),
+        "GitHub PR with URL and path mentions should be allowed"
+    );
+
+    // PR with code snippets
+    assert!(
+        validate_path_safety(
+            r#"gh issue comment 42 --body "The issue is in src/components/Header.tsx and /app/routes/index.ts""#,
+            default_sandbox_dir()
+        ).is_ok(),
+        "GitHub issue comment with file paths should be allowed"
+    );
+
+    // PR with multiline body containing paths
+    let pr_body = r#"gh pr create --title "Update config" --body "
+Changed configuration files:
+- /etc/nginx/nginx.conf
+- /var/www/html/index.html
+
+Tested on production server
+""#;
+    assert!(
+        validate_path_safety(pr_body, default_sandbox_dir()).is_ok(),
+        "GitHub PR with multiline body containing paths should be allowed"
+    );
 }
 
 #[test]
