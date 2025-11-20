@@ -40,12 +40,40 @@ argocd version
 ## How It Works
 
 1. **Discovery**: The tool scans your Kubernetes cluster for ArgoCD installations
-2. **Credential Discovery**: Finds credentials from Kubernetes secrets
-3. **CLI Authentication**: Uses `argocd login` to create sessions
-4. **Token Management**: ArgoCD CLI stores tokens in `~/.argocd/config`
-5. **API Calls**: Makes HTTP API calls using CLI-managed tokens
+2. **URL Detection**: Checks for accessible URLs (external annotation, LoadBalancer IP/hostname)
+3. **Port-Forward Instructions**: If no accessible URL, instructs LLM to setup port-forward via k8s tool
+4. **Credential Discovery**: Finds credentials from Kubernetes secrets
+5. **CLI Authentication**: Uses `argocd login` to create sessions
+6. **Token Management**: ArgoCD CLI stores tokens in `~/.argocd/config`
+7. **API Calls**: Makes HTTP API calls using CLI-managed tokens
 
-**IMPORTANT**: When providing a `server` parameter to any tool, it is assumed the user has already logged in via `argocd login`. The tools will use the existing CLI session. If auto-discovery finds an in-cluster URL (*.svc.cluster.local), you must set up port-forward first, have the user login via `argocd login`, then provide the localhost server URL.
+### Authentication Modes
+
+**Mode 1: Server only** - User already logged in
+```bash
+{"server": "https://argocd.example.com"}
+# Assumes: argocd login argocd.example.com (already done)
+```
+
+**Mode 2: Server + Namespace** - Auto-login
+```bash
+{"server": "https://localhost:8080", "namespace": "argocd"}
+# Tool discovers credentials from namespace and logs in automatically
+```
+
+**Mode 3: Namespace only** - Full auto-discovery
+```bash
+{"namespace": "argocd"}
+# Tool discovers server URL from k8s service, credentials from secrets, logs in
+# If no accessible URL → errors with port-forward instructions for LLM
+```
+
+**Mode 4: No parameters** - Complete auto-discovery
+```bash
+{}
+# Tool discovers everything from current kubectl context
+# If no accessible URL → errors with port-forward instructions for LLM
+```
 
 ## Credential Discovery
 
