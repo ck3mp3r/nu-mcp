@@ -23,5 +23,5 @@ jobs:
       - name: Install Determinate Nix
         uses: DeterminateSystems/nix-installer-action@main
 
-      - name: Run tests in Nix develop shell
+      - name: Test build via Nix flake
         run: nix build .#nu-mcp
