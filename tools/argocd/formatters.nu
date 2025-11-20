@@ -46,11 +46,11 @@ export def get-tool-definitions [] {
         properties: {
           namespace: {
             type: "string"
-            description: "Kubernetes namespace where ArgoCD is installed. REQUIRED with server parameter to enable automatic credential discovery and login. Use 'argocd' for standard installations."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). When provided WITHOUT server, triggers discovery which will instruct you to set up port-forward and retry with both server='https://localhost:8080' and namespace. When provided WITH server, enables automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080' or 'https://argocd.example.com'). MUST be provided WITH namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session. Note: localhost URLs automatically use --insecure and --grpc-web flags. For non-localhost URLs with self-signed certificates, set MCP_INSECURE_TLS=true environment variable."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). MUST be provided WITH namespace to enable automatic credential discovery and login. If provided without namespace, assumes pre-existing 'argocd login' session."
           }
           search: {
             type: "string"
@@ -84,11 +84,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace where ArgoCD is installed. REQUIRED with server parameter to enable automatic credential discovery and login. Use 'argocd' for standard installations."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). When provided WITHOUT server, triggers discovery which will instruct you to set up port-forward and retry with both server='https://localhost:8080' and namespace. When provided WITH server, enables automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080' or 'https://argocd.example.com'). MUST be provided WITH namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session. Note: localhost URLs automatically use --insecure and --grpc-web flags. For non-localhost URLs with self-signed certificates, set MCP_INSECURE_TLS=true environment variable."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). MUST be provided WITH namespace to enable automatic credential discovery and login. If provided without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["applicationName"]
@@ -106,11 +106,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace where ArgoCD is installed. REQUIRED with server parameter to enable automatic credential discovery and login. Use 'argocd' for standard installations."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). When provided WITHOUT server, triggers discovery which will instruct you to set up port-forward and retry with both server='https://localhost:8080' and namespace. When provided WITH server, enables automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080' or 'https://argocd.example.com'). MUST be provided WITH namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session. Note: localhost URLs automatically use --insecure and --grpc-web flags. For non-localhost URLs with self-signed certificates, set MCP_INSECURE_TLS=true environment variable."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). MUST be provided WITH namespace to enable automatic credential discovery and login. If provided without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["application"]
@@ -132,11 +132,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace where ArgoCD is installed. REQUIRED with server parameter to enable automatic credential discovery and login. Use 'argocd' for standard installations."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). When provided WITHOUT server, triggers discovery which will instruct you to set up port-forward and retry with both server='https://localhost:8080' and namespace. When provided WITH server, enables automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080' or 'https://argocd.example.com'). MUST be provided WITH namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session. Note: localhost URLs automatically use --insecure and --grpc-web flags. For non-localhost URLs with self-signed certificates, set MCP_INSECURE_TLS=true environment variable."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). MUST be provided WITH namespace to enable automatic credential discovery and login. If provided without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["applicationName" "application"]
@@ -166,11 +166,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace where ArgoCD is installed. REQUIRED with server parameter to enable automatic credential discovery and login. Use 'argocd' for standard installations."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). When provided WITHOUT server, triggers discovery which will instruct you to set up port-forward and retry with both server='https://localhost:8080' and namespace. When provided WITH server, enables automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080' or 'https://argocd.example.com'). MUST be provided WITH namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session. Note: localhost URLs automatically use --insecure and --grpc-web flags. For non-localhost URLs with self-signed certificates, set MCP_INSECURE_TLS=true environment variable."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). MUST be provided WITH namespace to enable automatic credential discovery and login. If provided without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["applicationName"]
@@ -209,11 +209,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace where ArgoCD is installed. REQUIRED with server parameter to enable automatic credential discovery and login. Use 'argocd' for standard installations."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). When provided WITHOUT server, triggers discovery which will instruct you to set up port-forward and retry with both server='https://localhost:8080' and namespace. When provided WITH server, enables automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080' or 'https://argocd.example.com'). MUST be provided WITH namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session. Note: localhost URLs automatically use --insecure and --grpc-web flags. For non-localhost URLs with self-signed certificates, set MCP_INSECURE_TLS=true environment variable."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). MUST be provided WITH namespace to enable automatic credential discovery and login. If provided without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["applicationName"]
@@ -231,11 +231,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace where ArgoCD is installed. REQUIRED with server parameter to enable automatic credential discovery and login. Use 'argocd' for standard installations."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). When provided WITHOUT server, triggers discovery which will instruct you to set up port-forward and retry with both server='https://localhost:8080' and namespace. When provided WITH server, enables automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080' or 'https://argocd.example.com'). MUST be provided WITH namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session. Note: localhost URLs automatically use --insecure and --grpc-web flags. For non-localhost URLs with self-signed certificates, set MCP_INSECURE_TLS=true environment variable."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). MUST be provided WITH namespace to enable automatic credential discovery and login. If provided without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["applicationName"]
@@ -349,11 +349,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace where ArgoCD is installed. REQUIRED with server parameter to enable automatic credential discovery and login. Use 'argocd' for standard installations."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). When provided WITHOUT server, triggers discovery which will instruct you to set up port-forward and retry with both server='https://localhost:8080' and namespace. When provided WITH server, enables automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080' or 'https://argocd.example.com'). MUST be provided WITH namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session. Note: localhost URLs automatically use --insecure and --grpc-web flags. For non-localhost URLs with self-signed certificates, set MCP_INSECURE_TLS=true environment variable."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). MUST be provided WITH namespace to enable automatic credential discovery and login. If provided without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["applicationName"]
@@ -387,11 +387,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace where ArgoCD is installed. REQUIRED with server parameter to enable automatic credential discovery and login. Use 'argocd' for standard installations."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). When provided WITHOUT server, triggers discovery which will instruct you to set up port-forward and retry with both server='https://localhost:8080' and namespace. When provided WITH server, enables automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080' or 'https://argocd.example.com'). MUST be provided WITH namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session. Note: localhost URLs automatically use --insecure and --grpc-web flags. For non-localhost URLs with self-signed certificates, set MCP_INSECURE_TLS=true environment variable."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). MUST be provided WITH namespace to enable automatic credential discovery and login. If provided without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["applicationName" "applicationNamespace" "resourceUID" "resourceNamespace" "resourceName"]
@@ -428,11 +428,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace where ArgoCD is installed. REQUIRED with server parameter to enable automatic credential discovery and login. Use 'argocd' for standard installations."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). When provided WITHOUT server, triggers discovery which will instruct you to set up port-forward and retry with both server='https://localhost:8080' and namespace. When provided WITH server, enables automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080' or 'https://argocd.example.com'). MUST be provided WITH namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session. Note: localhost URLs automatically use --insecure and --grpc-web flags. For non-localhost URLs with self-signed certificates, set MCP_INSECURE_TLS=true environment variable."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). MUST be provided WITH namespace to enable automatic credential discovery and login. If provided without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["applicationName" "applicationNamespace"]
