@@ -26,7 +26,7 @@ is-toon-enabled  # Returns true if MCP_TOON=true
 # Explicit TOON encoding
 [{id: 1, name: "Alice"}, {id: 2, name: "Bob"}] | to toon
 # Output:
-# [2,]{id,name}:
+# [2]{id,name}:
 #   1,Alice
 #   2,Bob
 
@@ -42,6 +42,12 @@ is-toon-enabled  # Returns true if MCP_TOON=true
 - `to toon`: Encode data to TOON format (always)
 - `to-output`: Smart encoding - TOON if `MCP_TOON=true`, JSON otherwise
 - `is-toon-enabled`: Check if TOON is enabled via environment variable
+
+**Specification:**
+
+Based on [TOON Specification v2.0](https://github.com/toon-format/spec/blob/main/SPEC.md).
+
+See official documentation at [https://toonformat.dev](https://toonformat.dev) for format details, use cases, and benchmarks.
 
 ## Using in Tools
 

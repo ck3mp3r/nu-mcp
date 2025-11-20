@@ -5,7 +5,6 @@ use ../_common/toon.nu *
 
 # Summarize application to reduce token usage
 # Extracts only essential fields from full application object
-# Flattened for TOON compatibility
 def summarize-application [
   app: record
 ] {
