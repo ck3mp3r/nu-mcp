@@ -50,7 +50,7 @@ export def get-tool-definitions [] {
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
           }
           search: {
             type: "string"
@@ -88,7 +88,7 @@ export def get-tool-definitions [] {
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
           }
         }
         required: ["applicationName"]
@@ -110,7 +110,7 @@ export def get-tool-definitions [] {
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
           }
         }
         required: ["application"]
@@ -136,7 +136,7 @@ export def get-tool-definitions [] {
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
           }
         }
         required: ["applicationName" "application"]
@@ -170,7 +170,7 @@ export def get-tool-definitions [] {
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
           }
         }
         required: ["applicationName"]
@@ -213,7 +213,7 @@ export def get-tool-definitions [] {
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
           }
         }
         required: ["applicationName"]
@@ -235,7 +235,7 @@ export def get-tool-definitions [] {
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
           }
         }
         required: ["applicationName"]
@@ -281,7 +281,7 @@ export def get-tool-definitions [] {
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
           }
         }
         required: ["applicationName"]
@@ -331,7 +331,7 @@ export def get-tool-definitions [] {
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
           }
         }
         required: ["applicationName"]
@@ -353,7 +353,7 @@ export def get-tool-definitions [] {
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
           }
         }
         required: ["applicationName"]
@@ -391,7 +391,7 @@ export def get-tool-definitions [] {
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
           }
         }
         required: ["applicationName" "applicationNamespace" "resourceUID" "resourceNamespace" "resourceName"]
@@ -432,7 +432,7 @@ export def get-tool-definitions [] {
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
           }
         }
         required: ["applicationName" "applicationNamespace"]
@@ -466,7 +466,7 @@ export def get-tool-definitions [] {
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
           }
         }
         required: ["applicationName"]
@@ -504,7 +504,7 @@ export def get-tool-definitions [] {
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided, assumes user has already logged in via 'argocd login' CLI."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
           }
         }
         required: ["applicationName" "action"]
