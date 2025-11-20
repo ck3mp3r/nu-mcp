@@ -43,12 +43,14 @@ def build-url [server: string path: string params: record] {
 
 # HTTP call wrapper with TLS handling
 def http-call [method: string url: string headers: record body: any] {
-  let skip_tls = $env.TLS_REJECT_UNAUTHORIZED? | default "1" | $in == "0"
+  let skip_tls = $env.MCP_INSECURE_TLS? | default "false" | $in == "true"
+  let is_localhost = $url | str contains "localhost"
+  let insecure = $skip_tls or $is_localhost
 
   try {
     match $method {
       "get" => {
-        if $skip_tls {
+        if $insecure {
           http get --headers $headers --insecure $url
         } else {
           http get --headers $headers $url
@@ -56,7 +58,7 @@ def http-call [method: string url: string headers: record body: any] {
       }
       "post" => {
         let content = if $body != null { $body | to json } else { "" }
-        if $skip_tls {
+        if $insecure {
           http post --headers $headers --insecure --content-type "application/json" $url $content
         } else {
           http post --headers $headers --content-type "application/json" $url $content
@@ -64,14 +66,14 @@ def http-call [method: string url: string headers: record body: any] {
       }
       "put" => {
         let content = if $body != null { $body | to json } else { "" }
-        if $skip_tls {
+        if $insecure {
           http put --headers $headers --insecure --content-type "application/json" $url $content
         } else {
           http put --headers $headers --content-type "application/json" $url $content
         }
       }
       "delete" => {
-        if $skip_tls {
+        if $insecure {
           http delete --headers $headers --insecure $url
         } else {
           http delete --headers $headers $url

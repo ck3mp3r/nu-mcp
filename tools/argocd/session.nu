@@ -32,9 +32,15 @@ def is-valid [ctx: string server: string] {
       return false
     }
 
-    # Verify authentication with a simple API call
-    let auth_result = (argocd account get-user-info --grpc-web | complete)
-    $auth_result.exit_code == 0
+    # Verify authentication with a simple API call (using JSON output)
+    let auth_result = (argocd account get-user-info --grpc-web -o json | complete)
+    if $auth_result.exit_code != 0 {
+      return false
+    }
+
+    # Parse JSON and check loggedIn field
+    let user_info = $auth_result.stdout | from json
+    $user_info.loggedIn? == true
   } catch {
     false
   }
@@ -58,9 +64,10 @@ def login [instance: record] {
     $ctx
   ]
 
-  # Add insecure flag if TLS verification is disabled
-  let skip_tls = $env.TLS_REJECT_UNAUTHORIZED? | default "1" | $in == "0"
-  if $skip_tls {
+  # Add insecure flag if TLS verification is disabled OR if using localhost
+  let skip_tls = $env.MCP_INSECURE_TLS? | default "false" | $in == "true"
+  let is_localhost = $instance.server | str contains "localhost"
+  if $skip_tls or $is_localhost {
     $args = ($args | append "--insecure")
   }
 
@@ -126,6 +133,9 @@ def read-token [ctx: string] {
 def ctx-name [instance: record] {
   # When using explicit server (namespace is null), use the server host as context name
   if $instance.namespace == null {
+    $instance.server | str replace --regex '^https?://' ''
+  } else if ($instance.server | str contains "localhost") {
+    # For port-forwarded localhost, use the server URL as context
     $instance.server | str replace --regex '^https?://' ''
   } else {
     $"argocd-($instance.namespace)"

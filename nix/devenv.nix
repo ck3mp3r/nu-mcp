@@ -54,6 +54,15 @@
       enable = true;
       packageOverrides.clippy = inputs.fenix.packages.${pkgs.system}.stable.clippy;
     };
+    # Custom topiary hook for Nushell files
+    topiary = {
+      enable = true;
+      name = "topiary";
+      entry = "${pkgs.topiary}/bin/topiary format";
+      files = "\\.nu$";
+      language = "system";
+      pass_filenames = true;
+    };
     # Custom pre-push hook to run tests
     test-on-push = {
       enable = true;
