@@ -46,11 +46,11 @@ export def get-tool-definitions [] {
         properties: {
           namespace: {
             type: "string"
-            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). REQUIRED with server parameter to enable automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). REQUIRED with namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session."
           }
           search: {
             type: "string"
@@ -84,11 +84,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). REQUIRED with server parameter to enable automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). REQUIRED with namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["applicationName"]
@@ -106,11 +106,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). REQUIRED with server parameter to enable automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). REQUIRED with namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["application"]
@@ -132,11 +132,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). REQUIRED with server parameter to enable automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). REQUIRED with namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["applicationName" "application"]
@@ -166,11 +166,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). REQUIRED with server parameter to enable automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). REQUIRED with namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["applicationName"]
@@ -209,11 +209,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). REQUIRED with server parameter to enable automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). REQUIRED with namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["applicationName"]
@@ -231,11 +231,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). REQUIRED with server parameter to enable automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). REQUIRED with namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["applicationName"]
@@ -349,11 +349,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). REQUIRED with server parameter to enable automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). REQUIRED with namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["applicationName"]
@@ -387,11 +387,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). REQUIRED with server parameter to enable automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). REQUIRED with namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["applicationName" "applicationNamespace" "resourceUID" "resourceNamespace" "resourceName"]
@@ -428,11 +428,11 @@ export def get-tool-definitions [] {
           }
           namespace: {
             type: "string"
-            description: "Kubernetes namespace for auto-discovery. Server and credentials will be discovered from Kubernetes. Not needed when server is provided."
+            description: "Kubernetes namespace where ArgoCD is installed (typically 'argocd'). REQUIRED with server parameter to enable automatic credential discovery and login."
           }
           server: {
             type: "string"
-            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). When provided alone, assumes user logged in via 'argocd login'. When provided with namespace, auto-discovers credentials and logs in automatically."
+            description: "ArgoCD server URL (e.g., 'https://localhost:8080'). REQUIRED with namespace parameter to enable automatic credential discovery and login. Without namespace, assumes pre-existing 'argocd login' session."
           }
         }
         required: ["applicationName" "applicationNamespace"]
