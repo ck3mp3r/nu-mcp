@@ -1,6 +1,7 @@
 # ArgoCD Resource Management using HTTP API
 
 use utils.nu *
+use ../_common/toon.nu *
 
 # Get managed resources for an application
 export def get-managed-resources [
@@ -25,7 +26,8 @@ export def get-managed-resources [
   }
 
   let response = api-request "get" $"/api/v1/applications/($name)/managed-resources" $instance --params $params
-  {items: ($response.items? | default [])} | to json --indent 2
+  let items = $response.items? | default []
+  $items | to-output
 }
 
 # Get logs for application workload
@@ -139,7 +141,8 @@ export def get-resource-actions [
   }
 
   let response = api-request "get" $"/api/v1/applications/($name)/resource/actions" $instance --params $params
-  {actions: ($response.actions? | default [])} | to json --indent 2
+  let actions = $response.actions? | default []
+  $actions | to-output
 }
 
 # Run a resource action
