@@ -34,7 +34,12 @@ def is-valid [ctx: string server: string] {
 
     # Verify authentication with a simple API call
     let auth_result = (argocd account get-user-info --grpc-web | complete)
-    $auth_result.exit_code == 0
+    if $auth_result.exit_code != 0 {
+      return false
+    }
+    
+    # Check if actually logged in (not just that the command succeeded)
+    $auth_result.stdout | str contains "Logged In: true"
   } catch {
     false
   }
