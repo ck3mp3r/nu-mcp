@@ -141,6 +141,69 @@ export def list-items [] {
 
 The above creates double-wrapped content that clients cannot parse. Always return raw text/JSON and let the Rust server handle MCP formatting.
 
+### Optional TOON Format
+
+Tools can optionally use TOON (Token-Oriented Object Notation) format for list operations to reduce token usage by 30-60% compared to JSON. TOON is particularly effective for uniform arrays of objects with primitive values.
+
+**Using the shared TOON encoder:**
+
+```nushell
+# Import the shared TOON library
+use ../_common/toon.nu *
+
+# Option 1: Smart output (TOON if MCP_TOON=true, JSON otherwise)
+export def list-items [] {
+  let items = http get "https://api.example.com/items"
+  $items | to-output  # Automatically chooses format based on MCP_TOON env var
+}
+
+# Option 2: Explicit TOON encoding (always TOON)
+export def list-items-toon [] {
+  let items = http get "https://api.example.com/items"
+  $items | to toon  # Always encodes to TOON format
+}
+
+# Option 3: Check environment and choose format
+export def list-items-conditional [] {
+  let items = http get "https://api.example.com/items"
+  if (is-toon-enabled) {
+    $items | to toon
+  } else {
+    $items | to json --indent 2
+  }
+}
+```
+
+**Environment variable:**
+- `MCP_TOON=true`: Enable TOON encoding (default: `false` - uses JSON)
+
+**Specification:**
+- Based on [TOON Specification v2.0](https://github.com/toon-format/spec/blob/main/SPEC.md)
+- See [https://toonformat.dev](https://toonformat.dev) for format details and use cases
+
+**Example output comparison:**
+
+```nushell
+# JSON output
+[
+  {
+    "id": 1,
+    "name": "Alice",
+    "active": true
+  },
+  {
+    "id": 2,
+    "name": "Bob",
+    "active": false
+  }
+]
+
+# TOON output (same data, fewer tokens)
+[2]{active,id,name}:
+  true,1,Alice
+  false,2,Bob
+```
+
 ---
 
 ## Pre-Implementation Workflow
@@ -282,6 +345,11 @@ def format-stock-output [data: record] { }
 - `formatters.nu`: Data display, text formatting, unit conversions
 - `utils.nu`: Calculations, data transformations, helper functions
 - Domain-specific modules: `geocoding.nu`, `session.nu`, etc.
+
+**Shared Libraries:**
+- `_common/toon.nu`: Shared TOON encoder for token-efficient output (optional)
+  - Import with: `use ../_common/toon.nu *`
+  - See [Tool Output Format](#optional-toon-format) section for usage
 
 #### Open/Closed Principle (OCP)
 **Design for extension without modification:**
