@@ -4,7 +4,7 @@
 # Validate and normalize ticker symbol
 export def normalize_symbol [symbol: string] {
   let ticker = $symbol | str trim | str upcase
-  
+
   if ($ticker | str length) == 0 {
     {
       valid: false
@@ -21,21 +21,21 @@ export def normalize_symbol [symbol: string] {
 # Get stock data from Yahoo Finance API
 export def get_stock_data [symbol: string] {
   let symbol_check = normalize_symbol $symbol
-  
+
   if not $symbol_check.valid {
     return {
       success: false
       error: $symbol_check.error
     }
   }
-  
+
   let ticker = $symbol_check.symbol
-  
+
   try {
     # Use Yahoo Finance chart API (no API key required)
     let url = $"https://query1.finance.yahoo.com/v8/finance/chart/($ticker)"
     let response = http get $url
-    
+
     # Check if we got valid data
     if ($response.chart.result | length) == 0 {
       {
@@ -49,7 +49,7 @@ export def get_stock_data [symbol: string] {
         symbol: $ticker
       }
     }
-  } catch { |err|
+  } catch {|err|
     {
       success: false
       error: $"Could not retrieve data for ticker '($ticker)': ($err.msg)"
@@ -65,18 +65,18 @@ export def extract_stock_metadata [api_response: record] {
       error: $api_response.error
     }
   }
-  
+
   let result = $api_response.data
-  
+
   if "meta" not-in $result {
     return {
       valid: false
       error: "Missing metadata in API response"
     }
   }
-  
+
   let meta = $result.meta
-  
+
   # Required fields for stock quote
   let required_fields = [
     "regularMarketPrice"
@@ -86,9 +86,9 @@ export def extract_stock_metadata [api_response: record] {
     "regularMarketVolume"
     "currency"
   ]
-  
-  let missing_fields = $required_fields | where { |field| $field not-in $meta }
-  
+
+  let missing_fields = $required_fields | where {|field| $field not-in $meta }
+
   if ($missing_fields | length) > 0 {
     {
       valid: false
@@ -107,7 +107,7 @@ export def extract_stock_metadata [api_response: record] {
 export def get_validated_stock_info [symbol: string] {
   let api_result = get_stock_data $symbol
   let validation_result = extract_stock_metadata $api_result
-  
+
   if not $validation_result.valid {
     {
       success: false

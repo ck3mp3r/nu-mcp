@@ -104,7 +104,7 @@ where
 
             tools.push(Tool {
                 name: "run_nushell".into(),
-                description: Some("Run a Nushell command and return its output".into()),
+                description: Some("Run a Nushell command and return its output. IMPORTANT: Commands execute in a sandbox directory. Use RELATIVE paths (./file.txt, subdir/file.txt) or current directory (.) - do NOT use absolute paths (/etc/passwd, /tmp/file) as they will be blocked unless within the sandbox. Prefer working with the current directory and relative paths.".into()),
                 input_schema: Arc::new(schema),
                 annotations: None,
                 title: Some("Run Nushell Command".to_string()),

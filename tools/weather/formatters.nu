@@ -45,7 +45,7 @@ export def wind_direction_to_compass [direction] {
 }
 
 # Format temperature with unit
-export def format_temperature [temp: float, unit: string = "°C"] {
+export def format_temperature [temp: float unit: string = "°C"] {
   $"($temp)($unit)"
 }
 

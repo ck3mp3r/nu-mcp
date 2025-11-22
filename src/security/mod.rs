@@ -1,4 +1,63 @@
+//! Sandbox Security Module
+//!
+//! This module implements filesystem path validation for the nu-mcp sandbox.
+//!
+//! ## Validation Strategy
+//!
+//! The module uses a two-tier validation approach:
+//!
+//! 1. **Whitelist Check**: Commands matching safe patterns bypass path validation
+//!    - API commands (gh api, kubectl get /apis, argocd app, etc.)
+//!    - HTTP clients with URLs
+//!    - Other tools with non-filesystem path arguments
+//!
+//! 2. **Path Validation**: Remaining commands undergo filesystem path checks
+//!    - Extract non-quoted tokens (respects Nushell quoting)
+//!    - Identify potential filesystem paths
+//!    - Verify paths don't escape sandbox directory
+//!
+//! ## Adding Whitelist Patterns
+//!
+//! To add new safe patterns, edit `get_safe_command_patterns()` and add a regex.
+//! See `docs/security.md` for detailed instructions.
+
+use regex::Regex;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
+
+/// Load safe command patterns from file at compile time
+const SAFE_PATTERNS_FILE: &str = include_str!("safe_command_patterns.txt");
+
+/// Parse pattern file and compile regexes
+/// Lines starting with # are comments, empty lines are ignored
+fn parse_pattern_file(content: &str) -> Vec<Regex> {
+    content
+        .lines()
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(|pattern| {
+            Regex::new(pattern)
+                .unwrap_or_else(|e| panic!("Invalid regex pattern '{}': {}", pattern, e))
+        })
+        .collect()
+}
+
+/// Safe command patterns that bypass path validation
+/// These patterns match commands that use path-like arguments but are NOT filesystem paths
+/// Examples: API endpoints, resource identifiers, URL paths, etc.
+///
+/// Patterns are loaded from safe_command_patterns.txt at compile time
+fn get_safe_command_patterns() -> &'static Vec<Regex> {
+    static PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
+    PATTERNS.get_or_init(|| parse_pattern_file(SAFE_PATTERNS_FILE))
+}
+
+/// Check if a command matches a safe pattern and should bypass path validation
+fn matches_safe_pattern(command: &str) -> bool {
+    get_safe_command_patterns()
+        .iter()
+        .any(|pattern| pattern.is_match(command))
+}
 
 /// Manually resolve a relative path with .. components
 /// Returns the resolved path
@@ -25,55 +84,25 @@ fn resolve_relative_path(base: &Path, relative: &str) -> Option<PathBuf> {
     Some(result)
 }
 
-/// Extract words from a command that are NOT inside quotes.
-/// This handles Nushell's quoting rules including:
-/// - Single quotes: 'text'
-/// - Double quotes: "text"
-/// - Backticks: `text`
-/// - String interpolation: $"text" and $'text'
-/// Multiline strings are properly handled (newlines inside quotes are treated as content)
-fn extract_non_quoted_words(command: &str) -> Vec<String> {
-    let mut words = Vec::new();
-    let mut current_word = String::new();
-    let mut quote_char: Option<char> = None;
-    let mut prev_char: Option<char> = None;
-
-    for ch in command.chars() {
-        match (quote_char, ch) {
-            // Not in quotes, hit a quote character (except $ before quote)
-            (None, '\'' | '"' | '`') if prev_char != Some('$') => {
-                quote_char = Some(ch);
+/// Extract all words from a command by splitting on whitespace
+/// NOTE: This does NOT skip quoted strings because quotes don't prevent filesystem access!
+/// Commands like `cat "/etc/passwd"` will still read the file even though it's quoted.
+fn extract_words(command: &str) -> Vec<String> {
+    command
+        .split_whitespace()
+        .map(|s| {
+            // Strip surrounding quotes to get the actual argument value
+            let s = s.trim();
+            if (s.starts_with('"') && s.ends_with('"'))
+                || (s.starts_with('\'') && s.ends_with('\''))
+                || (s.starts_with('`') && s.ends_with('`'))
+            {
+                s[1..s.len() - 1].to_string()
+            } else {
+                s.to_string()
             }
-            // Not in quotes, hit $" or $' (string interpolation)
-            (None, '"' | '\'') if prev_char == Some('$') => {
-                quote_char = Some(ch);
-            }
-            // In quotes, hit matching close quote (not escaped)
-            (Some(q), ch) if ch == q && prev_char != Some('\\') => {
-                quote_char = None;
-            }
-            // In quotes - skip everything (including newlines!)
-            (Some(_), _) => {}
-            // Not in quotes, hit whitespace (including newlines)
-            (None, ' ' | '\t' | '\n' | '\r') => {
-                if !current_word.is_empty() {
-                    words.push(current_word.clone());
-                    current_word.clear();
-                }
-            }
-            // Not in quotes, regular character
-            (None, ch) => {
-                current_word.push(ch);
-            }
-        }
-        prev_char = Some(ch);
-    }
-
-    if !current_word.is_empty() {
-        words.push(current_word);
-    }
-
-    words
+        })
+        .collect()
 }
 
 /// Check if a word is a URL (has a protocol scheme)
@@ -99,13 +128,12 @@ fn is_likely_filesystem_path(word: &str) -> bool {
         // Exclude things that are clearly not filesystem paths
 
         // Has = sign before the slash (likely an option like --format=/path)
-        if let Some(eq_pos) = word.find('=') {
-            if let Some(slash_pos) = word.find('/') {
-                if eq_pos < slash_pos {
-                    // This is an option assignment, not a path
-                    return false;
-                }
-            }
+        if let Some(eq_pos) = word.find('=')
+            && let Some(slash_pos) = word.find('/')
+            && eq_pos < slash_pos
+        {
+            // This is an option assignment, not a path
+            return false;
         }
 
         // Multiple consecutive slashes (likely URL or other non-path)
@@ -120,6 +148,12 @@ fn is_likely_filesystem_path(word: &str) -> bool {
 }
 
 pub fn validate_path_safety(command: &str, sandbox_dir: &Path) -> Result<(), String> {
+    // Check if command matches a safe pattern (commands with path-like args that aren't filesystem paths)
+    // Examples: gh api /repos/..., kubectl get /apis/..., etc.
+    if matches_safe_pattern(command) {
+        return Ok(());
+    }
+
     // Get canonical sandbox directory (only if it exists, otherwise skip validation)
     let canonical_sandbox = match sandbox_dir.canonicalize() {
         Ok(path) => path,
@@ -129,8 +163,8 @@ pub fn validate_path_safety(command: &str, sandbox_dir: &Path) -> Result<(), Str
         }
     };
 
-    // Extract non-quoted words (respects Nushell quoting, including multiline strings)
-    let words = extract_non_quoted_words(command);
+    // Extract all words from command (including quoted strings)
+    let words = extract_words(command);
 
     // Check if command contains absolute paths or home directory paths that would escape the sandbox
     for word in words {

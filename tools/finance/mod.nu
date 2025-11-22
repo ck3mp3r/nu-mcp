@@ -52,12 +52,11 @@ def "main call-tool" [
 def get_ticker_price [symbol: string] {
   # Get validated stock data using API module
   let stock_result = get_validated_stock_info $symbol
-  
+
   if not $stock_result.success {
     return (format_stock_error $symbol $stock_result.error)
   }
-  
+
   # Format using formatters module
   format_stock_quote $stock_result.symbol $stock_result.data
 }
-

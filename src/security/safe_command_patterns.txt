@@ -1,0 +1,27 @@
+# Safe Command Patterns - Commands that bypass filesystem path validation
+#
+# ONLY include commands that have arguments that LOOK LIKE filesystem paths but AREN'T
+# Examples: /repos/owner/repo (API endpoint), /apis/apps/v1 (k8s resource), https://... (URL)
+#
+# DO NOT include commands that never have slash-prefixed arguments in the first place!
+# They don't need to be here - they'll pass validation naturally.
+
+# GitHub CLI - API endpoint patterns
+# Problem: gh api /repos/owner/repo looks like a path but it's an API endpoint
+^gh\s+api\s+
+
+# kubectl - API resource paths  
+# Problem: kubectl get /apis/apps/v1 looks like a path but it's a k8s resource
+^kubectl\s+(get|describe|delete|patch|create)\s+/api
+
+# argocd - Application paths
+# Problem: argocd app get /argocd/myapp looks like a path but it's an app identifier
+^argocd\s+app\s+\w+\s+/argocd/
+
+# HTTP clients with URLs
+# Problem: URLs can have paths like https://example.com/api/endpoint
+^(curl|wget|http)\s+.*https?://
+
+# Nushell http commands
+# Problem: http get with URLs
+^http\s+(get|post|put|delete|patch|head|options)\s+

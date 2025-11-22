@@ -2,16 +2,16 @@
 # Handles all Open-Meteo API calls and data retrieval
 
 # Get current weather data from Open-Meteo API
-export def get_current_weather [latitude: float, longitude: float] {
+export def get_current_weather [latitude: float longitude: float] {
   let weather_url = $"https://api.open-meteo.com/v1/forecast?latitude=($latitude)&longitude=($longitude)&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_direction_10m"
-  
+
   try {
     let weather_response = http get $weather_url
     {
       success: true
       data: $weather_response.current
     }
-  } catch { |err|
+  } catch {|err|
     {
       success: false
       error: $"Failed to fetch current weather data: ($err.msg)"
@@ -20,12 +20,12 @@ export def get_current_weather [latitude: float, longitude: float] {
 }
 
 # Get weather forecast data from Open-Meteo API
-export def get_forecast_data [latitude: float, longitude: float, days: int = 5] {
+export def get_forecast_data [latitude: float longitude: float days: int = 5] {
   # Validate and clamp days parameter
   let forecast_days = if $days < 1 { 5 } else if $days > 16 { 16 } else { $days }
-  
+
   let weather_url = $"https://api.open-meteo.com/v1/forecast?latitude=($latitude)&longitude=($longitude)&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,wind_direction_10m_dominant&timezone=auto&forecast_days=($forecast_days)"
-  
+
   try {
     let weather_response = http get $weather_url
     {
@@ -33,7 +33,7 @@ export def get_forecast_data [latitude: float, longitude: float, days: int = 5] 
       data: $weather_response
       requested_days: $forecast_days
     }
-  } catch { |err|
+  } catch {|err|
     {
       success: false
       error: $"Failed to fetch forecast data: ($err.msg)"
@@ -49,20 +49,20 @@ export def validate_current_weather_response [response: record] {
       error: $response.error
     }
   }
-  
+
   let required_fields = [
     "temperature_2m"
-    "relative_humidity_2m" 
+    "relative_humidity_2m"
     "apparent_temperature"
     "precipitation"
     "weather_code"
     "wind_speed_10m"
     "wind_direction_10m"
   ]
-  
+
   let data = $response.data
-  let missing_fields = $required_fields | where { |field| $field not-in $data }
-  
+  let missing_fields = $required_fields | where {|field| $field not-in $data }
+
   if ($missing_fields | length) > 0 {
     {
       valid: false
@@ -84,16 +84,16 @@ export def validate_forecast_response [response: record] {
       error: $response.error
     }
   }
-  
+
   let data = $response.data
-  
+
   if "daily" not-in $data {
     return {
       valid: false
       error: "Missing 'daily' section in forecast response"
     }
   }
-  
+
   let daily = $data.daily
   let required_fields = [
     "time"
@@ -104,9 +104,9 @@ export def validate_forecast_response [response: record] {
     "wind_speed_10m_max"
     "wind_direction_10m_dominant"
   ]
-  
-  let missing_fields = $required_fields | where { |field| $field not-in $daily }
-  
+
+  let missing_fields = $required_fields | where {|field| $field not-in $daily }
+
   if ($missing_fields | length) > 0 {
     {
       valid: false

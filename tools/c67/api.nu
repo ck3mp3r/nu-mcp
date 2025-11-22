@@ -2,10 +2,10 @@
 # Handles API requests to Context7 service
 
 use utils.nu [
-  validate_search_response,
-  validate_documentation_response,
-  extract_http_status,
-  get_search_error_message,
+  validate_search_response
+  validate_documentation_response
+  extract_http_status
+  get_search_error_message
   get_docs_error_message
 ]
 
