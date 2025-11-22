@@ -3,16 +3,16 @@
 # Tool that returns empty tools list
 
 def main [] {
-    help main
+  help main
 }
 
 def "main list-tools" [] {
-    [] | to json
+  [] | to json
 }
 
 def "main call-tool" [
-    tool_name: string
-    args: string = "{}"
+  tool_name: string
+  args: string = "{}"
 ] {
-    error make {msg: $"No tools available"}
+  error make {msg: $"No tools available"}
 }

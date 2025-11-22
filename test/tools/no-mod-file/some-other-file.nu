@@ -4,5 +4,5 @@
 # It should be ignored by the new discovery system
 
 def main [] {
-    "This should not be discovered"
+  "This should not be discovered"
 }

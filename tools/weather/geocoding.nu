@@ -4,10 +4,10 @@
 # Get location coordinates from a location name
 export def get_coordinates [location: string] {
   let geocode_url = $"https://geocoding-api.open-meteo.com/v1/search?name=($location | url encode)&count=1"
-  
+
   try {
     let geocode_response = http get $geocode_url
-    
+
     if ($geocode_response.results | length) == 0 {
       null
     } else {
@@ -21,7 +21,7 @@ export def get_coordinates [location: string] {
 # Validate that a location exists and return formatted location info
 export def validate_location [location: string] {
   let location_data = get_coordinates $location
-  
+
   if $location_data == null {
     {
       valid: false
