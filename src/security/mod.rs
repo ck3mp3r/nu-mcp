@@ -84,55 +84,25 @@ fn resolve_relative_path(base: &Path, relative: &str) -> Option<PathBuf> {
     Some(result)
 }
 
-/// Extract words from a command that are NOT inside quotes.
-/// This handles Nushell's quoting rules including:
-/// - Single quotes: 'text'
-/// - Double quotes: "text"
-/// - Backticks: `text`
-/// - String interpolation: $"text" and $'text'
-/// Multiline strings are properly handled (newlines inside quotes are treated as content)
-fn extract_non_quoted_words(command: &str) -> Vec<String> {
-    let mut words = Vec::new();
-    let mut current_word = String::new();
-    let mut quote_char: Option<char> = None;
-    let mut prev_char: Option<char> = None;
-
-    for ch in command.chars() {
-        match (quote_char, ch) {
-            // Not in quotes, hit a quote character (except $ before quote)
-            (None, '\'' | '"' | '`') if prev_char != Some('$') => {
-                quote_char = Some(ch);
+/// Extract all words from a command by splitting on whitespace
+/// NOTE: This does NOT skip quoted strings because quotes don't prevent filesystem access!
+/// Commands like `cat "/etc/passwd"` will still read the file even though it's quoted.
+fn extract_words(command: &str) -> Vec<String> {
+    command
+        .split_whitespace()
+        .map(|s| {
+            // Strip surrounding quotes to get the actual argument value
+            let s = s.trim();
+            if (s.starts_with('"') && s.ends_with('"'))
+                || (s.starts_with('\'') && s.ends_with('\''))
+                || (s.starts_with('`') && s.ends_with('`'))
+            {
+                s[1..s.len() - 1].to_string()
+            } else {
+                s.to_string()
             }
-            // Not in quotes, hit $" or $' (string interpolation)
-            (None, '"' | '\'') if prev_char == Some('$') => {
-                quote_char = Some(ch);
-            }
-            // In quotes, hit matching close quote (not escaped)
-            (Some(q), ch) if ch == q && prev_char != Some('\\') => {
-                quote_char = None;
-            }
-            // In quotes - skip everything (including newlines!)
-            (Some(_), _) => {}
-            // Not in quotes, hit whitespace (including newlines)
-            (None, ' ' | '\t' | '\n' | '\r') => {
-                if !current_word.is_empty() {
-                    words.push(current_word.clone());
-                    current_word.clear();
-                }
-            }
-            // Not in quotes, regular character
-            (None, ch) => {
-                current_word.push(ch);
-            }
-        }
-        prev_char = Some(ch);
-    }
-
-    if !current_word.is_empty() {
-        words.push(current_word);
-    }
-
-    words
+        })
+        .collect()
 }
 
 /// Check if a word is a URL (has a protocol scheme)
@@ -194,8 +164,8 @@ pub fn validate_path_safety(command: &str, sandbox_dir: &Path) -> Result<(), Str
         }
     };
 
-    // Extract non-quoted words (respects Nushell quoting, including multiline strings)
-    let words = extract_non_quoted_words(command);
+    // Extract all words from command (including quoted strings)
+    let words = extract_words(command);
 
     // Check if command contains absolute paths or home directory paths that would escape the sandbox
     for word in words {

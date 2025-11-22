@@ -5,36 +5,9 @@ fn default_sandbox_dir() -> &'static Path {
     Path::new("/tmp/test_sandbox")
 }
 
-// New tests for quote-aware parsing and false positive reduction
-
-#[test]
-fn test_quoted_strings_with_paths_allowed() {
-    // Double quotes with absolute paths - should be allowed
-    assert!(
-        validate_path_safety(
-            r#"gh pr create --body "Fixed /etc/config issue""#,
-            default_sandbox_dir()
-        )
-        .is_ok(),
-        "Double-quoted string with path should be allowed"
-    );
-
-    // Single quotes with absolute paths - should be allowed
-    assert!(
-        validate_path_safety(
-            r#"echo 'The file /etc/passwd is important'"#,
-            default_sandbox_dir()
-        )
-        .is_ok(),
-        "Single-quoted string with path should be allowed"
-    );
-
-    // Backtick quotes with paths - should be allowed
-    assert!(
-        validate_path_safety(r#"echo `some text with /slashes`"#, default_sandbox_dir()).is_ok(),
-        "Backtick-quoted string with slashes should be allowed"
-    );
-}
+// NOTE: Quote-based tests removed because quotes don't prevent filesystem access!
+// cat "/etc/passwd" will still read the file even though it's quoted.
+// The allowlist approach handles specific safe patterns instead.
 
 #[test]
 fn test_string_interpolation_with_paths_allowed() {
@@ -138,31 +111,35 @@ fn test_command_options_with_slashes_allowed() {
 }
 
 #[test]
-fn test_bare_absolute_paths_still_blocked() {
+fn test_absolute_paths_blocked() {
     let sandbox_dir = current_dir().unwrap();
 
-    // Without quotes, absolute paths should still be blocked
+    // Absolute paths should be blocked (quoted or not)
     assert!(
         validate_path_safety("cat /etc/passwd", &sandbox_dir).is_err(),
-        "Bare absolute path should be blocked"
+        "Absolute path should be blocked"
+    );
+
+    assert!(
+        validate_path_safety("cat \"/etc/passwd\"", &sandbox_dir).is_err(),
+        "Quoted absolute path should also be blocked"
     );
 
     assert!(
         validate_path_safety("ls /tmp/secret", &sandbox_dir).is_err(),
-        "Bare absolute path to /tmp should be blocked"
+        "Absolute path to /tmp should be blocked"
     );
 }
 
 #[test]
-fn test_multiline_with_actual_paths_blocked() {
+fn test_multiline_with_paths_blocked() {
     let sandbox_dir = current_dir().unwrap();
 
-    // Newline between commands, second one has actual bare path
-    let command = r#"echo "quoted /etc"
-cat /etc/passwd"#;
+    // Multiline commands with absolute paths
+    let command = "echo something\ncat /etc/passwd";
     assert!(
         validate_path_safety(command, &sandbox_dir).is_err(),
-        "Bare absolute path after newline should be blocked"
+        "Absolute path in multiline command should be blocked"
     );
 }
 
@@ -273,31 +250,6 @@ fn test_mixed_paths_with_traversal() {
     assert!(
         validate_path_safety("cat a/b/../../c/file.txt", &sandbox_dir).is_ok(),
         "Complex path with multiple traversals should be allowed if stays in sandbox"
-    );
-}
-
-#[test]
-fn test_quoted_path_traversal_ignored() {
-    let sandbox_dir = current_dir().unwrap();
-
-    // Path traversal in quoted strings should be ignored (it's text, not a path)
-    assert!(
-        validate_path_safety(
-            r#"echo "The command cd ../../../ is dangerous""#,
-            &sandbox_dir
-        )
-        .is_ok(),
-        "Path traversal patterns in quoted strings should be allowed"
-    );
-
-    // Even if it would escape
-    assert!(
-        validate_path_safety(
-            r#"gh pr create --body "Use cd ../../../../etc/passwd""#,
-            &sandbox_dir
-        )
-        .is_ok(),
-        "Path traversal in PR body should be allowed"
     );
 }
 
