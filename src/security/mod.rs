@@ -128,13 +128,12 @@ fn is_likely_filesystem_path(word: &str) -> bool {
         // Exclude things that are clearly not filesystem paths
 
         // Has = sign before the slash (likely an option like --format=/path)
-        if let Some(eq_pos) = word.find('=') {
-            if let Some(slash_pos) = word.find('/') {
-                if eq_pos < slash_pos {
-                    // This is an option assignment, not a path
-                    return false;
-                }
-            }
+        if let Some(eq_pos) = word.find('=')
+            && let Some(slash_pos) = word.find('/')
+            && eq_pos < slash_pos
+        {
+            // This is an option assignment, not a path
+            return false;
         }
 
         // Multiple consecutive slashes (likely URL or other non-path)
