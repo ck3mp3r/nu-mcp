@@ -41,10 +41,6 @@
 # Matches: top, htop, ps, df, du, free, etc.
 ^(top|htop|ps|df|du|free|vmstat|iostat|uptime|lsof|uname|lscpu|lsblk)\s*
 
-# Search tools (read-only, safe to use)
-# ripgrep (rg) - fast recursive search
-^rg\s+
-
 # NOTE: Commands like cat, ls, grep, etc. are NOT in this allowlist because
 # they DO access filesystem paths and should be validated against the sandbox.
 # Only commands with NON-filesystem path arguments belong here.

@@ -578,19 +578,3 @@ fn test_whitelist_pattern_specificity() {
         "kubectl with filesystem path outside sandbox should be blocked"
     );
 }
-
-#[test]
-fn test_search_tools_in_allowlist() {
-    let sandbox_dir = current_dir().unwrap();
-
-    // ripgrep is read-only and safe
-    assert!(
-        validate_path_safety("rg 'pattern' file.txt", &sandbox_dir).is_ok(),
-        "rg search commands should be in allowlist"
-    );
-
-    assert!(
-        validate_path_safety("rg -i 'case-insensitive' .", &sandbox_dir).is_ok(),
-        "rg with flags should be in allowlist"
-    );
-}
