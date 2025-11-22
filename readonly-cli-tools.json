@@ -1,0 +1,1264 @@
+{
+  "version": "1.0",
+  "description": "Comprehensive catalog of read-only CLI tool operations that do not modify the filesystem",
+  "categories": [
+    {
+      "name": "Version Control Systems",
+      "tools": [
+        {
+          "name": "git",
+          "description": "Distributed version control system",
+          "readonly_patterns": [
+            "^git\\s+(log|show|diff|status|branch|tag|remote|config|ls-files|ls-remote|ls-tree|rev-parse|rev-list|describe|blame|reflog|shortlog|whatchanged|grep|check-ignore|check-mailmap|cat-file|count-objects|fsck|verify-commit|verify-tag|show-ref|symbolic-ref|name-rev|for-each-ref|merge-base|show-branch|var|version|help)\\b",
+            "^git\\s+.*\\s+(--dry-run|--no-commit)\\b"
+          ],
+          "readonly_subcommands": [
+            "log", "show", "diff", "status", "branch", "tag", "remote", 
+            "config --get", "config --list", "ls-files", "ls-remote", "ls-tree",
+            "rev-parse", "rev-list", "describe", "blame", "reflog", "shortlog",
+            "whatchanged", "grep", "check-ignore", "check-mailmap", "cat-file",
+            "count-objects", "fsck", "verify-commit", "verify-tag", "show-ref",
+            "symbolic-ref", "name-rev", "for-each-ref", "merge-base", "show-branch",
+            "var", "version", "help"
+          ],
+          "examples": [
+            "git log --oneline --graph",
+            "git show HEAD",
+            "git diff main..feature",
+            "git status",
+            "git branch -v",
+            "git ls-files",
+            "git rev-parse HEAD",
+            "git blame file.txt"
+          ]
+        },
+        {
+          "name": "hg",
+          "description": "Mercurial version control",
+          "readonly_patterns": [
+            "^hg\\s+(log|status|diff|summary|heads|tags|branches|identify|cat|annotate|manifest|paths|showconfig|verify|version|help)\\b"
+          ],
+          "readonly_subcommands": [
+            "log", "status", "diff", "summary", "heads", "tags", "branches",
+            "identify", "cat", "annotate", "manifest", "paths", "showconfig",
+            "verify", "version", "help"
+          ],
+          "examples": [
+            "hg log -l 10",
+            "hg status",
+            "hg diff",
+            "hg summary",
+            "hg heads"
+          ]
+        },
+        {
+          "name": "svn",
+          "description": "Subversion version control",
+          "readonly_patterns": [
+            "^svn\\s+(log|status|diff|info|list|cat|blame|help)\\b",
+            "^svn\\s+(ls|st)\\b"
+          ],
+          "readonly_subcommands": [
+            "log", "status", "st", "diff", "info", "list", "ls", "cat", 
+            "blame", "praise", "annotate", "ann", "help"
+          ],
+          "examples": [
+            "svn log -l 10",
+            "svn status",
+            "svn diff",
+            "svn info",
+            "svn list"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Package Managers",
+      "tools": [
+        {
+          "name": "npm",
+          "description": "Node.js package manager",
+          "readonly_patterns": [
+            "^npm\\s+(list|ls|view|show|info|search|outdated|audit|doctor|help|version|bin|prefix|root|config\\s+get|config\\s+list|whoami|ping)\\b"
+          ],
+          "readonly_subcommands": [
+            "list", "ls", "view", "show", "info", "search", "find", 
+            "outdated", "audit", "doctor", "help", "version", "bin", 
+            "prefix", "root", "config get", "config list", "whoami", "ping"
+          ],
+          "examples": [
+            "npm list",
+            "npm view express",
+            "npm search react",
+            "npm outdated",
+            "npm audit"
+          ]
+        },
+        {
+          "name": "pip",
+          "description": "Python package installer",
+          "readonly_patterns": [
+            "^pip\\s+(list|show|search|check|help|--version)\\b",
+            "^pip\\s+index\\s+(versions)\\b"
+          ],
+          "readonly_subcommands": [
+            "list", "show", "search", "check", "help", "index versions"
+          ],
+          "examples": [
+            "pip list",
+            "pip show requests",
+            "pip search django",
+            "pip check",
+            "pip index versions numpy"
+          ]
+        },
+        {
+          "name": "cargo",
+          "description": "Rust package manager",
+          "readonly_patterns": [
+            "^cargo\\s+(search|tree|metadata|verify-project|version|help|--list)\\b",
+            "^cargo\\s+(check|build|test|run|clippy)\\s+.*--dry-run\\b"
+          ],
+          "readonly_subcommands": [
+            "search", "tree", "metadata", "verify-project", "version", 
+            "help", "--list", "check", "build --dry-run"
+          ],
+          "examples": [
+            "cargo search serde",
+            "cargo tree",
+            "cargo metadata",
+            "cargo verify-project",
+            "cargo check"
+          ]
+        },
+        {
+          "name": "go",
+          "description": "Go toolchain",
+          "readonly_patterns": [
+            "^go\\s+(list|mod\\s+(graph|verify|why|download|tidy\\s+-v)|version|env|help|doc)\\b"
+          ],
+          "readonly_subcommands": [
+            "list", "mod graph", "mod verify", "mod why", "mod download", 
+            "version", "env", "help", "doc"
+          ],
+          "examples": [
+            "go list all",
+            "go mod graph",
+            "go mod verify",
+            "go version",
+            "go doc fmt"
+          ]
+        },
+        {
+          "name": "apt",
+          "description": "Debian package manager",
+          "readonly_patterns": [
+            "^apt\\s+(list|search|show|policy|depends|rdepends)\\b",
+            "^apt-cache\\s+(search|show|policy|depends|rdepends|stats|showpkg|pkgnames)\\b",
+            "^dpkg\\s+(-l|--list|-s|--status|-L|--listfiles|-S|--search|--print-architecture|--version)\\b"
+          ],
+          "readonly_subcommands": [
+            "list", "search", "show", "policy", "depends", "rdepends"
+          ],
+          "examples": [
+            "apt list --installed",
+            "apt search nginx",
+            "apt show nginx",
+            "apt-cache policy",
+            "dpkg -l"
+          ]
+        },
+        {
+          "name": "yum",
+          "description": "RPM package manager",
+          "readonly_patterns": [
+            "^yum\\s+(list|info|search|repolist|provides|check-update|deplist|history\\s+list|version)\\b",
+            "^rpm\\s+(-q|--query|-V|--verify)\\b"
+          ],
+          "readonly_subcommands": [
+            "list", "info", "search", "repolist", "provides", "check-update", 
+            "deplist", "history list", "version"
+          ],
+          "examples": [
+            "yum list installed",
+            "yum info nginx",
+            "yum search httpd",
+            "yum repolist",
+            "rpm -qa"
+          ]
+        },
+        {
+          "name": "brew",
+          "description": "macOS package manager",
+          "readonly_patterns": [
+            "^brew\\s+(list|ls|search|info|desc|deps|uses|outdated|doctor|config|--version|help)\\b"
+          ],
+          "readonly_subcommands": [
+            "list", "ls", "search", "info", "desc", "deps", "uses", 
+            "outdated", "doctor", "config", "--version", "help"
+          ],
+          "examples": [
+            "brew list",
+            "brew search node",
+            "brew info wget",
+            "brew outdated",
+            "brew deps --tree git"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cloud CLIs",
+      "tools": [
+        {
+          "name": "aws",
+          "description": "Amazon Web Services CLI",
+          "readonly_patterns": [
+            "^aws\\s+\\w+\\s+(describe-|get-|list-|show-)",
+            "^aws\\s+\\w+\\s+.*\\s+(--dry-run)\\b"
+          ],
+          "readonly_operations": [
+            "describe-*", "get-*", "list-*", "show-*", "lookup-*", 
+            "check-*", "test-*", "validate-*", "preview-*", "search-*"
+          ],
+          "examples": [
+            "aws ec2 describe-instances",
+            "aws s3 ls",
+            "aws iam list-users",
+            "aws cloudformation describe-stacks",
+            "aws rds describe-db-instances",
+            "aws lambda list-functions",
+            "aws eks list-clusters"
+          ],
+          "notes": "Operations with --dry-run flag are also safe"
+        },
+        {
+          "name": "gcloud",
+          "description": "Google Cloud CLI",
+          "readonly_patterns": [
+            "^gcloud\\s+\\w+\\s+(list|describe|get|show)",
+            "^gcloud\\s+(config\\s+list|info|version|help)\\b"
+          ],
+          "readonly_operations": [
+            "list", "describe", "get", "show", "check-policy", "explain"
+          ],
+          "examples": [
+            "gcloud compute instances list",
+            "gcloud projects describe PROJECT_ID",
+            "gcloud container clusters list",
+            "gcloud sql instances list",
+            "gcloud config list",
+            "gcloud info"
+          ]
+        },
+        {
+          "name": "az",
+          "description": "Azure CLI",
+          "readonly_patterns": [
+            "^az\\s+\\w+\\s+(list|show|get)",
+            "^az\\s+(account\\s+show|version|help)\\b"
+          ],
+          "readonly_operations": [
+            "list", "show", "get", "check-name", "check-policy"
+          ],
+          "examples": [
+            "az vm list",
+            "az group list",
+            "az account show",
+            "az aks list",
+            "az storage account list",
+            "az network vnet list"
+          ]
+        },
+        {
+          "name": "terraform",
+          "description": "Infrastructure as Code tool",
+          "readonly_patterns": [
+            "^terraform\\s+(show|plan|validate|state\\s+(list|show|pull)|output|version|graph|providers|fmt\\s+-check|console)\\b"
+          ],
+          "readonly_subcommands": [
+            "show", "plan", "validate", "state list", "state show", 
+            "state pull", "output", "version", "graph", "providers", 
+            "fmt -check", "fmt -diff", "console"
+          ],
+          "examples": [
+            "terraform plan",
+            "terraform show",
+            "terraform validate",
+            "terraform state list",
+            "terraform output",
+            "terraform graph"
+          ]
+        },
+        {
+          "name": "pulumi",
+          "description": "Infrastructure as Code tool",
+          "readonly_patterns": [
+            "^pulumi\\s+(preview|config\\s+get|stack\\s+(ls|select|output|export|graph|history)|version|about|help)\\b"
+          ],
+          "readonly_subcommands": [
+            "preview", "config get", "stack ls", "stack select", 
+            "stack output", "stack export", "stack graph", "stack history", 
+            "version", "about", "help"
+          ],
+          "examples": [
+            "pulumi preview",
+            "pulumi stack ls",
+            "pulumi stack output",
+            "pulumi config get",
+            "pulumi stack graph"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Container & Orchestration Tools",
+      "tools": [
+        {
+          "name": "docker",
+          "description": "Container platform",
+          "readonly_patterns": [
+            "^docker\\s+(ps|images|inspect|logs|stats|top|history|version|info|search|system\\s+(df|events))\\b"
+          ],
+          "readonly_subcommands": [
+            "ps", "images", "inspect", "logs", "stats", "top", "history", 
+            "version", "info", "search", "system df", "system events", 
+            "container ls", "container inspect", "container logs", 
+            "container stats", "image ls", "image inspect", "image history", 
+            "network ls", "network inspect", "volume ls", "volume inspect"
+          ],
+          "examples": [
+            "docker ps",
+            "docker images",
+            "docker inspect container_id",
+            "docker logs container_id",
+            "docker stats",
+            "docker top container_id",
+            "docker history image_name"
+          ]
+        },
+        {
+          "name": "kubectl",
+          "description": "Kubernetes CLI",
+          "readonly_patterns": [
+            "^kubectl\\s+(get|describe|logs|top|explain|version|api-resources|api-versions|cluster-info|config\\s+(view|get-contexts|current-context))\\b",
+            "^kubectl\\s+.*\\s+(--dry-run=client|--dry-run=server)\\b"
+          ],
+          "readonly_subcommands": [
+            "get", "describe", "logs", "top", "explain", "version", 
+            "api-resources", "api-versions", "cluster-info", "config view", 
+            "config get-contexts", "config current-context", "auth can-i", 
+            "diff"
+          ],
+          "examples": [
+            "kubectl get pods",
+            "kubectl describe pod nginx",
+            "kubectl logs pod-name",
+            "kubectl top nodes",
+            "kubectl explain deployment",
+            "kubectl api-resources",
+            "kubectl diff -f manifest.yaml"
+          ]
+        },
+        {
+          "name": "podman",
+          "description": "Daemonless container engine",
+          "readonly_patterns": [
+            "^podman\\s+(ps|images|inspect|logs|stats|top|history|version|info|search|system\\s+(df|events))\\b"
+          ],
+          "readonly_subcommands": [
+            "ps", "images", "inspect", "logs", "stats", "top", "history", 
+            "version", "info", "search", "system df", "system events"
+          ],
+          "examples": [
+            "podman ps",
+            "podman images",
+            "podman inspect container_id",
+            "podman logs container_id",
+            "podman stats"
+          ]
+        },
+        {
+          "name": "helm",
+          "description": "Kubernetes package manager",
+          "readonly_patterns": [
+            "^helm\\s+(list|ls|status|get|show|search|history|version|template|lint)\\b"
+          ],
+          "readonly_subcommands": [
+            "list", "ls", "status", "get", "show", "search", "history", 
+            "version", "template", "lint", "get values", "get manifest", 
+            "get notes", "show chart", "show values", "show readme"
+          ],
+          "examples": [
+            "helm list",
+            "helm status release-name",
+            "helm get values release-name",
+            "helm show chart chart-name",
+            "helm search repo nginx",
+            "helm template chart-name"
+          ]
+        },
+        {
+          "name": "argocd",
+          "description": "GitOps CD for Kubernetes",
+          "readonly_patterns": [
+            "^argocd\\s+(app\\s+(list|get|diff|logs|resources|manifests|history)|cluster\\s+(list|get)|repo\\s+(list|get)|version|account\\s+(get|list))\\b"
+          ],
+          "readonly_subcommands": [
+            "app list", "app get", "app diff", "app logs", "app resources", 
+            "app manifests", "app history", "cluster list", "cluster get", 
+            "repo list", "repo get", "version", "account get", "account list"
+          ],
+          "examples": [
+            "argocd app list",
+            "argocd app get myapp",
+            "argocd app diff myapp",
+            "argocd app logs myapp",
+            "argocd cluster list"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Data Query & Transformation Tools",
+      "tools": [
+        {
+          "name": "jq",
+          "description": "JSON processor",
+          "readonly_patterns": [
+            "^jq\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "jq '.field' data.json",
+            "echo '{\"a\":1}' | jq '.a'",
+            "jq '.[] | select(.active)' data.json",
+            "jq -r '.name' data.json"
+          ],
+          "notes": "All jq operations are read-only by default"
+        },
+        {
+          "name": "yq",
+          "description": "YAML/JSON processor",
+          "readonly_patterns": [
+            "^yq\\s+(eval|e)\\s+",
+            "^yq\\s+[^-]"
+          ],
+          "readonly_subcommands": ["eval", "e"],
+          "examples": [
+            "yq '.spec.replicas' deployment.yaml",
+            "yq eval '.metadata.name' pod.yaml",
+            "yq '.items[].metadata.name' list.yaml"
+          ],
+          "notes": "Read-only without -i/--inplace flag"
+        },
+        {
+          "name": "fx",
+          "description": "Terminal JSON viewer",
+          "readonly_patterns": [
+            "^fx\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "fx data.json",
+            "cat data.json | fx",
+            "curl api.example.com | fx"
+          ],
+          "notes": "All fx operations are read-only"
+        },
+        {
+          "name": "dasel",
+          "description": "Query and modify data structures",
+          "readonly_patterns": [
+            "^dasel\\s+select\\s+",
+            "^dasel\\s+-r\\s+"
+          ],
+          "readonly_subcommands": ["select"],
+          "examples": [
+            "dasel select -f data.json '.name'",
+            "dasel -r json '.items[*].id' data.json",
+            "cat data.yaml | dasel select '.spec.replicas'"
+          ],
+          "notes": "Read-only without put/delete operations"
+        },
+        {
+          "name": "xmlstarlet",
+          "description": "XML command line utilities",
+          "readonly_patterns": [
+            "^xmlstarlet\\s+(sel|select|val|validate|fo|format|c14n|tr|transform|el)\\s+"
+          ],
+          "readonly_subcommands": [
+            "sel", "select", "val", "validate", "fo", "format", 
+            "c14n", "tr", "transform", "el"
+          ],
+          "examples": [
+            "xmlstarlet select -t -v '//name' data.xml",
+            "xmlstarlet validate data.xml",
+            "xmlstarlet format data.xml"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "HTTP & Network Tools",
+      "tools": [
+        {
+          "name": "curl",
+          "description": "Transfer data with URLs",
+          "readonly_patterns": [
+            "^curl\\s+(-X\\s+GET|--request\\s+GET)\\s+",
+            "^curl\\s+(?!.*(-X|--request)\\s+(POST|PUT|PATCH|DELETE)).*"
+          ],
+          "readonly_operations": ["GET", "HEAD", "OPTIONS"],
+          "examples": [
+            "curl https://api.example.com",
+            "curl -X GET https://api.example.com/users",
+            "curl -I https://example.com",
+            "curl -H 'Accept: application/json' https://api.example.com"
+          ],
+          "notes": "GET is default; HEAD with -I; avoid POST/PUT/PATCH/DELETE"
+        },
+        {
+          "name": "wget",
+          "description": "Network downloader",
+          "readonly_patterns": [
+            "^wget\\s+.*(-O\\s+-|--output-document=-|--spider|--server-response)\\s+"
+          ],
+          "readonly_operations": ["--spider", "--server-response"],
+          "examples": [
+            "wget --spider https://example.com",
+            "wget --server-response --spider https://example.com",
+            "wget -O - https://api.example.com/data"
+          ],
+          "notes": "Use --spider for header-only checks; -O - for stdout"
+        },
+        {
+          "name": "httpie",
+          "description": "HTTP client",
+          "readonly_patterns": [
+            "^http\\s+GET\\s+",
+            "^http\\s+HEAD\\s+",
+            "^http\\s+(?!POST|PUT|PATCH|DELETE)\\s+"
+          ],
+          "readonly_operations": ["GET", "HEAD", "OPTIONS"],
+          "examples": [
+            "http GET https://api.example.com",
+            "http https://api.example.com",
+            "http HEAD https://example.com",
+            "http GET api.example.com/users Accept:application/json"
+          ],
+          "notes": "GET is default; avoid POST/PUT/PATCH/DELETE"
+        },
+        {
+          "name": "dig",
+          "description": "DNS lookup",
+          "readonly_patterns": [
+            "^dig\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "dig example.com",
+            "dig @8.8.8.8 example.com",
+            "dig example.com MX",
+            "dig +short example.com"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "nslookup",
+          "description": "DNS query tool",
+          "readonly_patterns": [
+            "^nslookup\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "nslookup example.com",
+            "nslookup -type=MX example.com"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "ping",
+          "description": "Network connectivity test",
+          "readonly_patterns": [
+            "^ping\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "ping example.com",
+            "ping -c 4 8.8.8.8",
+            "ping -i 2 example.com"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "traceroute",
+          "description": "Network path tracer",
+          "readonly_patterns": [
+            "^traceroute\\s+",
+            "^tracepath\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "traceroute example.com",
+            "tracepath example.com"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "netstat",
+          "description": "Network statistics",
+          "readonly_patterns": [
+            "^netstat\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "netstat -tuln",
+            "netstat -r",
+            "netstat -s",
+            "netstat -i"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "ss",
+          "description": "Socket statistics",
+          "readonly_patterns": [
+            "^ss\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "ss -tuln",
+            "ss -s",
+            "ss -4 state listening"
+          ],
+          "notes": "All operations are read-only"
+        }
+      ]
+    },
+    {
+      "name": "Database CLIs",
+      "tools": [
+        {
+          "name": "psql",
+          "description": "PostgreSQL client",
+          "readonly_patterns": [
+            "^psql\\s+.*-c\\s+['\"]SELECT\\s+",
+            "^psql\\s+.*-c\\s+['\"]\\\\d",
+            "^psql\\s+.*-c\\s+['\"]\\\\l",
+            "^psql\\s+.*-c\\s+['\"]SHOW\\s+"
+          ],
+          "readonly_operations": [
+            "SELECT", "SHOW", "EXPLAIN", "DESCRIBE", 
+            "\\d", "\\dt", "\\l", "\\dn", "\\du", "\\df"
+          ],
+          "examples": [
+            "psql -c 'SELECT * FROM users'",
+            "psql -c '\\dt'",
+            "psql -c 'SHOW all'",
+            "psql -c 'EXPLAIN SELECT * FROM users'"
+          ],
+          "notes": "Avoid INSERT, UPDATE, DELETE, DROP, CREATE, ALTER"
+        },
+        {
+          "name": "mysql",
+          "description": "MySQL client",
+          "readonly_patterns": [
+            "^mysql\\s+.*-e\\s+['\"]SELECT\\s+",
+            "^mysql\\s+.*-e\\s+['\"]SHOW\\s+",
+            "^mysql\\s+.*-e\\s+['\"]DESCRIBE\\s+",
+            "^mysql\\s+.*-e\\s+['\"]EXPLAIN\\s+"
+          ],
+          "readonly_operations": [
+            "SELECT", "SHOW", "DESCRIBE", "DESC", "EXPLAIN"
+          ],
+          "examples": [
+            "mysql -e 'SELECT * FROM users'",
+            "mysql -e 'SHOW TABLES'",
+            "mysql -e 'DESCRIBE users'",
+            "mysql -e 'SHOW PROCESSLIST'"
+          ],
+          "notes": "Avoid INSERT, UPDATE, DELETE, DROP, CREATE, ALTER"
+        },
+        {
+          "name": "redis-cli",
+          "description": "Redis client",
+          "readonly_patterns": [
+            "^redis-cli\\s+(GET|KEYS|SCAN|INFO|CONFIG\\s+GET|MONITOR|CLIENT\\s+LIST|CLUSTER\\s+INFO)\\s+",
+            "^redis-cli\\s+--scan\\s+"
+          ],
+          "readonly_operations": [
+            "GET", "MGET", "KEYS", "SCAN", "INFO", "CONFIG GET", 
+            "MONITOR", "CLIENT LIST", "CLUSTER INFO", "DBSIZE", 
+            "TYPE", "TTL", "PTTL", "STRLEN"
+          ],
+          "examples": [
+            "redis-cli GET key",
+            "redis-cli KEYS 'pattern*'",
+            "redis-cli INFO",
+            "redis-cli CONFIG GET maxmemory",
+            "redis-cli SCAN 0"
+          ],
+          "notes": "Avoid SET, DEL, FLUSHDB, FLUSHALL"
+        },
+        {
+          "name": "mongosh",
+          "description": "MongoDB shell",
+          "readonly_patterns": [
+            "^mongosh\\s+.*--eval\\s+['\"]db\\.\\w+\\.find",
+            "^mongosh\\s+.*--eval\\s+['\"]show\\s+"
+          ],
+          "readonly_operations": [
+            "find", "findOne", "count", "distinct", "aggregate", 
+            "explain", "show dbs", "show collections", "stats"
+          ],
+          "examples": [
+            "mongosh --eval 'db.users.find()'",
+            "mongosh --eval 'show dbs'",
+            "mongosh --eval 'db.users.count()'",
+            "mongosh --eval 'db.stats()'"
+          ],
+          "notes": "Avoid insert, update, delete, drop"
+        },
+        {
+          "name": "sqlite3",
+          "description": "SQLite client",
+          "readonly_patterns": [
+            "^sqlite3\\s+.*\\.db\\s+['\"]SELECT\\s+",
+            "^sqlite3\\s+.*\\.db\\s+['\"]PRAGMA\\s+",
+            "^sqlite3\\s+.*\\.db\\s+['\"]EXPLAIN\\s+"
+          ],
+          "readonly_operations": [
+            "SELECT", "PRAGMA", "EXPLAIN", ".schema", ".tables", 
+            ".databases", ".indexes"
+          ],
+          "examples": [
+            "sqlite3 db.sqlite 'SELECT * FROM users'",
+            "sqlite3 db.sqlite '.tables'",
+            "sqlite3 db.sqlite '.schema users'",
+            "sqlite3 db.sqlite 'PRAGMA table_info(users)'"
+          ],
+          "notes": "Avoid INSERT, UPDATE, DELETE, DROP, CREATE, ALTER"
+        }
+      ]
+    },
+    {
+      "name": "System Monitoring & Information",
+      "tools": [
+        {
+          "name": "top",
+          "description": "Process monitor",
+          "readonly_patterns": [
+            "^top\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "top",
+            "top -n 1",
+            "top -b -n 1"
+          ],
+          "notes": "All operations are read-only display"
+        },
+        {
+          "name": "htop",
+          "description": "Interactive process viewer",
+          "readonly_patterns": [
+            "^htop\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "htop",
+            "htop -u username"
+          ],
+          "notes": "Read-only unless you send signals (avoid k key)"
+        },
+        {
+          "name": "ps",
+          "description": "Process status",
+          "readonly_patterns": [
+            "^ps\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "ps aux",
+            "ps -ef",
+            "ps -p 1234"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "df",
+          "description": "Disk space usage",
+          "readonly_patterns": [
+            "^df\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "df -h",
+            "df -i",
+            "df -T"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "du",
+          "description": "Directory disk usage",
+          "readonly_patterns": [
+            "^du\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "du -sh *",
+            "du -h --max-depth=1",
+            "du -hs /var/log"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "free",
+          "description": "Memory usage",
+          "readonly_patterns": [
+            "^free\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "free -h",
+            "free -m",
+            "free -g"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "vmstat",
+          "description": "Virtual memory statistics",
+          "readonly_patterns": [
+            "^vmstat\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "vmstat",
+            "vmstat 1 5",
+            "vmstat -s"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "iostat",
+          "description": "I/O statistics",
+          "readonly_patterns": [
+            "^iostat\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "iostat",
+            "iostat -x",
+            "iostat 1 5"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "lsof",
+          "description": "List open files",
+          "readonly_patterns": [
+            "^lsof\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "lsof",
+            "lsof -i :80",
+            "lsof -u username",
+            "lsof /var/log/syslog"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "uptime",
+          "description": "System uptime",
+          "readonly_patterns": [
+            "^uptime\\s*"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "uptime",
+            "uptime -p"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "uname",
+          "description": "System information",
+          "readonly_patterns": [
+            "^uname\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "uname -a",
+            "uname -r",
+            "uname -m"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "lscpu",
+          "description": "CPU information",
+          "readonly_patterns": [
+            "^lscpu\\s*"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "lscpu",
+            "lscpu -e"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "lsblk",
+          "description": "Block device information",
+          "readonly_patterns": [
+            "^lsblk\\s*"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "lsblk",
+            "lsblk -f",
+            "lsblk -o NAME,SIZE,TYPE,MOUNTPOINT"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "systemctl",
+          "description": "Systemd control",
+          "readonly_patterns": [
+            "^systemctl\\s+(status|show|list-units|list-unit-files|list-timers|list-sockets|list-jobs|is-active|is-enabled|is-failed|cat|help)\\s+"
+          ],
+          "readonly_subcommands": [
+            "status", "show", "list-units", "list-unit-files", 
+            "list-timers", "list-sockets", "list-jobs", "is-active", 
+            "is-enabled", "is-failed", "cat", "help"
+          ],
+          "examples": [
+            "systemctl status nginx",
+            "systemctl list-units",
+            "systemctl is-active nginx",
+            "systemctl show nginx"
+          ],
+          "notes": "Avoid start, stop, restart, enable, disable"
+        }
+      ]
+    },
+    {
+      "name": "Text Processing & Search",
+      "tools": [
+        {
+          "name": "grep",
+          "description": "Pattern matching",
+          "readonly_patterns": [
+            "^grep\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "grep 'pattern' file.txt",
+            "grep -r 'pattern' /path",
+            "grep -E '^[0-9]+' file.txt"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "awk",
+          "description": "Text processing",
+          "readonly_patterns": [
+            "^awk\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "awk '{print $1}' file.txt",
+            "awk -F: '{print $1}' /etc/passwd"
+          ],
+          "notes": "Read-only without -i flag"
+        },
+        {
+          "name": "sed",
+          "description": "Stream editor",
+          "readonly_patterns": [
+            "^sed\\s+(?!-i).*"
+          ],
+          "readonly_subcommands": ["all operations without -i"],
+          "examples": [
+            "sed 's/old/new/' file.txt",
+            "sed -n '1,10p' file.txt"
+          ],
+          "notes": "Read-only without -i flag"
+        },
+        {
+          "name": "cat",
+          "description": "Concatenate files",
+          "readonly_patterns": [
+            "^cat\\s+(?!>)"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "cat file.txt",
+            "cat file1.txt file2.txt"
+          ],
+          "notes": "Read-only without redirection"
+        },
+        {
+          "name": "head",
+          "description": "Output first part of files",
+          "readonly_patterns": [
+            "^head\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "head file.txt",
+            "head -n 20 file.txt"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "tail",
+          "description": "Output last part of files",
+          "readonly_patterns": [
+            "^tail\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "tail file.txt",
+            "tail -n 50 file.txt",
+            "tail -f /var/log/syslog"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "less",
+          "description": "File viewer",
+          "readonly_patterns": [
+            "^less\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "less file.txt",
+            "less +F /var/log/syslog"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "more",
+          "description": "File pager",
+          "readonly_patterns": [
+            "^more\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "more file.txt"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "wc",
+          "description": "Word count",
+          "readonly_patterns": [
+            "^wc\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "wc file.txt",
+            "wc -l file.txt",
+            "wc -w file.txt"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "diff",
+          "description": "File comparison",
+          "readonly_patterns": [
+            "^diff\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "diff file1.txt file2.txt",
+            "diff -u file1.txt file2.txt"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "find",
+          "description": "Search for files",
+          "readonly_patterns": [
+            "^find\\s+(?!.*-exec.*(?:rm|mv|chmod|chown)).*",
+            "^find\\s+.*-print.*"
+          ],
+          "readonly_subcommands": ["all operations without -exec"],
+          "examples": [
+            "find /path -name '*.txt'",
+            "find . -type f -mtime -7",
+            "find . -size +1M"
+          ],
+          "notes": "Read-only without -exec with destructive commands"
+        },
+        {
+          "name": "locate",
+          "description": "Find files by name",
+          "readonly_patterns": [
+            "^locate\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "locate filename",
+            "locate -i pattern"
+          ],
+          "notes": "All operations are read-only"
+        }
+      ]
+    },
+    {
+      "name": "File System Operations",
+      "tools": [
+        {
+          "name": "ls",
+          "description": "List directory contents",
+          "readonly_patterns": [
+            "^ls\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "ls -la",
+            "ls -lh /var/log",
+            "ls -R"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "file",
+          "description": "Determine file type",
+          "readonly_patterns": [
+            "^file\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "file document.pdf",
+            "file -b image.jpg"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "stat",
+          "description": "Display file status",
+          "readonly_patterns": [
+            "^stat\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "stat file.txt",
+            "stat -c '%A %n' file.txt"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "tree",
+          "description": "List directory structure",
+          "readonly_patterns": [
+            "^tree\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "tree",
+            "tree -L 2",
+            "tree -d"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "pwd",
+          "description": "Print working directory",
+          "readonly_patterns": [
+            "^pwd\\s*"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "pwd"
+          ],
+          "notes": "All operations are read-only"
+        },
+        {
+          "name": "readlink",
+          "description": "Print resolved symbolic links",
+          "readonly_patterns": [
+            "^readlink\\s+"
+          ],
+          "readonly_subcommands": ["all operations"],
+          "examples": [
+            "readlink symlink",
+            "readlink -f path"
+          ],
+          "notes": "All operations are read-only"
+        }
+      ]
+    },
+    {
+      "name": "Security & Permissions",
+      "tools": [
+        {
+          "name": "ssh",
+          "description": "Secure shell",
+          "readonly_patterns": [
+            "^ssh\\s+.*\\s+['\"].*(?:ls|cat|grep|find|ps|df|uptime).*['\"]"
+          ],
+          "readonly_operations": ["read-only commands in SSH session"],
+          "examples": [
+            "ssh user@host 'ls -la'",
+            "ssh user@host 'cat /etc/hosts'",
+            "ssh user@host 'df -h'"
+          ],
+          "notes": "SSH itself is safe; depends on remote command"
+        },
+        {
+          "name": "gpg",
+          "description": "GNU Privacy Guard",
+          "readonly_patterns": [
+            "^gpg\\s+(--list-keys|--list-secret-keys|--verify|--decrypt|--check-sigs|--fingerprint|--version)\\s+"
+          ],
+          "readonly_subcommands": [
+            "--list-keys", "--list-secret-keys", "--verify", "--decrypt", 
+            "--check-sigs", "--fingerprint", "--version"
+          ],
+          "examples": [
+            "gpg --list-keys",
+            "gpg --verify signature.sig file",
+            "gpg --decrypt encrypted.gpg"
+          ],
+          "notes": "Avoid --gen-key, --delete-key, --import"
+        },
+        {
+          "name": "openssl",
+          "description": "SSL/TLS toolkit",
+          "readonly_patterns": [
+            "^openssl\\s+(x509|s_client|verify|ciphers|version)\\s+"
+          ],
+          "readonly_subcommands": [
+            "x509", "s_client", "verify", "ciphers", "version", "dgst", "enc -d"
+          ],
+          "examples": [
+            "openssl x509 -in cert.pem -text",
+            "openssl s_client -connect example.com:443",
+            "openssl version"
+          ],
+          "notes": "Read operations only; avoid key generation"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "created": "2025-01-22",
+    "purpose": "Catalog of read-only CLI operations for safe execution in sandboxed environments",
+    "notes": [
+      "Patterns use regex-friendly syntax for matching",
+      "All patterns assume command starts at beginning of line (^)",
+      "Tools that modify state or filesystem are excluded unless using dry-run flags",
+      "Database operations focus on SELECT/read queries only",
+      "Cloud CLIs focus on describe/get/list operations",
+      "Monitoring tools are inherently read-only",
+      "Text processing tools are read-only without output redirection or -i flags"
+    ]
+  }
+}
