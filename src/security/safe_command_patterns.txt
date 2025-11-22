@@ -1,0 +1,60 @@
+# Safe Command Patterns - Commands that bypass filesystem path validation
+#
+# Format: One regex pattern per line
+# Lines starting with # are comments and will be ignored
+# Empty lines are ignored
+# Patterns are matched against the full command string
+
+# GitHub CLI - API endpoint patterns
+# Matches: gh api /repos/owner/repo/... or gh api repos/owner/repo/...
+^gh\s+api\s+
+
+# kubectl - API resource paths
+# Matches: kubectl get /apis/... or kubectl <verb> /api/...
+^kubectl\s+(get|describe|delete|patch|create)\s+/api
+
+# argocd - Application paths
+# Matches: argocd app <verb> /argocd/...
+^argocd\s+app\s+\w+\s+/argocd/
+
+# HTTP clients with URLs (curl, wget, http)
+# These tools accept URLs that start with / but are not filesystem paths
+^(curl|wget|http)\s+.*https?://
+
+# Nushell http commands
+# Matches: http get/post/... <url>
+^http\s+(get|post|put|delete|patch|head|options)\s+
+
+# Git read-only operations
+# Matches: git log, git status, git diff, git show, etc.
+^git\s+(log|show|diff|status|branch|tag|ls-files|ls-remote|rev-parse|describe|blame)\b
+
+# Docker read-only operations
+# Matches: docker ps, docker images, docker inspect, etc.
+^docker\s+(ps|images|inspect|logs|stats|top|history|version|info|search)\b
+
+# Data query tools (always safe)
+# Matches: jq, yq, fx, dasel - all operations are read-only
+^(jq|yq|fx|dasel)\s+
+
+# System monitoring tools (always safe)
+# Matches: top, htop, ps, df, du, free, etc.
+^(top|htop|ps|df|du|free|vmstat|iostat|uptime|lsof|uname|lscpu|lsblk)\s*
+
+# NOTE: Commands like cat, ls, grep, etc. are NOT in this allowlist because
+# they DO access filesystem paths and should be validated against the sandbox.
+# Only commands with NON-filesystem path arguments belong here.
+
+# Network tools (read-only)
+# Matches: ping, dig, nslookup, traceroute, netstat, ss
+^(ping|dig|nslookup|traceroute|tracepath|netstat|ss)\s+
+
+# Package managers - query operations
+# npm: list, view, search, etc.
+^npm\s+(list|ls|view|show|info|search|outdated|audit|doctor|help|version)\b
+
+# pip: list, show, search
+^pip\s+(list|show|search|check|help|--version)\b
+
+# cargo: search, tree, metadata
+^cargo\s+(search|tree|metadata|check|verify-project|version|help)\b

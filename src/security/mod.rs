@@ -25,30 +25,31 @@ use regex::Regex;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
+/// Load safe command patterns from file at compile time
+const SAFE_PATTERNS_FILE: &str = include_str!("safe_command_patterns.txt");
+
+/// Parse pattern file and compile regexes
+/// Lines starting with # are comments, empty lines are ignored
+fn parse_pattern_file(content: &str) -> Vec<Regex> {
+    content
+        .lines()
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(|pattern| {
+            Regex::new(pattern)
+                .unwrap_or_else(|e| panic!("Invalid regex pattern '{}': {}", pattern, e))
+        })
+        .collect()
+}
+
 /// Safe command patterns that bypass path validation
 /// These patterns match commands that use path-like arguments but are NOT filesystem paths
 /// Examples: API endpoints, resource identifiers, URL paths, etc.
+///
+/// Patterns are loaded from safe_command_patterns.txt at compile time
 fn get_safe_command_patterns() -> &'static Vec<Regex> {
     static PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
-    PATTERNS.get_or_init(|| {
-        vec![
-            // GitHub CLI - API endpoint patterns
-            // Matches: gh api /repos/owner/repo/... or gh api repos/owner/repo/...
-            Regex::new(r"^gh\s+api\s+").unwrap(),
-            // kubectl - API resource paths
-            // Matches: kubectl get /apis/... or kubectl <verb> /api/...
-            Regex::new(r"^kubectl\s+(get|describe|delete|patch|create)\s+/api").unwrap(),
-            // argocd - Application paths
-            // Matches: argocd app <verb> /argocd/...
-            Regex::new(r"^argocd\s+app\s+\w+\s+/argocd/").unwrap(),
-            // HTTP clients with URLs (curl, wget, http)
-            // These tools accept URLs that start with / but are not filesystem paths
-            Regex::new(r"^(curl|wget|http)\s+.*https?://").unwrap(),
-            // Nushell http commands
-            // Matches: http get/post/... <url>
-            Regex::new(r"^http\s+(get|post|put|delete|patch|head|options)\s+").unwrap(),
-        ]
-    })
+    PATTERNS.get_or_init(|| parse_pattern_file(SAFE_PATTERNS_FILE))
 }
 
 /// Check if a command matches a safe pattern and should bypass path validation

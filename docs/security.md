@@ -52,41 +52,42 @@ The following command patterns bypass filesystem path validation:
      - `http get https://api.example.com/data`
      - `http post https://api.example.com/submit`
 
-### Adding New Whitelist Patterns
+### Adding New Allowlist Patterns
 
-To add support for new tools that use non-filesystem path arguments:
+Safe command patterns are loaded from `src/security/safe_command_patterns.txt` at **compile time**.
 
-1. **Edit** `src/security/mod.rs`
-2. **Add a regex pattern** to the `get_safe_command_patterns()` function:
+To add support for new tools:
 
-```rust
-fn get_safe_command_patterns() -> &'static Vec<Regex> {
-    static PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
-    PATTERNS.get_or_init(|| {
-        vec![
-            // ... existing patterns ...
-            
-            // Your new pattern
-            Regex::new(r"^your-tool\s+api\s+/").unwrap(),
-        ]
-    })
-}
+1. **Edit** `src/security/safe_command_patterns.txt`
+2. **Add your regex pattern** (one per line, comments start with #):
+
+```
+# Your new tool - API endpoint patterns
+# Matches: your-tool api /endpoint/...
+^your-tool\s+api\s+/
 ```
 
-3. **Add tests** in `src/security/mod_test.rs`:
+3. **Important**: Only add commands with NON-filesystem path arguments
+   - ✅ API endpoints: `gh api /repos/...`
+   - ✅ Resource IDs: `kubectl get /apis/...`
+   - ✅ URLs: `curl https://...`
+   - ❌ File paths: `cat /etc/passwd` (should be validated!)
+
+4. **Add tests** in `src/security/mod_test.rs`:
 
 ```rust
 #[test]
-fn test_your_tool_whitelisted() {
+fn test_your_tool_in_allowlist() {
     let sandbox_dir = current_dir().unwrap();
     assert!(
         validate_path_safety("your-tool api /endpoint", &sandbox_dir).is_ok(),
-        "your-tool api commands should be whitelisted"
+        "your-tool api commands should be in allowlist"
     );
 }
 ```
 
-4. **Run tests**: `cargo test`
+5. **Run tests**: `cargo test`
+6. **Rebuild**: The pattern file is embedded at compile time, so rebuild to see changes
 
 ### Whitelist Design Principles
 
