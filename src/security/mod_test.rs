@@ -444,3 +444,137 @@ fn test_tilde_alone_allowed_when_within_sandbox() {
         }
     }
 }
+
+// Tests for whitelist-based safe command patterns
+
+#[test]
+fn test_github_api_commands_whitelisted() {
+    let sandbox_dir = current_dir().unwrap();
+
+    // GitHub API commands should be whitelisted (bypass path validation)
+    assert!(
+        validate_path_safety("gh api /repos/owner/repo/contents/file.yml", &sandbox_dir).is_ok(),
+        "gh api with API endpoint should be whitelisted"
+    );
+
+    assert!(
+        validate_path_safety(
+            "gh api repos/owner/repo/contents/file.yml | from json",
+            &sandbox_dir
+        )
+        .is_ok(),
+        "gh api without leading slash should be whitelisted"
+    );
+
+    assert!(
+        validate_path_safety(
+            "gh api /repos/owner/repo/contents/file.yml | from json | get content | decode base64",
+            &sandbox_dir
+        )
+        .is_ok(),
+        "gh api with full pipeline should be whitelisted"
+    );
+}
+
+#[test]
+fn test_kubectl_api_commands_whitelisted() {
+    let sandbox_dir = current_dir().unwrap();
+
+    // kubectl with API resource paths should be whitelisted
+    assert!(
+        validate_path_safety("kubectl get /apis/apps/v1/deployments", &sandbox_dir).is_ok(),
+        "kubectl get with /apis path should be whitelisted"
+    );
+
+    assert!(
+        validate_path_safety("kubectl describe /api/v1/pods", &sandbox_dir).is_ok(),
+        "kubectl describe with /api path should be whitelisted"
+    );
+
+    assert!(
+        validate_path_safety("kubectl delete /apis/batch/v1/jobs/myjob", &sandbox_dir).is_ok(),
+        "kubectl delete with API path should be whitelisted"
+    );
+}
+
+#[test]
+fn test_argocd_commands_whitelisted() {
+    let sandbox_dir = current_dir().unwrap();
+
+    // argocd app commands with /argocd/ paths should be whitelisted
+    assert!(
+        validate_path_safety("argocd app get /argocd/myapp", &sandbox_dir).is_ok(),
+        "argocd app get with /argocd path should be whitelisted"
+    );
+
+    assert!(
+        validate_path_safety("argocd app sync /argocd/production/app", &sandbox_dir).is_ok(),
+        "argocd app sync with /argocd path should be whitelisted"
+    );
+}
+
+#[test]
+fn test_http_commands_whitelisted() {
+    let sandbox_dir = current_dir().unwrap();
+
+    // HTTP client commands with URLs should be whitelisted
+    assert!(
+        validate_path_safety("curl https://api.github.com/repos/owner/repo", &sandbox_dir).is_ok(),
+        "curl with URL should be whitelisted"
+    );
+
+    assert!(
+        validate_path_safety("wget http://example.com/file.txt", &sandbox_dir).is_ok(),
+        "wget with URL should be whitelisted"
+    );
+
+    assert!(
+        validate_path_safety("http get https://api.example.com/data", &sandbox_dir).is_ok(),
+        "http get with URL should be whitelisted"
+    );
+
+    assert!(
+        validate_path_safety("http post https://api.example.com/submit", &sandbox_dir).is_ok(),
+        "http post with URL should be whitelisted"
+    );
+}
+
+#[test]
+fn test_non_whitelisted_commands_still_validated() {
+    let sandbox_dir = current_dir().unwrap();
+
+    // Regular commands should still undergo path validation
+    assert!(
+        validate_path_safety("cat /etc/passwd", &sandbox_dir).is_err(),
+        "cat with absolute path outside sandbox should be blocked"
+    );
+
+    assert!(
+        validate_path_safety("ls /tmp/secret", &sandbox_dir).is_err(),
+        "ls with absolute path outside sandbox should be blocked"
+    );
+
+    // gh commands that DON'T match the pattern should still be validated
+    assert!(
+        validate_path_safety("gh repo clone /some/path", &sandbox_dir).is_err(),
+        "gh repo (not 'gh api') should still validate paths"
+    );
+}
+
+#[test]
+fn test_whitelist_pattern_specificity() {
+    let sandbox_dir = current_dir().unwrap();
+
+    // Patterns should be specific to avoid over-matching
+    // kubectl without /api prefix should still validate paths
+    assert!(
+        validate_path_safety("kubectl get pods", &sandbox_dir).is_ok(),
+        "kubectl get pods (no paths) should be allowed"
+    );
+
+    // But if it has an absolute non-API path, should be blocked
+    assert!(
+        validate_path_safety("kubectl apply -f /etc/config.yaml", &sandbox_dir).is_err(),
+        "kubectl with filesystem path outside sandbox should be blocked"
+    );
+}

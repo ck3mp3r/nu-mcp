@@ -1,4 +1,62 @@
+//! Sandbox Security Module
+//!
+//! This module implements filesystem path validation for the nu-mcp sandbox.
+//!
+//! ## Validation Strategy
+//!
+//! The module uses a two-tier validation approach:
+//!
+//! 1. **Whitelist Check**: Commands matching safe patterns bypass path validation
+//!    - API commands (gh api, kubectl get /apis, argocd app, etc.)
+//!    - HTTP clients with URLs
+//!    - Other tools with non-filesystem path arguments
+//!
+//! 2. **Path Validation**: Remaining commands undergo filesystem path checks
+//!    - Extract non-quoted tokens (respects Nushell quoting)
+//!    - Identify potential filesystem paths
+//!    - Verify paths don't escape sandbox directory
+//!
+//! ## Adding Whitelist Patterns
+//!
+//! To add new safe patterns, edit `get_safe_command_patterns()` and add a regex.
+//! See `docs/security.md` for detailed instructions.
+
+use regex::Regex;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
+
+/// Safe command patterns that bypass path validation
+/// These patterns match commands that use path-like arguments but are NOT filesystem paths
+/// Examples: API endpoints, resource identifiers, URL paths, etc.
+fn get_safe_command_patterns() -> &'static Vec<Regex> {
+    static PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
+    PATTERNS.get_or_init(|| {
+        vec![
+            // GitHub CLI - API endpoint patterns
+            // Matches: gh api /repos/owner/repo/... or gh api repos/owner/repo/...
+            Regex::new(r"^gh\s+api\s+").unwrap(),
+            // kubectl - API resource paths
+            // Matches: kubectl get /apis/... or kubectl <verb> /api/...
+            Regex::new(r"^kubectl\s+(get|describe|delete|patch|create)\s+/api").unwrap(),
+            // argocd - Application paths
+            // Matches: argocd app <verb> /argocd/...
+            Regex::new(r"^argocd\s+app\s+\w+\s+/argocd/").unwrap(),
+            // HTTP clients with URLs (curl, wget, http)
+            // These tools accept URLs that start with / but are not filesystem paths
+            Regex::new(r"^(curl|wget|http)\s+.*https?://").unwrap(),
+            // Nushell http commands
+            // Matches: http get/post/... <url>
+            Regex::new(r"^http\s+(get|post|put|delete|patch|head|options)\s+").unwrap(),
+        ]
+    })
+}
+
+/// Check if a command matches a safe pattern and should bypass path validation
+fn matches_safe_pattern(command: &str) -> bool {
+    get_safe_command_patterns()
+        .iter()
+        .any(|pattern| pattern.is_match(command))
+}
 
 /// Manually resolve a relative path with .. components
 /// Returns the resolved path
@@ -120,6 +178,12 @@ fn is_likely_filesystem_path(word: &str) -> bool {
 }
 
 pub fn validate_path_safety(command: &str, sandbox_dir: &Path) -> Result<(), String> {
+    // Check if command matches a safe pattern (commands with path-like args that aren't filesystem paths)
+    // Examples: gh api /repos/..., kubectl get /apis/..., etc.
+    if matches_safe_pattern(command) {
+        return Ok(());
+    }
+
     // Get canonical sandbox directory (only if it exists, otherwise skip validation)
     let canonical_sandbox = match sandbox_dir.canonicalize() {
         Ok(path) => path,

@@ -7,6 +7,94 @@
 - Extensions run in the same security context as the server process
 - The sandbox provides directory isolation but does not restrict system resources, network access, or process spawning
 
+## Safe Command Whitelist
+
+Some commands accept path-like arguments (starting with `/`) that are **NOT** filesystem paths. These include:
+- API endpoints (e.g., `/repos/owner/repo`)
+- Resource identifiers (e.g., `/apis/apps/v1/deployments`)
+- URL paths (e.g., `https://api.example.com/endpoint`)
+
+The sandbox validation uses a **regex whitelist** to identify and allow these safe patterns.
+
+### Whitelisted Command Patterns
+
+The following command patterns bypass filesystem path validation:
+
+1. **GitHub CLI API commands**
+   - Pattern: `gh api <endpoint>`
+   - Examples:
+     - `gh api /repos/owner/repo/contents/file.yml`
+     - `gh api repos/owner/repo | from json`
+
+2. **kubectl API resource paths**
+   - Pattern: `kubectl <verb> /api*`
+   - Examples:
+     - `kubectl get /apis/apps/v1/deployments`
+     - `kubectl describe /api/v1/pods`
+     - `kubectl delete /apis/batch/v1/jobs/myjob`
+
+3. **ArgoCD application paths**
+   - Pattern: `argocd app <command> /argocd/*`
+   - Examples:
+     - `argocd app get /argocd/myapp`
+     - `argocd app sync /argocd/production/app`
+
+4. **HTTP clients with URLs**
+   - Patterns: `curl <url>`, `wget <url>`, `http <url>`
+   - Examples:
+     - `curl https://api.github.com/repos/owner/repo`
+     - `wget http://example.com/file.txt`
+     - `http get https://api.example.com/data`
+
+5. **Nushell HTTP commands**
+   - Pattern: `http <verb> <url>`
+   - Examples:
+     - `http get https://api.example.com/data`
+     - `http post https://api.example.com/submit`
+
+### Adding New Whitelist Patterns
+
+To add support for new tools that use non-filesystem path arguments:
+
+1. **Edit** `src/security/mod.rs`
+2. **Add a regex pattern** to the `get_safe_command_patterns()` function:
+
+```rust
+fn get_safe_command_patterns() -> &'static Vec<Regex> {
+    static PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
+    PATTERNS.get_or_init(|| {
+        vec![
+            // ... existing patterns ...
+            
+            // Your new pattern
+            Regex::new(r"^your-tool\s+api\s+/").unwrap(),
+        ]
+    })
+}
+```
+
+3. **Add tests** in `src/security/mod_test.rs`:
+
+```rust
+#[test]
+fn test_your_tool_whitelisted() {
+    let sandbox_dir = current_dir().unwrap();
+    assert!(
+        validate_path_safety("your-tool api /endpoint", &sandbox_dir).is_ok(),
+        "your-tool api commands should be whitelisted"
+    );
+}
+```
+
+4. **Run tests**: `cargo test`
+
+### Whitelist Design Principles
+
+- **Specific patterns**: Patterns should be as specific as possible to avoid over-matching
+- **Command-based**: Match on command structure, not just presence of `/`
+- **Conservative**: When in doubt, don't whitelist (let path validation run)
+- **Documented**: Each pattern should have a comment explaining its purpose
+
 ## Quote-Aware Path Validation
 
 The security validator understands Nushell's quoting rules to reduce false positives:
