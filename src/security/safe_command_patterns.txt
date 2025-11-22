@@ -26,23 +26,22 @@
 ^http\s+(get|post|put|delete|patch|head|options)\s+
 
 # Git read-only operations
+# These commands are read-only and safe (even though some accept pathspecs)
 # Matches: git log, git status, git diff, git show, etc.
 ^git\s+(log|show|diff|status|branch|tag|ls-files|ls-remote|rev-parse|describe|blame)\b
 
 # Docker read-only operations
+# These commands work with container/image IDs and names, NOT filesystem paths
 # Matches: docker ps, docker images, docker inspect, etc.
 ^docker\s+(ps|images|inspect|logs|stats|top|history|version|info|search)\b
 
-# Data query tools (always safe)
-# Matches: jq, yq, fx, dasel - all operations are read-only
-^(jq|yq|fx|dasel)\s+
+# System monitoring tools (no file path arguments)
+# Removed: du (accepts directory paths), lsof (accepts file paths)
+# Matches: top, htop, ps, df, free, vmstat, etc.
+^(top|htop|ps|df|free|vmstat|iostat|uptime|uname|lscpu|lsblk)\s*
 
-# System monitoring tools (always safe)
-# Matches: top, htop, ps, df, du, free, etc.
-^(top|htop|ps|df|du|free|vmstat|iostat|uptime|lsof|uname|lscpu|lsblk)\s*
-
-# NOTE: Commands like cat, ls, grep, etc. are NOT in this allowlist because
-# they DO access filesystem paths and should be validated against the sandbox.
+# NOTE: Commands like cat, ls, grep, jq, yq, du, lsof are NOT in this allowlist
+# because they DO access filesystem paths and must be validated against the sandbox.
 # Only commands with NON-filesystem path arguments belong here.
 
 # Network tools (read-only)

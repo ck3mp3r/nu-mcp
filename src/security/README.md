@@ -36,14 +36,19 @@ This module implements filesystem path validation for the nu-mcp sandbox. Comman
 - Resource identifiers: `kubectl get /apis/apps/v1`
 - URLs: `curl https://api.example.com`
 - Resource paths: `argocd app get /argocd/myapp`
-- System info: `docker ps`, `git status` (no path arguments)
-- Data transformers: `jq`, `yq` (operate on stdin/stdout)
+- System info with NO file arguments: `docker ps`, `top`, `ps`, `df`
+- Git read-only: `git log`, `git status` (read-only even with pathspecs)
+- Network tools: `ping`, `dig`, `traceroute`
+- Package manager queries: `npm list`, `pip show` (no file arguments)
 
 ❌ **DO NOT add:**
 - File readers: `cat`, `less`, `head`, `tail`
 - File listers: `ls`, `find`, `tree`
 - File info: `stat`, `file`
-- Text processors that read files: `grep`, `awk`, `sed`
+- Text processors: `grep`, `rg`, `awk`, `sed`
+- Data query tools: `jq`, `yq`, `fx`, `dasel` (they read from files!)
+- Directory analyzers: `du` (accepts directory paths)
+- File monitors: `lsof` (accepts file paths)
 
 **Why?** These commands access filesystem paths and MUST be validated against the sandbox.
 
