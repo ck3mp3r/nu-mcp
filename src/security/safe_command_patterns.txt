@@ -25,3 +25,8 @@
 # Nushell http commands
 # Problem: http get with URLs
 ^http\s+(get|post|put|delete|patch|head|options)\s+
+
+# Git read-only operations
+# Problem: Can use absolute paths like: git log /path/to/file
+# These are read-only operations so they're safe even with full paths
+^git\s+(log|show|diff|status|branch|tag|ls-files|ls-remote|rev-parse|describe|blame)\b
