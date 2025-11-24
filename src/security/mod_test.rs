@@ -321,7 +321,7 @@ fn test_home_directory_paths_outside_sandbox_blocked() {
 
         // Test paths that are definitely outside the sandbox
         // These should be blocked regardless of where sandbox is
-        let test_path = format!("ls ~/.bashrc");
+        let test_path = "ls ~/.bashrc".to_string();
         let result = validate_path_safety(&test_path, &sandbox_dir);
 
         // Only assert if the file exists (so we can properly test)
@@ -334,7 +334,7 @@ fn test_home_directory_paths_outside_sandbox_blocked() {
         }
 
         // Test with a path that definitely doesn't match sandbox
-        let test_path2 = format!("cat ~/definitely_outside_sandbox_xyz123/file.txt");
+        let test_path2 = "cat ~/definitely_outside_sandbox_xyz123/file.txt".to_string();
         assert!(
             validate_path_safety(&test_path2, &sandbox_dir).is_err(),
             "Home directory path outside sandbox should be blocked"

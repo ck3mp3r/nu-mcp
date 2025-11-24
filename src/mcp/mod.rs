@@ -119,6 +119,7 @@ where
                 title: Some("Run Nushell Command".to_string()),
                 output_schema: None,
                 icons: None,
+                meta: None,
             });
         }
 
