@@ -18,6 +18,8 @@ use crate::{
     tools::{NushellToolExecutor, ToolExecutor, discover_tools},
 };
 
+const RUN_NUSHELL_DESCRIPTION: &str = include_str!("../../docs/run_nushell_description.txt");
+
 #[derive(Clone)]
 pub struct NushellTool<C = NushellExecutor, T = NushellToolExecutor>
 where
@@ -102,9 +104,16 @@ where
                 Value::Array(vec![Value::String("command".to_string())]),
             );
 
+            // Build description with sandbox directory info
+            let sandbox_note = match &self.router.config.sandbox_directory {
+                Some(dir) => format!("\n\nSandbox directory: {}", dir.display()),
+                None => "\n\nSandbox directory: current working directory".to_string(),
+            };
+            let description = format!("{}{}", RUN_NUSHELL_DESCRIPTION, sandbox_note);
+
             tools.push(Tool {
                 name: "run_nushell".into(),
-                description: Some("Run a Nushell command and return its output. IMPORTANT: Commands execute in a sandbox directory. Use RELATIVE paths (./file.txt, subdir/file.txt) or current directory (.) - do NOT use absolute paths (/etc/passwd, /tmp/file) as they will be blocked unless within the sandbox. Prefer working with the current directory and relative paths.".into()),
+                description: Some(description.into()),
                 input_schema: Arc::new(schema),
                 annotations: None,
                 title: Some("Run Nushell Command".to_string()),
