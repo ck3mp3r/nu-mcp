@@ -190,6 +190,7 @@ async fn test_execute_extension_tool_with_nonexistent_script() {
             title: None,
             output_schema: None,
             icons: None,
+            meta: None,
         },
     };
 

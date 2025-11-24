@@ -79,6 +79,7 @@ async fn test_router_extension_tool() {
             title: None,
             output_schema: None,
             icons: None,
+            meta: None,
         },
     };
 
