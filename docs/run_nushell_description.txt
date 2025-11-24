@@ -1,0 +1,9 @@
+Execute Nushell commands and return output.
+
+IMPORTANT:
+- ONLY use Nushell syntax (NOT bash/sh/zsh)
+- If unfamiliar with Nushell, use Context7 to research syntax and commands
+- Commands run in a sandbox directory
+- Use RELATIVE paths only (./file.txt, subdir/file.txt, .)
+- Absolute paths are BLOCKED (e.g., /etc/passwd, /tmp/file)
+- Path traversal (..) is BLOCKED
