@@ -112,27 +112,9 @@ where
 }
 
 /// Determine the working directory for command execution
-/// Uses current directory if it's in any sandbox, otherwise uses first sandbox
-fn determine_working_directory(sandboxes: &[PathBuf]) -> Result<PathBuf, String> {
-    if sandboxes.is_empty() {
-        return Err("No sandbox directories configured".to_string());
-    }
-
-    // Get current directory
-    let cwd = env::current_dir().map_err(|e| format!("Cannot get current directory: {}", e))?;
-
-    // If current directory is in any sandbox, use it
-    for sandbox in sandboxes {
-        if let Ok(canonical_sandbox) = sandbox.canonicalize()
-            && let Ok(canonical_cwd) = cwd.canonicalize()
-            && canonical_cwd.starts_with(&canonical_sandbox)
-        {
-            return Ok(cwd);
-        }
-    }
-
-    // Otherwise, use first sandbox
-    sandboxes[0]
-        .canonicalize()
-        .map_err(|e| format!("Cannot access first sandbox directory: {}", e))
+/// Returns the current working directory (where the server was started)
+fn determine_working_directory(_sandboxes: &[PathBuf]) -> Result<PathBuf, String> {
+    // Use the directory where the server was started from
+    // This should always be allowed, and commands run from here can access any allowed sandbox
+    env::current_dir().map_err(|e| format!("Cannot get current directory: {}", e))
 }
