@@ -10,7 +10,7 @@ fn test_get_info_includes_sandbox_info() {
     let config = Config {
         tools_dir: None,
         enable_run_nushell: false,
-        sandbox_directory: Some(PathBuf::from("/tmp/sandbox")),
+        sandbox_directories: vec![PathBuf::from("/tmp/sandbox")],
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());
@@ -18,7 +18,7 @@ fn test_get_info_includes_sandbox_info() {
     let tool = NushellTool { router };
     let info = tool.get_info();
     let instructions = info.instructions.unwrap();
-    assert!(instructions.contains("directory sandbox"));
+    assert!(instructions.contains("Sandbox directories"));
     assert!(instructions.contains("/tmp/sandbox"));
 }
 
@@ -27,7 +27,7 @@ fn test_get_info_default_sandbox() {
     let config = Config {
         tools_dir: None,
         enable_run_nushell: false,
-        sandbox_directory: None,
+        sandbox_directories: vec![],
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());
@@ -43,7 +43,7 @@ fn test_get_info_basic_fields() {
     let config = Config {
         tools_dir: None,
         enable_run_nushell: false,
-        sandbox_directory: None,
+        sandbox_directories: vec![],
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());

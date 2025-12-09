@@ -4,7 +4,7 @@ use std::path::PathBuf;
 pub struct Config {
     pub tools_dir: Option<PathBuf>,
     pub enable_run_nushell: bool,
-    pub sandbox_directory: Option<PathBuf>,
+    pub sandbox_directories: Vec<PathBuf>,
 }
 
 #[cfg(test)]

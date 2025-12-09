@@ -16,7 +16,7 @@ fn create_test_router() -> ToolRouter<MockExecutor, MockToolExecutor> {
     let config = Config {
         tools_dir: None,
         enable_run_nushell: true,
-        sandbox_directory: Some(PathBuf::from("/tmp")),
+        sandbox_directories: vec![PathBuf::from("/tmp")],
     };
     let executor = MockExecutor::new("test output".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("tool output".to_string());
@@ -66,7 +66,7 @@ async fn test_router_extension_tool() {
     let config = Config {
         tools_dir: None,
         enable_run_nushell: true,
-        sandbox_directory: Some(PathBuf::from("/tmp")),
+        sandbox_directories: vec![PathBuf::from("/tmp")],
     };
 
     let extension = ExtensionTool {

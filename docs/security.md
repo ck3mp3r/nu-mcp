@@ -1,11 +1,44 @@
 # Security
 
 ## Sandbox Security
-- Commands execute within a directory sandbox (configurable with `--sandbox-dir`)
-- Path traversal is context-aware: `../` is allowed if it stays within the sandbox
-- Absolute paths outside the sandbox directory are blocked
+- Commands execute within sandbox directories (configurable with `--sandbox-dir`)
+- Multiple sandbox directories can be specified (all equal, no hierarchy)
+- Path traversal is context-aware: `../` is allowed if it stays within sandbox directories
+- Absolute paths outside sandbox directories are blocked
+- If no `--sandbox-dir` specified, defaults to current working directory
 - Extensions run in the same security context as the server process
 - The sandbox provides directory isolation but does not restrict system resources, network access, or process spawning
+
+## Multiple Sandbox Directories
+
+The `--sandbox-dir` option can be specified multiple times to allow access to multiple directories. This is useful for:
+- Accessing temporary directories (e.g., `/tmp`)
+- Reading log files (e.g., `/var/log`)
+- Working with multiple project directories
+- Granting controlled access to specific system directories
+
+**Example:**
+```bash
+nu-mcp --sandbox-dir=/workspace \
+       --sandbox-dir=/tmp \
+       --sandbox-dir=/var/log \
+       --sandbox-dir=/home/user/projects
+```
+
+With this configuration:
+- ✅ Allowed: `/workspace/file.txt`, `/tmp/cache.db`, `/var/log/app.log`, `/home/user/projects/code.rs`
+- ❌ Blocked: `/etc/passwd`, `/root/secret`, `/home/other-user/data`
+
+**Working Directory:**
+- Commands execute from current directory if it's within any sandbox
+- Otherwise, commands execute from the first sandbox directory
+
+**Security Notes:**
+- Sandbox directories are canonicalized (symlinks resolved) before validation
+- Non-existent sandbox directories are ignored (they won't cause errors but won't grant access)
+- Path traversal (`../`) is validated after resolution - escaping sandboxes is blocked
+- Subdirectories within sandbox directories are automatically allowed
+- All sandbox directories are equal - there is no "primary" or "special" sandbox
 
 ## Safe Command Whitelist
 

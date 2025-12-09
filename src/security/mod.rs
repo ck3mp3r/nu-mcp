@@ -84,6 +84,20 @@ fn resolve_relative_path(base: &Path, relative: &str) -> Option<PathBuf> {
     Some(result)
 }
 
+/// Check if a path is within any of the sandbox directories
+fn is_path_in_any_sandbox(path: &Path, sandboxes: &[PathBuf]) -> bool {
+    sandboxes.iter().any(|sandbox| path.starts_with(sandbox))
+}
+
+/// Format sandbox list for error messages
+fn format_sandbox_list(sandboxes: &[PathBuf]) -> String {
+    sandboxes
+        .iter()
+        .map(|d| d.display().to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 /// Extract all words from a command by splitting on whitespace
 /// NOTE: This does NOT skip quoted strings because quotes don't prevent filesystem access!
 /// Commands like `cat "/etc/passwd"` will still read the file even though it's quoted.
@@ -147,21 +161,29 @@ fn is_likely_filesystem_path(word: &str) -> bool {
     false
 }
 
-pub fn validate_path_safety(command: &str, sandbox_dir: &Path) -> Result<(), String> {
+pub fn validate_path_safety(
+    command: &str,
+    sandbox_dirs: &[std::path::PathBuf],
+) -> Result<(), String> {
     // Check if command matches a safe pattern (commands with path-like args that aren't filesystem paths)
     // Examples: gh api /repos/..., kubectl get /apis/..., etc.
     if matches_safe_pattern(command) {
         return Ok(());
     }
 
-    // Get canonical sandbox directory (only if it exists, otherwise skip validation)
-    let canonical_sandbox = match sandbox_dir.canonicalize() {
-        Ok(path) => path,
-        Err(_) => {
-            // If sandbox directory doesn't exist, we can't validate paths, so allow the command
-            return Ok(());
-        }
-    };
+    // Get canonical sandbox directories (only those that exist)
+    let canonical_sandboxes: Vec<std::path::PathBuf> = sandbox_dirs
+        .iter()
+        .filter_map(|dir| dir.canonicalize().ok())
+        .collect();
+
+    // If no valid sandboxes, allow everything (shouldn't happen with defaults)
+    if canonical_sandboxes.is_empty() {
+        return Ok(());
+    }
+
+    // Get first sandbox for relative path resolution
+    let first_sandbox = &canonical_sandboxes[0];
 
     // Extract all words from command (including quoted strings)
     let words = extract_words(command);
@@ -191,15 +213,15 @@ pub fn validate_path_safety(command: &str, sandbox_dir: &Path) -> Result<(), Str
                 continue; // Skip if HOME is not set
             }
         } else if word.contains("..") {
-            // Path with traversal - resolve relative to sandbox directory
+            // Path with traversal - resolve relative to first sandbox directory
             // This allows cd ../ when inside the sandbox, but blocks escaping
-            sandbox_dir.join(&word)
+            first_sandbox.join(&word)
         } else if is_likely_filesystem_path(&word) {
             // Absolute path
             Path::new(&word).to_path_buf()
         } else if word.contains('/') || word.contains('\\') {
             // Relative path with slashes (e.g., "subdir/file.txt")
-            sandbox_dir.join(&word)
+            first_sandbox.join(&word)
         } else {
             // Plain word without path separators - not a path, skip
             continue;
@@ -211,22 +233,28 @@ pub fn validate_path_safety(command: &str, sandbox_dir: &Path) -> Result<(), Str
             // If the path doesn't exist, canonicalize will fail, so we manually resolve
             match path_to_check.canonicalize() {
                 Ok(canonical_path) => {
-                    // Path exists - check if it's within sandbox
-                    if !canonical_path.starts_with(&canonical_sandbox) {
-                        return Err(format!("Path '{}' would escape sandbox directory", &word));
+                    // Path exists - check if it's within any sandbox directory
+                    if !is_path_in_any_sandbox(&canonical_path, &canonical_sandboxes) {
+                        return Err(format!(
+                            "Path '{}' (resolves to '{}') escapes sandbox directories. Allowed: {}",
+                            &word,
+                            canonical_path.display(),
+                            format_sandbox_list(&canonical_sandboxes)
+                        ));
                     }
                 }
                 Err(_) => {
-                    // Path doesn't exist - manually check if resolved path stays in sandbox
+                    // Path doesn't exist - manually check if resolved path stays in sandbox directories
                     // Use a simple component-based resolution
-                    if let Some(resolved) = resolve_relative_path(sandbox_dir, &word) {
+                    if let Some(resolved) = resolve_relative_path(first_sandbox, &word) {
                         // Normalize the resolved path for comparison
                         // Since canonicalize failed (path doesn't exist), we compare the constructed path
-                        if !resolved.starts_with(&canonical_sandbox) {
+                        if !is_path_in_any_sandbox(&resolved, &canonical_sandboxes) {
                             return Err(format!(
-                                "Path '{}' would escape sandbox directory (resolved to {})",
+                                "Path '{}' would escape sandbox directories (resolves to {}). Allowed: {}",
                                 &word,
-                                resolved.display()
+                                resolved.display(),
+                                format_sandbox_list(&canonical_sandboxes)
                             ));
                         }
                     }
@@ -235,15 +263,24 @@ pub fn validate_path_safety(command: &str, sandbox_dir: &Path) -> Result<(), Str
                 }
             }
         } else {
-            // For existing paths without .., check if they're within sandbox
+            // For existing paths without .., check if they're within any sandbox directory
             if let Ok(canonical_path) = path_to_check.canonicalize() {
-                if !canonical_path.starts_with(&canonical_sandbox) {
-                    return Err(format!("Path '{}' escapes sandbox directory", &word));
+                if !is_path_in_any_sandbox(&canonical_path, &canonical_sandboxes) {
+                    return Err(format!(
+                        "Path '{}' (resolves to '{}') escapes sandbox directories. Allowed: {}",
+                        &word,
+                        canonical_path.display(),
+                        format_sandbox_list(&canonical_sandboxes)
+                    ));
                 }
             } else if path_to_check.is_absolute() {
-                // For non-existent absolute paths, check if they would be inside sandbox
-                if !path_to_check.starts_with(&canonical_sandbox) {
-                    return Err(format!("Path '{}' escapes sandbox directory", &word));
+                // For non-existent absolute paths, check if they would be inside sandbox directories
+                if !is_path_in_any_sandbox(&path_to_check, &canonical_sandboxes) {
+                    return Err(format!(
+                        "Path '{}' escapes sandbox directories. Allowed: {}",
+                        &word,
+                        format_sandbox_list(&canonical_sandboxes)
+                    ));
                 }
             }
         }
