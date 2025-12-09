@@ -12,9 +12,10 @@ pub struct Cli {
     #[arg(long, default_value_t = false)]
     pub enable_run_nushell: bool,
 
-    /// Directory to sandbox nushell execution (default: current working directory)
-    #[arg(long)]
-    pub sandbox_dir: Option<PathBuf>,
+    /// Directories where commands can access files (can be specified multiple times)
+    /// If not specified, defaults to current working directory
+    #[arg(long = "sandbox-dir")]
+    pub sandbox_dirs: Vec<PathBuf>,
 }
 
 #[cfg(test)]

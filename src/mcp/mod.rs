@@ -37,14 +37,17 @@ where
     fn get_info(&self) -> InitializeResult {
         let mut instructions = String::from("MCP server exposing Nushell commands.\n");
 
-        instructions.push_str("Security: Commands execute in a directory sandbox.\n");
-        instructions.push_str("- Path traversal patterns (../) are blocked\n");
-        instructions.push_str("- Absolute paths outside sandbox are blocked\n");
+        instructions.push_str("Security: Commands execute in sandbox directories.\n");
+        instructions.push_str("- Path traversal escaping sandboxes is blocked\n");
+        instructions.push_str("- Absolute paths outside sandboxes are blocked\n");
 
-        if let Some(sandbox_dir) = &self.router.config.sandbox_directory {
-            instructions.push_str(&format!("- Sandbox directory: {}\n", sandbox_dir.display()));
+        if self.router.config.sandbox_directories.is_empty() {
+            instructions.push_str("- Sandbox: current working directory\n");
         } else {
-            instructions.push_str("- Sandbox directory: current working directory\n");
+            instructions.push_str("- Sandbox directories:\n");
+            for sandbox_dir in &self.router.config.sandbox_directories {
+                instructions.push_str(&format!("  - {}\n", sandbox_dir.display()));
+            }
         }
 
         InitializeResult {
@@ -105,10 +108,16 @@ where
             );
 
             // Build description with sandbox directory info
-            let sandbox_note = match &self.router.config.sandbox_directory {
-                Some(dir) => format!("\n\nSandbox directory: {}", dir.display()),
-                None => "\n\nSandbox directory: current working directory".to_string(),
+            let sandbox_note = if self.router.config.sandbox_directories.is_empty() {
+                "\n\nSandbox: current working directory".to_string()
+            } else {
+                let mut note = String::from("\n\nSandbox directories:");
+                for dir in &self.router.config.sandbox_directories {
+                    note.push_str(&format!("\n- {}", dir.display()));
+                }
+                note
             };
+
             let description = format!("{}{}", RUN_NUSHELL_DESCRIPTION, sandbox_note);
 
             tools.push(Tool {

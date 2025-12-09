@@ -1,8 +1,13 @@
 use super::validate_path_safety;
-use std::{env::current_dir, path::Path};
+use std::{env::current_dir, path::Path, path::PathBuf};
 
 fn default_sandbox_dir() -> &'static Path {
     Path::new("/tmp/test_sandbox")
+}
+
+// Helper function for tests - wraps sandbox_dir in a Vec
+fn validate_path_safety_test(command: &str, sandbox_dir: &Path) -> Result<(), String> {
+    validate_path_safety(command, &[sandbox_dir.to_path_buf()])
 }
 
 // NOTE: Quote-based tests removed because quotes don't prevent filesystem access!
@@ -13,13 +18,24 @@ fn default_sandbox_dir() -> &'static Path {
 fn test_string_interpolation_with_paths_allowed() {
     // String interpolation with double quotes
     assert!(
-        validate_path_safety(r#"echo $"Config at /etc/app.conf""#, default_sandbox_dir()).is_ok(),
+        validate_path_safety_test(r#"echo $"Config at /etc/app.conf""#, default_sandbox_dir())
+            .is_ok(),
         "String interpolation with path should be allowed"
     );
 
     // String interpolation with single quotes
     assert!(
-        validate_path_safety(
+        validate_path_safety_test(
+            r#"echo $'Log file: /var/log/app.log'"#,
+            default_sandbox_dir()
+        )
+        .is_ok(),
+        "String interpolation with single quotes should be allowed"
+    );
+
+    // String interpolation with single quotes
+    assert!(
+        validate_path_safety_test(
             r#"echo $'Log file: /var/log/app.log'"#,
             default_sandbox_dir()
         )
@@ -38,7 +54,7 @@ And updates /var/log/app.log
 See details in the description
 ""#;
     assert!(
-        validate_path_safety(multiline_command, default_sandbox_dir()).is_ok(),
+        validate_path_safety_test(multiline_command, default_sandbox_dir()).is_ok(),
         "Multiline double-quoted string with paths should be allowed"
     );
 
@@ -48,7 +64,7 @@ Line with /etc/passwd
 Line with /home/user
 '"#;
     assert!(
-        validate_path_safety(single_quote, default_sandbox_dir()).is_ok(),
+        validate_path_safety_test(single_quote, default_sandbox_dir()).is_ok(),
         "Multiline single-quoted string with paths should be allowed"
     );
 }
@@ -57,7 +73,7 @@ Line with /home/user
 fn test_urls_allowed() {
     // HTTP URLs
     assert!(
-        validate_path_safety(
+        validate_path_safety_test(
             "curl http://example.com/api/v1/users",
             default_sandbox_dir()
         )
@@ -67,7 +83,7 @@ fn test_urls_allowed() {
 
     // HTTPS URLs
     assert!(
-        validate_path_safety(
+        validate_path_safety_test(
             "wget https://github.com/user/repo/file.txt",
             default_sandbox_dir()
         )
@@ -77,7 +93,7 @@ fn test_urls_allowed() {
 
     // Git URLs
     assert!(
-        validate_path_safety(
+        validate_path_safety_test(
             "git clone git://example.com/repo.git",
             default_sandbox_dir()
         )
@@ -87,7 +103,7 @@ fn test_urls_allowed() {
 
     // URLs in quoted strings
     assert!(
-        validate_path_safety(
+        validate_path_safety_test(
             r#"gh pr create --body "See https://github.com/user/repo/issues/123""#,
             default_sandbox_dir()
         )
@@ -100,12 +116,12 @@ fn test_urls_allowed() {
 fn test_command_options_with_slashes_allowed() {
     // Options with equals sign and paths
     assert!(
-        validate_path_safety("command --format=json/yaml", default_sandbox_dir()).is_ok(),
+        validate_path_safety_test("command --format=json/yaml", default_sandbox_dir()).is_ok(),
         "Command option with slash should be allowed"
     );
 
     assert!(
-        validate_path_safety("tool --output=path/to/file", default_sandbox_dir()).is_ok(),
+        validate_path_safety_test("tool --output=path/to/file", default_sandbox_dir()).is_ok(),
         "Command option with path-like value should be allowed"
     );
 }
@@ -116,17 +132,17 @@ fn test_absolute_paths_blocked() {
 
     // Absolute paths should be blocked (quoted or not)
     assert!(
-        validate_path_safety("cat /etc/passwd", &sandbox_dir).is_err(),
+        validate_path_safety_test("cat /etc/passwd", &sandbox_dir).is_err(),
         "Absolute path should be blocked"
     );
 
     assert!(
-        validate_path_safety("cat \"/etc/passwd\"", &sandbox_dir).is_err(),
+        validate_path_safety_test("cat \"/etc/passwd\"", &sandbox_dir).is_err(),
         "Quoted absolute path should also be blocked"
     );
 
     assert!(
-        validate_path_safety("ls /tmp/secret", &sandbox_dir).is_err(),
+        validate_path_safety_test("ls /tmp/secret", &sandbox_dir).is_err(),
         "Absolute path to /tmp should be blocked"
     );
 }
@@ -138,7 +154,7 @@ fn test_multiline_with_paths_blocked() {
     // Multiline commands with absolute paths
     let command = "echo something\ncat /etc/passwd";
     assert!(
-        validate_path_safety(command, &sandbox_dir).is_err(),
+        validate_path_safety_test(command, &sandbox_dir).is_err(),
         "Absolute path in multiline command should be blocked"
     );
 }
@@ -150,7 +166,7 @@ fn test_path_traversal_in_multiline_blocked() {
     let command = r#"echo "test"
 cd ../../../../../etc"#;
     assert!(
-        validate_path_safety(command, &sandbox_dir).is_err(),
+        validate_path_safety_test(command, &sandbox_dir).is_err(),
         "Path traversal that escapes sandbox should be blocked"
     );
 }
@@ -161,7 +177,7 @@ fn test_github_cli_pr_scenarios() {
 
     // PR with URL and path mentions
     assert!(
-        validate_path_safety(
+        validate_path_safety_test(
             r#"gh pr create --title "Fix bug" --body "See https://github.com/user/repo/issues/123 for /etc/config details""#,
             default_sandbox_dir()
         ).is_ok(),
@@ -170,7 +186,7 @@ fn test_github_cli_pr_scenarios() {
 
     // PR with code snippets
     assert!(
-        validate_path_safety(
+        validate_path_safety_test(
             r#"gh issue comment 42 --body "The issue is in src/components/Header.tsx and /app/routes/index.ts""#,
             default_sandbox_dir()
         ).is_ok(),
@@ -186,7 +202,7 @@ Changed configuration files:
 Tested on production server
 ""#;
     assert!(
-        validate_path_safety(pr_body, default_sandbox_dir()).is_ok(),
+        validate_path_safety_test(pr_body, default_sandbox_dir()).is_ok(),
         "GitHub PR with multiline body containing paths should be allowed"
     );
 }
@@ -208,13 +224,13 @@ fn test_path_traversal_within_sandbox_allowed() {
     // Paths that reference subdirectories using ../ but stay in sandbox
     // Example: sandbox/a/../b/file.txt => sandbox/b/file.txt (stays in sandbox)
     assert!(
-        validate_path_safety("cat subdir/../file.txt", &sandbox_dir).is_ok(),
+        validate_path_safety_test("cat subdir/../file.txt", &sandbox_dir).is_ok(),
         "Path with ../ that resolves within sandbox should be allowed"
     );
 
     // Nested traversal that stays in sandbox
     assert!(
-        validate_path_safety("ls ./a/b/../../c/file.txt", &sandbox_dir).is_ok(),
+        validate_path_safety_test("ls ./a/b/../../c/file.txt", &sandbox_dir).is_ok(),
         "Complex path with multiple ../ that stays in sandbox should be allowed"
     );
 }
@@ -229,7 +245,7 @@ fn test_path_traversal_escape_sandbox_blocked() {
     let command = format!("cat {}etc/passwd", too_many_levels);
 
     assert!(
-        validate_path_safety(&command, &sandbox_dir).is_err(),
+        validate_path_safety_test(&command, &sandbox_dir).is_err(),
         "Path traversal escaping sandbox should be blocked"
     );
 }
@@ -241,24 +257,24 @@ fn test_mixed_paths_with_traversal() {
     // Relative path with ./ and ../ that stays in sandbox
     // ./subdir/../file.txt resolves to ./file.txt (sandbox root)
     assert!(
-        validate_path_safety("ls subdir/../file.txt", &sandbox_dir).is_ok(),
+        validate_path_safety_test("ls subdir/../file.txt", &sandbox_dir).is_ok(),
         "Path with ../ that resolves to sandbox should be allowed"
     );
 
     // Path with multiple .. components that stays in sandbox
     // ./a/b/../../c/file.txt resolves to ./c/file.txt
     assert!(
-        validate_path_safety("cat a/b/../../c/file.txt", &sandbox_dir).is_ok(),
+        validate_path_safety_test("cat a/b/../../c/file.txt", &sandbox_dir).is_ok(),
         "Complex path with multiple traversals should be allowed if stays in sandbox"
     );
 }
 
 #[test]
 fn test_relative_paths_allowed() {
-    assert!(validate_path_safety("ls ./foo-bar", default_sandbox_dir()).is_ok());
-    assert!(validate_path_safety("cat ./foo/bar", default_sandbox_dir()).is_ok());
-    assert!(validate_path_safety("cat foo/bar.txt", default_sandbox_dir()).is_ok());
-    assert!(validate_path_safety("echo hello", default_sandbox_dir()).is_ok());
+    assert!(validate_path_safety_test("ls ./foo-bar", default_sandbox_dir()).is_ok());
+    assert!(validate_path_safety_test("cat ./foo/bar", default_sandbox_dir()).is_ok());
+    assert!(validate_path_safety_test("cat foo/bar.txt", default_sandbox_dir()).is_ok());
+    assert!(validate_path_safety_test("echo hello", default_sandbox_dir()).is_ok());
 }
 
 #[test]
@@ -268,7 +284,8 @@ fn test_absolute_paths_in_sandbox_allowed() {
     let sandbox_subdir = sandbox_dir.join("subdir");
     // This should be allowed as it's within the sandbox
     assert!(
-        validate_path_safety(&format!("ls {}", sandbox_subdir.display()), &sandbox_dir).is_ok()
+        validate_path_safety_test(&format!("ls {}", sandbox_subdir.display()), &sandbox_dir)
+            .is_ok()
     );
 }
 
@@ -277,8 +294,8 @@ fn test_absolute_paths_outside_sandbox_blocked() {
     // Use the current directory as sandbox for testing (it definitely exists)
     let sandbox_dir = current_dir().unwrap();
     // These should be blocked as they escape the sandbox
-    assert!(validate_path_safety("ls /etc/passwd", &sandbox_dir).is_err());
-    assert!(validate_path_safety("cat /tmp/other", &sandbox_dir).is_err());
+    assert!(validate_path_safety_test("ls /etc/passwd", &sandbox_dir).is_err());
+    assert!(validate_path_safety_test("cat /tmp/other", &sandbox_dir).is_err());
 }
 
 #[test]
@@ -298,13 +315,13 @@ fn test_home_directory_paths_within_sandbox_allowed() {
             // Commands with home directory paths within the sandbox should be allowed
             let test_path = format!("ls {}/file.txt", home_prefix_path);
             assert!(
-                validate_path_safety(&test_path, &sandbox_dir).is_ok(),
+                validate_path_safety_test(&test_path, &sandbox_dir).is_ok(),
                 "Home directory path within sandbox should be allowed"
             );
 
             let test_path2 = format!("cat {}/subdir/data.txt", home_prefix_path);
             assert!(
-                validate_path_safety(&test_path2, &sandbox_dir).is_ok(),
+                validate_path_safety_test(&test_path2, &sandbox_dir).is_ok(),
                 "Home directory subpath within sandbox should be allowed"
             );
         }
@@ -322,7 +339,7 @@ fn test_home_directory_paths_outside_sandbox_blocked() {
         // Test paths that are definitely outside the sandbox
         // These should be blocked regardless of where sandbox is
         let test_path = "ls ~/.bashrc".to_string();
-        let result = validate_path_safety(&test_path, &sandbox_dir);
+        let result = validate_path_safety_test(&test_path, &sandbox_dir);
 
         // Only assert if the file exists (so we can properly test)
         let bashrc_path = home_path.join(".bashrc");
@@ -336,7 +353,7 @@ fn test_home_directory_paths_outside_sandbox_blocked() {
         // Test with a path that definitely doesn't match sandbox
         let test_path2 = "cat ~/definitely_outside_sandbox_xyz123/file.txt".to_string();
         assert!(
-            validate_path_safety(&test_path2, &sandbox_dir).is_err(),
+            validate_path_safety_test(&test_path2, &sandbox_dir).is_err(),
             "Home directory path outside sandbox should be blocked"
         );
     }
@@ -352,7 +369,7 @@ fn test_home_directory_paths_with_current_dir_sandbox() {
         let home_path = Path::new(&home_dir);
         if !sandbox_dir.starts_with(home_path) {
             assert!(
-                validate_path_safety("ls ~/file.txt", &sandbox_dir).is_err(),
+                validate_path_safety_test("ls ~/file.txt", &sandbox_dir).is_err(),
                 "Home directory paths should be blocked when sandbox is outside home"
             );
         }
@@ -369,11 +386,11 @@ fn test_tilde_alone_blocked_when_outside_sandbox() {
         let home_path = Path::new(&home_dir);
         if !sandbox_dir.starts_with(home_path) {
             assert!(
-                validate_path_safety("ls ~", &sandbox_dir).is_err(),
+                validate_path_safety_test("ls ~", &sandbox_dir).is_err(),
                 "Tilde alone should be blocked when home is outside sandbox"
             );
             assert!(
-                validate_path_safety("cd ~", &sandbox_dir).is_err(),
+                validate_path_safety_test("cd ~", &sandbox_dir).is_err(),
                 "Tilde alone in cd command should be blocked"
             );
         }
@@ -390,7 +407,7 @@ fn test_tilde_alone_allowed_when_within_sandbox() {
         let home_path = Path::new(&home_dir);
         if sandbox_dir == home_path {
             assert!(
-                validate_path_safety("ls ~", &sandbox_dir).is_ok(),
+                validate_path_safety_test("ls ~", &sandbox_dir).is_ok(),
                 "Tilde alone should be allowed when sandbox is home directory itself"
             );
         }
@@ -405,12 +422,13 @@ fn test_github_api_commands_whitelisted() {
 
     // GitHub API commands should be whitelisted (bypass path validation)
     assert!(
-        validate_path_safety("gh api /repos/owner/repo/contents/file.yml", &sandbox_dir).is_ok(),
+        validate_path_safety_test("gh api /repos/owner/repo/contents/file.yml", &sandbox_dir)
+            .is_ok(),
         "gh api with API endpoint should be whitelisted"
     );
 
     assert!(
-        validate_path_safety(
+        validate_path_safety_test(
             "gh api repos/owner/repo/contents/file.yml | from json",
             &sandbox_dir
         )
@@ -419,7 +437,7 @@ fn test_github_api_commands_whitelisted() {
     );
 
     assert!(
-        validate_path_safety(
+        validate_path_safety_test(
             "gh api /repos/owner/repo/contents/file.yml | from json | get content | decode base64",
             &sandbox_dir
         )
@@ -434,17 +452,17 @@ fn test_kubectl_api_commands_whitelisted() {
 
     // kubectl with API resource paths should be whitelisted
     assert!(
-        validate_path_safety("kubectl get /apis/apps/v1/deployments", &sandbox_dir).is_ok(),
+        validate_path_safety_test("kubectl get /apis/apps/v1/deployments", &sandbox_dir).is_ok(),
         "kubectl get with /apis path should be whitelisted"
     );
 
     assert!(
-        validate_path_safety("kubectl describe /api/v1/pods", &sandbox_dir).is_ok(),
+        validate_path_safety_test("kubectl describe /api/v1/pods", &sandbox_dir).is_ok(),
         "kubectl describe with /api path should be whitelisted"
     );
 
     assert!(
-        validate_path_safety("kubectl delete /apis/batch/v1/jobs/myjob", &sandbox_dir).is_ok(),
+        validate_path_safety_test("kubectl delete /apis/batch/v1/jobs/myjob", &sandbox_dir).is_ok(),
         "kubectl delete with API path should be whitelisted"
     );
 }
@@ -455,12 +473,12 @@ fn test_argocd_commands_whitelisted() {
 
     // argocd app commands with /argocd/ paths should be whitelisted
     assert!(
-        validate_path_safety("argocd app get /argocd/myapp", &sandbox_dir).is_ok(),
+        validate_path_safety_test("argocd app get /argocd/myapp", &sandbox_dir).is_ok(),
         "argocd app get with /argocd path should be whitelisted"
     );
 
     assert!(
-        validate_path_safety("argocd app sync /argocd/production/app", &sandbox_dir).is_ok(),
+        validate_path_safety_test("argocd app sync /argocd/production/app", &sandbox_dir).is_ok(),
         "argocd app sync with /argocd path should be whitelisted"
     );
 }
@@ -471,22 +489,23 @@ fn test_http_commands_whitelisted() {
 
     // HTTP client commands with URLs should be whitelisted
     assert!(
-        validate_path_safety("curl https://api.github.com/repos/owner/repo", &sandbox_dir).is_ok(),
+        validate_path_safety_test("curl https://api.github.com/repos/owner/repo", &sandbox_dir)
+            .is_ok(),
         "curl with URL should be whitelisted"
     );
 
     assert!(
-        validate_path_safety("wget http://example.com/file.txt", &sandbox_dir).is_ok(),
+        validate_path_safety_test("wget http://example.com/file.txt", &sandbox_dir).is_ok(),
         "wget with URL should be whitelisted"
     );
 
     assert!(
-        validate_path_safety("http get https://api.example.com/data", &sandbox_dir).is_ok(),
+        validate_path_safety_test("http get https://api.example.com/data", &sandbox_dir).is_ok(),
         "http get with URL should be whitelisted"
     );
 
     assert!(
-        validate_path_safety("http post https://api.example.com/submit", &sandbox_dir).is_ok(),
+        validate_path_safety_test("http post https://api.example.com/submit", &sandbox_dir).is_ok(),
         "http post with URL should be whitelisted"
     );
 }
@@ -497,18 +516,18 @@ fn test_non_whitelisted_commands_still_validated() {
 
     // Regular commands should still undergo path validation
     assert!(
-        validate_path_safety("cat /etc/passwd", &sandbox_dir).is_err(),
+        validate_path_safety_test("cat /etc/passwd", &sandbox_dir).is_err(),
         "cat with absolute path outside sandbox should be blocked"
     );
 
     assert!(
-        validate_path_safety("ls /tmp/secret", &sandbox_dir).is_err(),
+        validate_path_safety_test("ls /tmp/secret", &sandbox_dir).is_err(),
         "ls with absolute path outside sandbox should be blocked"
     );
 
     // gh commands that DON'T match the pattern should still be validated
     assert!(
-        validate_path_safety("gh repo clone /some/path", &sandbox_dir).is_err(),
+        validate_path_safety_test("gh repo clone /some/path", &sandbox_dir).is_err(),
         "gh repo (not 'gh api') should still validate paths"
     );
 }
@@ -520,13 +539,135 @@ fn test_whitelist_pattern_specificity() {
     // Patterns should be specific to avoid over-matching
     // kubectl without /api prefix should still validate paths
     assert!(
-        validate_path_safety("kubectl get pods", &sandbox_dir).is_ok(),
+        validate_path_safety_test("kubectl get pods", &sandbox_dir).is_ok(),
         "kubectl get pods (no paths) should be allowed"
     );
 
     // But if it has an absolute non-API path, should be blocked
     assert!(
-        validate_path_safety("kubectl apply -f /etc/config.yaml", &sandbox_dir).is_err(),
+        validate_path_safety_test("kubectl apply -f /etc/config.yaml", &sandbox_dir).is_err(),
         "kubectl with filesystem path outside sandbox should be blocked"
+    );
+}
+
+// Tests for multiple sandbox directories
+
+#[test]
+fn test_multiple_sandbox_directories() {
+    let sandbox1 = current_dir().unwrap();
+    let sandbox2 = sandbox1.parent().unwrap().to_path_buf();
+
+    // Path in first sandbox
+    let path1 = format!("cat {}/file1.txt", sandbox1.display());
+    assert!(
+        validate_path_safety(&path1, &[sandbox1.clone(), sandbox2.clone()]).is_ok(),
+        "Path in first sandbox should be allowed"
+    );
+
+    // Path in second sandbox
+    let path2 = format!("cat {}/file2.txt", sandbox2.display());
+    assert!(
+        validate_path_safety(&path2, &[sandbox1, sandbox2]).is_ok(),
+        "Path in second sandbox should be allowed"
+    );
+}
+
+#[test]
+fn test_path_outside_all_sandboxes_blocked() {
+    let sandbox1 = current_dir().unwrap();
+    let sandbox2 = sandbox1.parent().unwrap().to_path_buf();
+
+    // Path outside both sandboxes
+    assert!(
+        validate_path_safety("cat /etc/passwd", &[sandbox1, sandbox2]).is_err(),
+        "Path outside all sandboxes should be blocked"
+    );
+}
+
+#[test]
+fn test_nonexistent_sandbox_ignored() {
+    let sandbox1 = current_dir().unwrap();
+    let nonexistent_sandbox = PathBuf::from("/nonexistent/sandbox");
+
+    // If a sandbox doesn't exist, it's ignored (canonicalization fails)
+    // Path in existing sandbox should still work
+    let path = format!("cat {}/file.txt", sandbox1.display());
+    assert!(
+        validate_path_safety(&path, &[sandbox1, nonexistent_sandbox]).is_ok(),
+        "Path in existing sandbox should be allowed even if another sandbox doesn't exist"
+    );
+}
+
+#[test]
+fn test_absolute_path_to_sandbox_subdir_allowed() {
+    let sandbox_dir = current_dir().unwrap();
+
+    // Create an absolute path to a subdirectory of the sandbox
+    let absolute_subdir = sandbox_dir.join("src").join("lib.rs");
+    let command = format!("cat {}", absolute_subdir.display());
+
+    println!("Testing command: {}", command);
+    println!("Sandbox dir: {}", sandbox_dir.display());
+    println!("Absolute path: {}", absolute_subdir.display());
+
+    // This should be allowed since the absolute path is within the sandbox
+    assert!(
+        validate_path_safety(&command, &[sandbox_dir]).is_ok(),
+        "Absolute path within sandbox should be allowed"
+    );
+}
+
+#[test]
+fn test_absolute_path_to_nonexistent_file_in_sandbox() {
+    let sandbox_dir = current_dir().unwrap();
+
+    // Create an absolute path to a non-existent file within sandbox
+    let absolute_path = sandbox_dir.join("nonexistent.txt");
+    let command = format!("touch {}", absolute_path.display());
+
+    println!("Testing command: {}", command);
+    println!("Sandbox dir: {}", sandbox_dir.display());
+    println!("Absolute path: {}", absolute_path.display());
+
+    // This should be allowed since the absolute path (even though file doesn't exist) is within sandbox
+    assert!(
+        validate_path_safety(&command, &[sandbox_dir]).is_ok(),
+        "Absolute path to non-existent file within sandbox should be allowed"
+    );
+}
+
+#[test]
+fn test_debug_absolute_path_validation() {
+    let sandbox_dir = current_dir().unwrap();
+    let canonical_sandbox = sandbox_dir.canonicalize().unwrap();
+
+    // Test an absolute path that's definitely within sandbox
+    let test_file = sandbox_dir.join("Cargo.toml");
+    let command = format!("cat {}", test_file.display());
+
+    println!("\n=== Debug Info ===");
+    println!("Command: {}", command);
+    println!("Sandbox dir: {}", sandbox_dir.display());
+    println!("Canonical sandbox: {}", canonical_sandbox.display());
+    println!("Test file: {}", test_file.display());
+    println!("Test file canonical: {:?}", test_file.canonicalize());
+    println!(
+        "Test file starts_with sandbox: {}",
+        test_file.starts_with(&sandbox_dir)
+    );
+    if let Ok(canonical_test) = test_file.canonicalize() {
+        println!(
+            "Canonical test starts_with canonical sandbox: {}",
+            canonical_test.starts_with(&canonical_sandbox)
+        );
+    }
+
+    let result = validate_path_safety(&command, &[sandbox_dir.clone()]);
+    println!("Validation result: {:?}", result);
+    println!("==================\n");
+
+    assert!(
+        result.is_ok(),
+        "Absolute path to existing file in sandbox should be allowed"
     );
 }

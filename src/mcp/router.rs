@@ -5,7 +5,7 @@ use crate::security::validate_path_safety;
 use crate::tools::{ExtensionTool, NushellToolExecutor, ToolExecutor};
 use rmcp::model::{CallToolRequestParam, CallToolResult, ErrorData};
 use rmcp::serde_json;
-use std::env;
+use std::{env, path::PathBuf};
 
 #[derive(Clone)]
 pub struct ToolRouter<C = NushellExecutor, T = NushellToolExecutor>
@@ -60,22 +60,18 @@ where
             .and_then(|v| v.as_str())
             .unwrap_or("version");
 
-        // Determine sandbox directory (use configured sandbox_directory or current working directory)
-        let sandbox_dir = match &self.config.sandbox_directory {
-            Some(dir) => dir.clone(),
-            None => {
-                env::current_dir().map_err(|e| ErrorData::internal_error(e.to_string(), None))?
-            }
-        };
+        // Determine working directory
+        let work_dir = determine_working_directory(&self.config.sandbox_directories)
+            .map_err(|e| ErrorData::internal_error(e, None))?;
 
         // Validate command for path safety
-        if let Err(msg) = validate_path_safety(command, &sandbox_dir) {
+        if let Err(msg) = validate_path_safety(command, &self.config.sandbox_directories) {
             return ResultFormatter::invalid_request(msg);
         }
 
         let (stdout, stderr) = self
             .executor
-            .execute(command, &sandbox_dir)
+            .execute(command, &work_dir)
             .await
             .map_err(|e| ErrorData::internal_error(e, None))?;
 
@@ -113,4 +109,30 @@ where
             ResultFormatter::invalid_request(format!("Unknown tool: {}", request.name))
         }
     }
+}
+
+/// Determine the working directory for command execution
+/// Uses current directory if it's in any sandbox, otherwise uses first sandbox
+fn determine_working_directory(sandboxes: &[PathBuf]) -> Result<PathBuf, String> {
+    if sandboxes.is_empty() {
+        return Err("No sandbox directories configured".to_string());
+    }
+
+    // Get current directory
+    let cwd = env::current_dir().map_err(|e| format!("Cannot get current directory: {}", e))?;
+
+    // If current directory is in any sandbox, use it
+    for sandbox in sandboxes {
+        if let Ok(canonical_sandbox) = sandbox.canonicalize()
+            && let Ok(canonical_cwd) = cwd.canonicalize()
+            && canonical_cwd.starts_with(&canonical_sandbox)
+        {
+            return Ok(cwd);
+        }
+    }
+
+    // Otherwise, use first sandbox
+    sandboxes[0]
+        .canonicalize()
+        .map_err(|e| format!("Cannot access first sandbox directory: {}", e))
 }
