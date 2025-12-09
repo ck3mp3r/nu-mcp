@@ -118,3 +118,46 @@ fn determine_working_directory(_sandboxes: &[PathBuf]) -> Result<PathBuf, String
     // This should always be allowed, and commands run from here can access any allowed sandbox
     env::current_dir().map_err(|e| format!("Cannot get current directory: {}", e))
 }
+
+#[cfg(test)]
+mod router_test {
+    use super::*;
+
+    #[test]
+    fn test_determine_working_directory_returns_current_dir() {
+        let sandboxes = vec![PathBuf::from("/tmp"), PathBuf::from("/var")];
+
+        let result = determine_working_directory(&sandboxes);
+        assert!(result.is_ok());
+
+        let expected = env::current_dir().unwrap();
+        assert_eq!(result.unwrap(), expected);
+    }
+
+    #[test]
+    fn test_determine_working_directory_ignores_invalid_sandboxes() {
+        // Even if sandboxes contain invalid paths, we should still get current dir
+        let sandboxes = vec![
+            PathBuf::from("{cwd}"),
+            PathBuf::from("/nonexistent/path"),
+            PathBuf::from("/tmp"),
+        ];
+
+        let result = determine_working_directory(&sandboxes);
+        assert!(result.is_ok());
+
+        let expected = env::current_dir().unwrap();
+        assert_eq!(result.unwrap(), expected);
+    }
+
+    #[test]
+    fn test_determine_working_directory_with_empty_sandboxes() {
+        let sandboxes: Vec<PathBuf> = vec![];
+
+        let result = determine_working_directory(&sandboxes);
+        assert!(result.is_ok());
+
+        let expected = env::current_dir().unwrap();
+        assert_eq!(result.unwrap(), expected);
+    }
+}
