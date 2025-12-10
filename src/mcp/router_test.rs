@@ -13,10 +13,12 @@ use crate::{
 };
 
 fn create_test_router() -> ToolRouter<MockExecutor, MockToolExecutor> {
+    // Use current directory as sandbox so tests can run from anywhere
+    let cwd = env::current_dir().unwrap();
     let config = Config {
         tools_dir: None,
         enable_run_nushell: true,
-        sandbox_directories: vec![PathBuf::from("/tmp")],
+        sandbox_directories: vec![cwd],
     };
     let executor = MockExecutor::new("test output".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("tool output".to_string());

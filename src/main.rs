@@ -7,7 +7,8 @@ use std::env;
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Default to current directory if no sandboxes specified
+    // Default to current directory ONLY if no sandboxes specified
+    // If sandboxes are explicitly provided, use only those
     let sandbox_directories = if cli.sandbox_dirs.is_empty() {
         vec![env::current_dir()?]
     } else {

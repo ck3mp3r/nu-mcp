@@ -112,11 +112,40 @@ where
 }
 
 /// Determine the working directory for command execution
-/// Returns the current working directory (where the server was started)
-fn determine_working_directory(_sandboxes: &[PathBuf]) -> Result<PathBuf, String> {
-    // Use the directory where the server was started from
-    // This should always be allowed, and commands run from here can access any allowed sandbox
-    env::current_dir().map_err(|e| format!("Cannot get current directory: {}", e))
+/// Returns a directory that is within one of the allowed sandbox directories
+fn determine_working_directory(sandboxes: &[PathBuf]) -> Result<PathBuf, String> {
+    if sandboxes.is_empty() {
+        return Err("No sandbox directories configured".to_string());
+    }
+
+    // Try to use current directory if it's within any sandbox
+    if let Ok(cwd) = env::current_dir() {
+        for sandbox in sandboxes {
+            if let Ok(canonical_sandbox) = sandbox.canonicalize() {
+                if let Ok(canonical_cwd) = cwd.canonicalize() {
+                    if canonical_cwd.starts_with(&canonical_sandbox) {
+                        return Ok(cwd);
+                    }
+                }
+            }
+        }
+    }
+
+    // Current directory is not in any sandbox - user needs to cd to a sandbox first
+    let valid_sandboxes: Vec<String> = sandboxes
+        .iter()
+        .filter_map(|s| s.canonicalize().ok())
+        .map(|s| s.display().to_string())
+        .collect();
+
+    if valid_sandboxes.is_empty() {
+        return Err("No accessible sandbox directories found".to_string());
+    }
+
+    Err(format!(
+        "Current working directory is not within any allowed sandbox. Please start the server from within one of: {}",
+        valid_sandboxes.join(", ")
+    ))
 }
 
 #[cfg(test)]
@@ -124,30 +153,41 @@ mod router_test {
     use super::*;
 
     #[test]
-    fn test_determine_working_directory_returns_current_dir() {
-        let sandboxes = vec![PathBuf::from("/tmp"), PathBuf::from("/var")];
+    fn test_determine_working_directory_returns_current_dir_when_in_sandbox() {
+        // If current directory IS in a sandbox, it should return current directory
+        let cwd = env::current_dir().unwrap();
 
+        // Use the actual current directory as one of the sandboxes
+        let sandboxes = vec![cwd.clone()];
         let result = determine_working_directory(&sandboxes);
         assert!(result.is_ok());
-
-        let expected = env::current_dir().unwrap();
-        assert_eq!(result.unwrap(), expected);
+        assert_eq!(result.unwrap(), cwd);
     }
 
     #[test]
-    fn test_determine_working_directory_ignores_invalid_sandboxes() {
-        // Even if sandboxes contain invalid paths, we should still get current dir
+    fn test_determine_working_directory_skips_invalid_sandboxes() {
+        // Should skip invalid sandbox paths and check remaining valid ones
         let sandboxes = vec![
-            PathBuf::from("{cwd}"),
-            PathBuf::from("/nonexistent/path"),
+            PathBuf::from("/nonexistent/path/that/does/not/exist"),
+            PathBuf::from("/another/invalid/path"),
             PathBuf::from("/tmp"),
         ];
 
         let result = determine_working_directory(&sandboxes);
-        assert!(result.is_ok());
 
-        let expected = env::current_dir().unwrap();
-        assert_eq!(result.unwrap(), expected);
+        let cwd = env::current_dir().unwrap();
+        if cwd.starts_with("/tmp") || cwd.starts_with("/private/tmp") {
+            // If we're in /tmp, should succeed
+            assert!(result.is_ok());
+        } else {
+            // If not in /tmp, should error since other sandboxes are invalid
+            assert!(result.is_err());
+            assert!(
+                result
+                    .unwrap_err()
+                    .contains("not within any allowed sandbox")
+            );
+        }
     }
 
     #[test]
@@ -155,9 +195,38 @@ mod router_test {
         let sandboxes: Vec<PathBuf> = vec![];
 
         let result = determine_working_directory(&sandboxes);
-        assert!(result.is_ok());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("No sandbox directories"));
+    }
 
-        let expected = env::current_dir().unwrap();
-        assert_eq!(result.unwrap(), expected);
+    #[test]
+    fn test_determine_working_directory_errors_when_cwd_not_in_sandboxes() {
+        // When current directory is NOT in any sandbox, should ERROR
+        let sandboxes = vec![PathBuf::from("/tmp"), PathBuf::from("/var")];
+
+        let result = determine_working_directory(&sandboxes);
+
+        // Should error if current directory is not in any sandbox
+        let cwd = env::current_dir().unwrap();
+        if !cwd.starts_with("/tmp") && !cwd.starts_with("/var") {
+            assert!(
+                result.is_err(),
+                "Should error when cwd is not in any sandbox"
+            );
+            let error = result.unwrap_err();
+            assert!(
+                error.contains("not within any allowed sandbox"),
+                "Error should explain the issue: {}",
+                error
+            );
+            assert!(
+                error.contains("/tmp") || error.contains("/private/tmp"),
+                "Error should list sandboxes: {}",
+                error
+            );
+        } else {
+            // If we happen to be running tests from /tmp or /var, it should succeed
+            assert!(result.is_ok());
+        }
     }
 }
