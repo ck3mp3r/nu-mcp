@@ -1,5 +1,9 @@
 use super::validate_path_safety;
-use std::{env::current_dir, path::Path, path::PathBuf};
+use std::{
+    env::current_dir,
+    path::{Path, PathBuf},
+    slice::from_ref,
+};
 
 fn default_sandbox_dir() -> &'static Path {
     Path::new("/tmp/test_sandbox")
@@ -662,7 +666,7 @@ fn test_debug_absolute_path_validation() {
         );
     }
 
-    let result = validate_path_safety(&command, &[sandbox_dir.clone()]);
+    let result = validate_path_safety(&command, from_ref(&sandbox_dir));
     println!("Validation result: {:?}", result);
     println!("==================\n");
 

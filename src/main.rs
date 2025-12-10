@@ -7,12 +7,9 @@ use std::env;
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Default to current directory if no sandboxes specified
-    let sandbox_directories = if cli.sandbox_dirs.is_empty() {
-        vec![env::current_dir()?]
-    } else {
-        cli.sandbox_dirs
-    };
+    // Always include current directory, plus any additional paths
+    let mut sandbox_directories = vec![env::current_dir()?];
+    sandbox_directories.extend(cli.add_paths);
 
     let config = Config {
         tools_dir: cli.tools_dir,

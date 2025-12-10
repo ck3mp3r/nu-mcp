@@ -1,44 +1,50 @@
 # Security
 
 ## Sandbox Security
-- Commands execute within sandbox directories (configurable with `--sandbox-dir`)
-- Multiple sandbox directories can be specified (all equal, no hierarchy)
-- Path traversal is context-aware: `../` is allowed if it stays within sandbox directories
-- Absolute paths outside sandbox directories are blocked
-- If no `--sandbox-dir` specified, defaults to current working directory
+- Commands execute within sandbox directories
+- **Current working directory is ALWAYS accessible**
+- `--add-path` adds additional accessible paths beyond current directory
+- Path traversal is context-aware: `../` is allowed if it stays within accessible paths
+- Absolute paths outside accessible paths are blocked
 - Extensions run in the same security context as the server process
 - The sandbox provides directory isolation but does not restrict system resources, network access, or process spawning
 
-## Multiple Sandbox Directories
+## Adding Additional Paths
 
-The `--sandbox-dir` option can be specified multiple times to allow access to multiple directories. This is useful for:
+The `--add-path` option can be specified multiple times to add ADDITIONAL accessible paths beyond the current working directory.
+
+**Use cases:**
 - Accessing temporary directories (e.g., `/tmp`)
 - Reading log files (e.g., `/var/log`)
-- Working with multiple project directories
-- Granting controlled access to specific system directories
+- Granting controlled access to specific system directories (e.g., `/nix/store`)
+- Working with data outside your project directory
 
 **Example:**
 ```bash
-nu-mcp --sandbox-dir=/workspace \
-       --sandbox-dir=/tmp \
-       --sandbox-dir=/var/log \
-       --sandbox-dir=/home/user/projects
+# Start server from /home/user/myproject
+cd /home/user/myproject
+nu-mcp --add-path=/tmp \
+       --add-path=/var/log \
+       --add-path=/nix/store
 ```
 
-With this configuration:
-- ✅ Allowed: `/workspace/file.txt`, `/tmp/cache.db`, `/var/log/app.log`, `/home/user/projects/code.rs`
-- ❌ Blocked: `/etc/passwd`, `/root/secret`, `/home/other-user/data`
+With this configuration, commands can access:
+- ✅ `/home/user/myproject/**` (current directory - always accessible)
+- ✅ `/tmp/**` (added via --add-path)
+- ✅ `/var/log/**` (added via --add-path)
+- ✅ `/nix/store/**` (added via --add-path)
+- ❌ `/etc/passwd` (not accessible)
+- ❌ `/home/user/other-project/**` (not accessible)
 
 **Working Directory:**
-- Commands execute from current directory if it's within any sandbox
-- Otherwise, commands execute from the first sandbox directory
+- Commands ALWAYS execute from the current directory where the server was started
+- Current directory is ALWAYS in the allowed sandbox list
 
 **Security Notes:**
 - Sandbox directories are canonicalized (symlinks resolved) before validation
 - Non-existent sandbox directories are ignored (they won't cause errors but won't grant access)
 - Path traversal (`../`) is validated after resolution - escaping sandboxes is blocked
 - Subdirectories within sandbox directories are automatically allowed
-- All sandbox directories are equal - there is no "primary" or "special" sandbox
 
 ## Safe Command Whitelist
 

@@ -10,29 +10,29 @@ nu-mcp-weather:
   command: "nu-mcp"
   args:
     - "--tools-dir=/opt/mcp-tools/weather"
-    - "--sandbox-dir=/tmp/weather-workspace"
+    - "--add-path=/tmp/weather-workspace"
 
 # Financial data services
 nu-mcp-finance:
   command: "nu-mcp"
   args:
     - "--tools-dir=/opt/mcp-tools/finance"
-    - "--sandbox-dir=/tmp/finance-workspace"
+    - "--add-path=/tmp/finance-workspace"
 
-# Development tools with sandbox access
+# Development tools with additional paths
 nu-mcp-dev:
   command: "nu-mcp"
   args:
     - "--tools-dir=/opt/mcp-tools/dev"
     - "--enable-run-nushell"
-    - "--sandbox-dir=/workspace/project"
+    - "--add-path=/workspace/project"
 ```
 
 ## Benefits of Multiple Instances
 
 - **Tool Organization**: Group related functionality (weather, finance, development)
 - **Conflict Avoidance**: Each instance provides distinct tools without name collisions
-- **Security Isolation**: Different instances can have different sandbox directories
+- **Security Isolation**: Different instances can have different accessible paths
 - **Clear Interface**: Clients see focused tool sets rather than everything mixed together
 - **Scalability**: Easy to add new tool categories without affecting existing ones
 
