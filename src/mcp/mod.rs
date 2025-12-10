@@ -44,9 +44,31 @@ where
         if self.router.config.sandbox_directories.is_empty() {
             instructions.push_str("- Sandbox: current working directory\n");
         } else {
-            instructions.push_str("- Sandbox directories:\n");
-            for sandbox_dir in &self.router.config.sandbox_directories {
-                instructions.push_str(&format!("  - {}\n", sandbox_dir.display()));
+            instructions.push_str("- Accessible directories:\n");
+            if let Ok(cwd) = std::env::current_dir() {
+                // Try to match cwd with one of the sandboxes
+                let cwd_canonical = cwd.canonicalize().ok();
+                for sandbox_dir in &self.router.config.sandbox_directories {
+                    let is_cwd = if let Some(ref cwd_can) = cwd_canonical {
+                        sandbox_dir.canonicalize().ok().as_ref() == Some(cwd_can)
+                    } else {
+                        false
+                    };
+
+                    if is_cwd {
+                        instructions.push_str(&format!(
+                            "  - {} (current directory)\n",
+                            sandbox_dir.display()
+                        ));
+                    } else {
+                        instructions.push_str(&format!("  - {}\n", sandbox_dir.display()));
+                    }
+                }
+            } else {
+                // Can't determine cwd, just list sandboxes
+                for sandbox_dir in &self.router.config.sandbox_directories {
+                    instructions.push_str(&format!("  - {}\n", sandbox_dir.display()));
+                }
             }
         }
 
@@ -111,9 +133,26 @@ where
             let sandbox_note = if self.router.config.sandbox_directories.is_empty() {
                 "\n\nSandbox: current working directory".to_string()
             } else {
-                let mut note = String::from("\n\nSandbox directories:");
-                for dir in &self.router.config.sandbox_directories {
-                    note.push_str(&format!("\n- {}", dir.display()));
+                let mut note = String::from("\n\nAccessible directories:");
+                if let Ok(cwd) = std::env::current_dir() {
+                    let cwd_canonical = cwd.canonicalize().ok();
+                    for dir in &self.router.config.sandbox_directories {
+                        let is_cwd = if let Some(ref cwd_can) = cwd_canonical {
+                            dir.canonicalize().ok().as_ref() == Some(cwd_can)
+                        } else {
+                            false
+                        };
+
+                        if is_cwd {
+                            note.push_str(&format!("\n- {} (current directory)", dir.display()));
+                        } else {
+                            note.push_str(&format!("\n- {}", dir.display()));
+                        }
+                    }
+                } else {
+                    for dir in &self.router.config.sandbox_directories {
+                        note.push_str(&format!("\n- {}", dir.display()));
+                    }
                 }
                 note
             };
