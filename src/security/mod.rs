@@ -107,14 +107,18 @@ fn extract_words(command: &str) -> Vec<String> {
         .map(|s| {
             // Strip surrounding quotes to get the actual argument value
             let s = s.trim();
-            if (s.starts_with('"') && s.ends_with('"'))
+            let s = if (s.starts_with('"') && s.ends_with('"'))
                 || (s.starts_with('\'') && s.ends_with('\''))
                 || (s.starts_with('`') && s.ends_with('`'))
             {
-                s[1..s.len() - 1].to_string()
+                &s[1..s.len() - 1]
             } else {
-                s.to_string()
-            }
+                s
+            };
+
+            // Strip trailing shell metacharacters (;, &, |, etc.)
+            let s = s.trim_end_matches(|c| matches!(c, ';' | '&' | '|' | '>' | '<'));
+            s.to_string()
         })
         .collect()
 }

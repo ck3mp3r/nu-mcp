@@ -675,3 +675,46 @@ fn test_debug_absolute_path_validation() {
         "Absolute path to existing file in sandbox should be allowed"
     );
 }
+
+#[test]
+fn test_shell_metacharacters_stripped() {
+    let sandbox_dir = current_dir().unwrap();
+
+    // Test semicolon
+    let result =
+        validate_path_safety_test(&format!("cd {}; ls", sandbox_dir.display()), &sandbox_dir);
+    assert!(
+        result.is_ok(),
+        "Path with trailing semicolon should be stripped and allowed: {:?}",
+        result
+    );
+
+    // Test ampersand
+    let result =
+        validate_path_safety_test(&format!("cd {} & ls", sandbox_dir.display()), &sandbox_dir);
+    assert!(
+        result.is_ok(),
+        "Path with trailing ampersand should be stripped and allowed: {:?}",
+        result
+    );
+
+    // Test pipe
+    let result =
+        validate_path_safety_test(&format!("cd {} | ls", sandbox_dir.display()), &sandbox_dir);
+    assert!(
+        result.is_ok(),
+        "Path with trailing pipe should be stripped and allowed: {:?}",
+        result
+    );
+
+    // Test redirect
+    let result = validate_path_safety_test(
+        &format!("cd {} > output.txt", sandbox_dir.display()),
+        &sandbox_dir,
+    );
+    assert!(
+        result.is_ok(),
+        "Path with trailing redirect should be stripped and allowed: {:?}",
+        result
+    );
+}
