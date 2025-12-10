@@ -121,12 +121,11 @@ fn determine_working_directory(sandboxes: &[PathBuf]) -> Result<PathBuf, String>
     // Try to use current directory if it's within any sandbox
     if let Ok(cwd) = env::current_dir() {
         for sandbox in sandboxes {
-            if let Ok(canonical_sandbox) = sandbox.canonicalize() {
-                if let Ok(canonical_cwd) = cwd.canonicalize() {
-                    if canonical_cwd.starts_with(&canonical_sandbox) {
-                        return Ok(cwd);
-                    }
-                }
+            if let Ok(canonical_sandbox) = sandbox.canonicalize()
+                && let Ok(canonical_cwd) = cwd.canonicalize()
+                && canonical_cwd.starts_with(&canonical_sandbox)
+            {
+                return Ok(cwd);
             }
         }
     }
