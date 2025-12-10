@@ -2,16 +2,16 @@
 
 ## Sandbox Security
 - Commands execute within sandbox directories
-- **Current working directory is ALWAYS included** in allowed directories
-- `--sandbox-dir` adds ADDITIONAL allowed directories beyond current directory
-- Path traversal is context-aware: `../` is allowed if it stays within sandbox directories
-- Absolute paths outside sandbox directories are blocked
+- **Current working directory is ALWAYS accessible**
+- `--add-path` adds additional accessible paths beyond current directory
+- Path traversal is context-aware: `../` is allowed if it stays within accessible paths
+- Absolute paths outside accessible paths are blocked
 - Extensions run in the same security context as the server process
 - The sandbox provides directory isolation but does not restrict system resources, network access, or process spawning
 
-## Multiple Sandbox Directories
+## Adding Additional Paths
 
-The `--sandbox-dir` option can be specified multiple times to grant access to ADDITIONAL directories beyond the current working directory.
+The `--add-path` option can be specified multiple times to add ADDITIONAL accessible paths beyond the current working directory.
 
 **Use cases:**
 - Accessing temporary directories (e.g., `/tmp`)
@@ -23,18 +23,18 @@ The `--sandbox-dir` option can be specified multiple times to grant access to AD
 ```bash
 # Start server from /home/user/myproject
 cd /home/user/myproject
-nu-mcp --sandbox-dir=/tmp \
-       --sandbox-dir=/var/log \
-       --sandbox-dir=/nix/store
+nu-mcp --add-path=/tmp \
+       --add-path=/var/log \
+       --add-path=/nix/store
 ```
 
 With this configuration, commands can access:
-- ✅ `/home/user/myproject/**` (current directory - always included)
-- ✅ `/tmp/**` (specified via --sandbox-dir)
-- ✅ `/var/log/**` (specified via --sandbox-dir)
-- ✅ `/nix/store/**` (specified via --sandbox-dir)
-- ❌ `/etc/passwd` (not in any allowed directory)
-- ❌ `/home/user/other-project/**` (not in any allowed directory)
+- ✅ `/home/user/myproject/**` (current directory - always accessible)
+- ✅ `/tmp/**` (added via --add-path)
+- ✅ `/var/log/**` (added via --add-path)
+- ✅ `/nix/store/**` (added via --add-path)
+- ❌ `/etc/passwd` (not accessible)
+- ❌ `/home/user/other-project/**` (not accessible)
 
 **Working Directory:**
 - Commands ALWAYS execute from the current directory where the server was started

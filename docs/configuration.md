@@ -11,8 +11,8 @@ The `nu-mcp` server is configured via command-line arguments or by passing argum
   Explicitly re-enable the `run_nushell` tool when using `--tools-dir`. This creates a hybrid mode where both extension tools and generic nushell command execution are available. Use with caution in multi-instance setups to avoid tool name conflicts.
 
 ### Security Options
-- `--sandbox-dir=PATH` (can be specified multiple times)
-  **Additional** directories where commands can access files. The current working directory is ALWAYS included. Use this flag to grant access to additional directories beyond the current directory. Commands are restricted to the current directory plus any specified sandbox directories and cannot access files outside them.
+- `--add-path=PATH` (can be specified multiple times)
+  Add additional paths where commands can access files. The current working directory is ALWAYS accessible. Use this flag to grant access to additional paths beyond the current directory. Commands are restricted to the current directory plus any added paths and cannot access files outside them.
 
 ## Example Configurations
 
@@ -23,13 +23,13 @@ nu-mcp-core:
   # No args - allows access to current directory only
 ```
 
-### Core Mode with Additional Directories
+### Core Mode with Additional Paths
 ```yaml
 nu-mcp-core:
   command: "nu-mcp"
   args:
-    - "--sandbox-dir=/tmp"              # Add /tmp as allowed directory
-    - "--sandbox-dir=/var/log"          # Add /var/log as allowed directory
+    - "--add-path=/tmp"              # Add /tmp as accessible path
+    - "--add-path=/var/log"          # Add /var/log as accessible path
   # Allows access to: current directory + /tmp + /var/log
 ```
 
@@ -52,14 +52,14 @@ nu-mcp-hybrid:
   # Allows access to current directory only
 ```
 
-### With Multiple Additional Sandboxes
+### With Multiple Additional Paths
 ```yaml
 nu-mcp-multi-sandbox:
   command: "nu-mcp"
   args:
-    - "--sandbox-dir=/tmp"
-    - "--sandbox-dir=/var/log"
-    - "--sandbox-dir=/nix/store"
+    - "--add-path=/tmp"
+    - "--add-path=/var/log"
+    - "--add-path=/nix/store"
 ```
 
 This configuration allows commands to access:

@@ -45,15 +45,15 @@ The `tools/` directory contains a growing catalog of useful MCP tools:
 ### Command Line Options
 - `--tools-dir=PATH` - Directory containing tool modules
 - `--enable-run-nushell` - Enable generic command execution alongside tools  
-- `--sandbox-dir=PATH` - Additional allowed directories (current directory always included)
+- `--add-path=PATH` - Add additional accessible paths (current directory always included)
 
 ### Example MCP Configuration
 ```yaml
 nu-mcp:
   command: "nu-mcp"
-  args: ["--tools-dir=./tools", "--sandbox-dir=/tmp", "--sandbox-dir=/nix/store"]
+  args: ["--tools-dir=./tools", "--add-path=/tmp", "--add-path=/nix/store"]
 ```
-Note: Current working directory is always accessible. Use `--sandbox-dir` to grant access to additional directories.
+Note: Current working directory is always accessible. Use `--add-path` to grant access to additional paths.
 
 For detailed configuration options and tool development, see the [documentation](docs/).
 
