@@ -12,7 +12,7 @@ The `nu-mcp` server is configured via command-line arguments or by passing argum
 
 ### Security Options
 - `--sandbox-dir=PATH` (can be specified multiple times)
-  Directories where commands can access files. Commands are restricted to these directories and cannot access files outside them. If not specified, defaults to current working directory. All sandbox directories are equal - there is no "primary" vs "additional" distinction.
+  **Additional** directories where commands can access files. The current working directory is ALWAYS included. Use this flag to grant access to additional directories beyond the current directory. Commands are restricted to the current directory plus any specified sandbox directories and cannot access files outside them.
 
 ## Example Configurations
 
@@ -20,8 +20,17 @@ The `nu-mcp` server is configured via command-line arguments or by passing argum
 ```yaml
 nu-mcp-core:
   command: "nu-mcp"
+  # No args - allows access to current directory only
+```
+
+### Core Mode with Additional Directories
+```yaml
+nu-mcp-core:
+  command: "nu-mcp"
   args:
-    - "--sandbox-dir=/safe/workspace"
+    - "--sandbox-dir=/tmp"              # Add /tmp as allowed directory
+    - "--sandbox-dir=/var/log"          # Add /var/log as allowed directory
+  # Allows access to: current directory + /tmp + /var/log
 ```
 
 ### Extension Mode Only
@@ -30,7 +39,7 @@ nu-mcp-tools:
   command: "nu-mcp"
   args:
     - "--tools-dir=/path/to/tools"
-    - "--sandbox-dir=/safe/workspace"
+  # Allows access to current directory only
 ```
 
 ### Hybrid Mode
@@ -40,21 +49,27 @@ nu-mcp-hybrid:
   args:
     - "--tools-dir=/path/to/tools"
     - "--enable-run-nushell"
-    - "--sandbox-dir=/safe/workspace"
+  # Allows access to current directory only
 ```
 
-### With Multiple Sandboxes
+### With Multiple Additional Sandboxes
 ```yaml
 nu-mcp-multi-sandbox:
   command: "nu-mcp"
   args:
-    - "--sandbox-dir=/workspace"
     - "--sandbox-dir=/tmp"
     - "--sandbox-dir=/var/log"
-    - "--sandbox-dir=/home/user/projects"
+    - "--sandbox-dir=/nix/store"
 ```
 
 This configuration allows commands to access:
-- All specified sandbox directories: `/workspace`, `/tmp`, `/var/log`, `/home/user/projects`
-- Any subdirectories within these sandboxes
-- Working directory: Current directory if within a sandbox, otherwise first sandbox
+- **Current working directory** (always included)
+- `/tmp` and any subdirectories
+- `/var/log` and any subdirectories
+- `/nix/store` and any subdirectories
+
+Example: If you start the server from `/home/user/myproject`, commands can access:
+- `/home/user/myproject` and subdirectories
+- `/tmp` and subdirectories
+- `/var/log` and subdirectories
+- `/nix/store` and subdirectories
