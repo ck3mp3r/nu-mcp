@@ -1,0 +1,842 @@
+# c5t (Context) Tool Implementation Plan
+
+## Overview
+
+- **Purpose**: Context/memory management tool to preserve context across sessions, track work via todo lists, and store knowledge in notes. Addresses context loss in LLM continuation summaries.
+- **Target Users**: Developers working on projects with nu-mcp, especially across multiple sessions
+- **External Dependencies**: SQLite (via Nushell's built-in `query db` command)
+
+## Problem Statement
+
+OpenCode's context continuation summaries can lose critical details:
+- File/directory locations where work is happening
+- Architectural decisions and their reasoning
+- Work progress and what's pending
+- Project-specific patterns and gotchas
+
+This causes developers to re-search for files, re-explain context, and lose momentum when resuming work.
+
+## Goals
+
+1. **Todo List Management**: Track work items and progress
+2. **Auto-Archive**: Completed todo lists automatically become notes
+3. **Markdown Notes**: Store knowledge with rich formatting
+4. **Scratchpad**: Auto-update context snapshot every 25% token usage
+5. **Search**: Find past decisions and knowledge
+6. **Per-Project Storage**: Each project has its own `.memory/c5t.db`
+
+## Capabilities
+
+- [ ] Create todo lists with items
+- [ ] Mark items complete, auto-archive when all done
+- [ ] Update progress notes on todo lists (markdown)
+- [ ] Create standalone notes (markdown)
+- [ ] Search notes by tags and full-text
+- [ ] Scratchpad for session context preservation
+- [ ] List active todos and archived notes
+
+## Module Structure
+
+- `mod.nu`: MCP interface and tool routing
+- `storage.nu`: SQLite database operations (CRUD)
+- `formatters.nu`: Output formatting for MCP responses
+- `utils.nu`: ID generation, validation, helpers
+- `README.md`: User documentation
+
+## Database Schema
+
+### Tables
+
+```sql
+-- Todo Lists
+CREATE TABLE IF NOT EXISTS todo_lists (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    notes TEXT,                    -- Progress notes (markdown)
+    tags TEXT,                     -- JSON array: ["tag1", "tag2"]
+    status TEXT DEFAULT 'active' CHECK(status IN ('active', 'archived')),
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    archived_at TEXT
+);
+
+-- Todo Items
+CREATE TABLE IF NOT EXISTS todo_items (
+    id TEXT PRIMARY KEY,
+    list_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'completed')),
+    created_at TEXT DEFAULT (datetime('now')),
+    completed_at TEXT,
+    FOREIGN KEY (list_id) REFERENCES todo_lists(id) ON DELETE CASCADE
+);
+
+-- Notes (archived todos + standalone notes + scratchpad)
+CREATE TABLE IF NOT EXISTS notes (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,         -- Markdown content
+    tags TEXT,                     -- JSON array
+    note_type TEXT DEFAULT 'manual' CHECK(note_type IN ('manual', 'archived_todo', 'scratchpad')),
+    source_id TEXT,                -- Original todo list ID if archived
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_todo_lists_status ON todo_lists(status);
+CREATE INDEX IF NOT EXISTS idx_todo_items_list ON todo_items(list_id);
+CREATE INDEX IF NOT EXISTS idx_notes_type ON notes(note_type);
+
+-- Full-text search
+CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
+    title,
+    content,
+    content=notes,
+    content_rowid=id
+);
+
+-- FTS sync triggers
+CREATE TRIGGER IF NOT EXISTS notes_ai AFTER INSERT ON notes BEGIN
+    INSERT INTO notes_fts(rowid, title, content) 
+    VALUES (new.id, new.title, new.content);
+END;
+
+CREATE TRIGGER IF NOT EXISTS notes_au AFTER UPDATE ON notes BEGIN
+    UPDATE notes_fts SET title = new.title, content = new.content 
+    WHERE rowid = new.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS notes_ad AFTER DELETE ON notes BEGIN
+    DELETE FROM notes_fts WHERE rowid = old.id;
+END;
+
+-- Auto-update timestamps
+CREATE TRIGGER IF NOT EXISTS todo_lists_update AFTER UPDATE ON todo_lists BEGIN
+    UPDATE todo_lists SET updated_at = datetime('now') WHERE id = NEW.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS notes_update AFTER UPDATE ON notes BEGIN
+    UPDATE notes SET updated_at = datetime('now') WHERE id = NEW.id;
+END;
+```
+
+## Context7 Research
+
+- [x] Research Nushell SQLite integration (built-in `query db`)
+- [x] Research markdown handling in Nushell
+- [ ] Research existing note-taking tool patterns (Obsidian, Notion)
+
+## Security Considerations
+
+- **No safety modes needed**: This tool manages local project data only
+- **No sensitive data**: All data is project-specific context
+- **File permissions**: Database stored in `.memory/` (can be gitignored)
+
+## Implementation Milestones
+
+### Milestone 1: Basic Structure & Database
+**Goal**: Set up tool skeleton and SQLite database initialization
+
+**Tasks**:
+- [ ] Create `tools/c5t/` directory structure
+- [ ] Create `mod.nu` skeleton with `list-tools` and `call-tool`
+- [ ] Create `storage.nu` with database initialization
+- [ ] Implement schema creation (SQL above)
+- [ ] Create `utils.nu` with ID generation
+- [ ] Create `formatters.nu` stub
+- [ ] Test database creation
+
+**Validation**:
+```bash
+nu tools/c5t/mod.nu list-tools | from json
+# Should return empty array
+
+ls .memory/c5t.db
+# Database file should exist with correct schema
+```
+
+**Acceptance Criteria**:
+- [ ] Tool discovered by nu-mcp
+- [ ] Database created in `.memory/c5t.db`
+- [ ] Schema created successfully
+- [ ] All tables and triggers exist
+
+---
+
+### Milestone 2: Todo List Creation
+**Goal**: Create and list todo lists
+
+**Tools to Implement**:
+- `c5t_create_list` - Create new todo list
+- `c5t_list_active` - Show all active todo lists
+
+**Functions** (storage.nu, kebab-case):
+- `init-database` - Ensure DB and schema exist
+- `create-todo-list [name, description, tags]`
+- `get-active-lists [tag_filter?]`
+- `generate-id` - Unique ID generation
+
+**Validation**:
+```bash
+nu tools/c5t/mod.nu call-tool c5t_create_list '{
+  "name": "Test Feature",
+  "description": "Testing c5t",
+  "tags": ["test"]
+}'
+
+nu tools/c5t/mod.nu call-tool c5t_list_active '{}'
+# Should show the created list
+```
+
+**Acceptance Criteria**:
+- [ ] Can create todo list with name, description, tags
+- [ ] List shows active todo lists
+- [ ] Tags stored as JSON array
+- [ ] Created_at timestamp set automatically
+- [ ] Status defaults to 'active'
+
+---
+
+### Milestone 3: Todo Items Management
+**Goal**: Add and complete todo items
+
+**Tools to Implement**:
+- `c5t_add_item` - Add item to list
+- `c5t_complete_item` - Mark item complete
+
+**Functions** (storage.nu, kebab-case):
+- `add-todo-item [list_id, content]`
+- `complete-todo-item [list_id, item_id]`
+- `get-todo-list [list_id]`
+- `get-pending-items [list_id]`
+- `all-items-completed [list_id]` - Check if list is done
+
+**Validation**:
+```bash
+# Add item
+nu tools/c5t/mod.nu call-tool c5t_add_item '{
+  "list_id": "...",
+  "content": "Create database schema"
+}'
+
+# Complete item
+nu tools/c5t/mod.nu call-tool c5t_complete_item '{
+  "list_id": "...",
+  "item_id": "..."
+}'
+```
+
+**Acceptance Criteria**:
+- [ ] Can add items to existing list
+- [ ] Can mark items complete
+- [ ] Completed_at timestamp set on completion
+- [ ] Status changes from 'pending' to 'completed'
+- [ ] List shows items with status
+
+---
+
+### Milestone 4: Progress Notes on Todo Lists
+**Goal**: Update progress notes on todo lists
+
+**Tools to Implement**:
+- `c5t_update_notes` - Update notes field on list
+
+**Functions** (storage.nu, kebab-case):
+- `update-todo-notes [list_id, notes]`
+
+**Validation**:
+```bash
+nu tools/c5t/mod.nu call-tool c5t_update_notes '{
+  "list_id": "...",
+  "notes": "## Progress\n\nCompleted schema, working on CRUD operations"
+}'
+```
+
+**Acceptance Criteria**:
+- [ ] Can update notes field with markdown
+- [ ] Notes preserved as-is (no markdown rendering)
+- [ ] Updated_at timestamp changes
+- [ ] Notes visible in list_active output
+
+---
+
+### Milestone 5: Auto-Archive Logic
+**Goal**: Automatically archive completed todo lists as notes
+
+**Functions** (storage.nu, kebab-case):
+- `archive-todo-list [list_id]`
+- `generate-archive-note [todo_list, items]`
+
+**Archive Note Content**:
+```markdown
+# <todo list name>
+
+<todo list description>
+
+## Completed Items
+- <item 1 content> (completed: <timestamp>)
+- <item 2 content> (completed: <timestamp>)
+
+## Progress Notes
+<todo list notes field>
+
+---
+*Auto-archived on <timestamp>*
+```
+
+**Validation**:
+```bash
+# Complete all items in a list
+# Verify auto-archive happens
+# Check notes table for archived note
+```
+
+**Acceptance Criteria**:
+- [ ] When last item completes, list auto-archives
+- [ ] Note created with note_type='archived_todo'
+- [ ] Note content includes all items and notes
+- [ ] Source_id points to original todo list
+- [ ] Todo list status changes to 'archived'
+- [ ] Archived_at timestamp set
+
+---
+
+### Milestone 6: Standalone Notes
+**Goal**: Create and manage manual notes
+
+**Tools to Implement**:
+- `c5t_create_note` - Create standalone note
+- `c5t_list_notes` - List notes with filtering
+- `c5t_get_note` - Get specific note by ID
+
+**Functions** (storage.nu, kebab-case):
+- `create-note [title, content, tags]`
+- `get-notes [tag_filter?, note_type?, limit?]`
+- `get-note-by-id [note_id]`
+
+**Validation**:
+```bash
+nu tools/c5t/mod.nu call-tool c5t_create_note '{
+  "title": "Database Design Decision",
+  "content": "# Why SQLite\n\nChose SQLite for...",
+  "tags": ["architecture", "database"]
+}'
+
+nu tools/c5t/mod.nu call-tool c5t_list_notes '{
+  "tags": ["architecture"],
+  "limit": 10
+}'
+```
+
+**Acceptance Criteria**:
+- [ ] Can create notes with markdown content
+- [ ] Can list notes with tag filtering
+- [ ] Can retrieve specific note by ID
+- [ ] Note_type defaults to 'manual'
+- [ ] Timestamps set correctly
+
+---
+
+### Milestone 7: Full-Text Search
+**Goal**: Search notes by content and title
+
+**Tools to Implement**:
+- `c5t_search` - Full-text search using FTS5
+
+**Functions** (storage.nu, kebab-case):
+- `search-notes [query, tag_filter?, limit?]`
+
+**Validation**:
+```bash
+nu tools/c5t/mod.nu call-tool c5t_search '{
+  "query": "database",
+  "limit": 10
+}'
+
+nu tools/c5t/mod.nu call-tool c5t_search '{
+  "query": "authentication",
+  "tags": ["backend"]
+}'
+```
+
+**Acceptance Criteria**:
+- [ ] FTS5 full-text search works
+- [ ] Searches both title and content
+- [ ] Can combine with tag filtering
+- [ ] Results sorted by relevance
+- [ ] Limit parameter works
+
+---
+
+### Milestone 8: Scratchpad
+**Goal**: Auto-updating context scratchpad
+
+**Tools to Implement**:
+- `c5t_update_scratchpad` - Update scratchpad note
+- `c5t_get_scratchpad` - Retrieve current scratchpad
+
+**Scratchpad Logic**:
+- Single note with note_type='scratchpad'
+- Updated at 25%, 50%, 75% context usage
+- Contains:
+  - Active todo lists summary
+  - Recent notes (last 5)
+  - Files being worked on
+  - Current timestamp
+
+**Functions** (storage.nu, kebab-case):
+- `update-scratchpad [content]`
+- `get-scratchpad`
+- `generate-scratchpad-content` - Build scratchpad from current state
+
+**Validation**:
+```bash
+# Manual test of scratchpad update
+nu tools/c5t/mod.nu call-tool c5t_update_scratchpad '{
+  "content": "## Current Work\n\n..."
+}'
+
+nu tools/c5t/mod.nu call-tool c5t_get_scratchpad '{}'
+```
+
+**Acceptance Criteria**:
+- [ ] Only one scratchpad note exists
+- [ ] Update replaces previous scratchpad
+- [ ] Scratchpad has note_type='scratchpad'
+- [ ] Content includes active todos + recent notes
+- [ ] Timestamp shows last update
+
+**Open Question**: How to detect 25% context usage?
+- Manual trigger for MVP? (user calls `c5t_update_scratchpad`)
+- Future: Hook into OpenCode's context tracking?
+
+---
+
+### Milestone 9: Formatters & Output
+**Goal**: User-friendly output formatting
+
+**Functions** (formatters.nu, kebab-case):
+- `format-todo-created [list]`
+- `format-todos-list [lists]`
+- `format-note-created [note]`
+- `format-notes-list [notes]`
+- `format-search-results [notes]`
+
+**Acceptance Criteria**:
+- [ ] Todo lists show progress (e.g., "3/5 items complete")
+- [ ] Notes show title, tags, preview
+- [ ] Search results show matched snippets
+- [ ] Timestamps formatted for readability
+- [ ] Markdown content displayed appropriately
+
+---
+
+### Milestone 10: Error Handling & Validation
+**Goal**: Robust error handling and input validation
+
+**Functions** (utils.nu, kebab-case):
+- `validate-list-input [args]`
+- `validate-item-input [args]`
+- `validate-note-input [args]`
+
+**Error Scenarios**:
+- [ ] Todo list not found
+- [ ] Todo item not found
+- [ ] Invalid list_id format
+- [ ] Empty title/name
+- [ ] Invalid tags format
+- [ ] Database not initialized
+
+**Acceptance Criteria**:
+- [ ] Clear error messages for all failure cases
+- [ ] Input validation before database operations
+- [ ] Helpful suggestions in error messages
+- [ ] Try-catch around all database operations
+
+---
+
+### Milestone 11: Documentation
+**Goal**: Complete README and usage examples
+
+**Files to Create**:
+- [ ] `tools/c5t/README.md`
+
+**Documentation Sections**:
+- Tool overview and purpose
+- Installation (auto-discovered by nu-mcp)
+- Configuration (none needed for MVP)
+- Available tools with examples
+- Todo workflow example
+- Notes workflow example
+- Scratchpad usage
+- Search examples
+- Database location and structure
+- FAQ and troubleshooting
+
+**Acceptance Criteria**:
+- [ ] README complete with all sections
+- [ ] Code examples tested and working
+- [ ] Clear explanation of auto-archive
+- [ ] Scratchpad explained
+
+---
+
+### Milestone 12: Testing & Polish
+**Goal**: Comprehensive testing and code quality
+
+**Testing Scenarios**:
+1. **Todo Lists**:
+   - [ ] Create → Add items → Complete all → Verify archive
+   - [ ] Multiple lists with different tags
+   - [ ] Update notes field multiple times
+   
+2. **Notes**:
+   - [ ] Create manual note with markdown
+   - [ ] List with tag filtering
+   - [ ] Search across notes
+   - [ ] Retrieve archived todo as note
+   
+3. **Scratchpad**:
+   - [ ] Update scratchpad multiple times
+   - [ ] Retrieve scratchpad
+   - [ ] Only one scratchpad exists
+   
+4. **Edge Cases**:
+   - [ ] Empty database
+   - [ ] Invalid IDs
+   - [ ] Duplicate operations
+   - [ ] Database corruption recovery
+
+**Code Quality**:
+- [ ] Format all Nushell files with topiary
+- [ ] Run clippy and fix warnings
+- [ ] Follow naming conventions (snake_case tools, kebab-case functions)
+- [ ] Add comments for complex logic
+
+---
+
+## Tool Schemas (MCP)
+
+### Todo Management
+
+**c5t_create_list**:
+```nushell
+{
+    name: "c5t_create_list"
+    description: "Create a new todo list to track work"
+    input_schema: {
+        type: "object"
+        properties: {
+            name: { type: "string", description: "List name" }
+            description: { type: "string", description: "Brief description" }
+            tags: { 
+                type: "array", 
+                items: { type: "string" },
+                description: "Tags for categorization"
+            }
+        }
+        required: ["name"]
+    }
+}
+```
+
+**c5t_add_item**:
+```nushell
+{
+    name: "c5t_add_item"
+    description: "Add a todo item to a list"
+    input_schema: {
+        type: "object"
+        properties: {
+            list_id: { type: "string", description: "Todo list ID" }
+            content: { type: "string", description: "Item description" }
+        }
+        required: ["list_id", "content"]
+    }
+}
+```
+
+**c5t_complete_item**:
+```nushell
+{
+    name: "c5t_complete_item"
+    description: "Mark item complete. Auto-archives list if all items done."
+    input_schema: {
+        type: "object"
+        properties: {
+            list_id: { type: "string", description: "Todo list ID" }
+            item_id: { type: "string", description: "Item ID" }
+        }
+        required: ["list_id", "item_id"]
+    }
+}
+```
+
+**c5t_update_notes**:
+```nushell
+{
+    name: "c5t_update_notes"
+    description: "Update progress notes on a todo list (markdown supported)"
+    input_schema: {
+        type: "object"
+        properties: {
+            list_id: { type: "string", description: "Todo list ID" }
+            notes: { type: "string", description: "Progress notes (markdown)" }
+        }
+        required: ["list_id", "notes"]
+    }
+}
+```
+
+**c5t_list_active**:
+```nushell
+{
+    name: "c5t_list_active"
+    description: "List all active todo lists"
+    input_schema: {
+        type: "object"
+        properties: {
+            tags: {
+                type: "array",
+                items: { type: "string" },
+                description: "Filter by tags (optional)"
+            }
+        }
+    }
+}
+```
+
+### Notes Management
+
+**c5t_create_note**:
+```nushell
+{
+    name: "c5t_create_note"
+    description: "Create a standalone note (markdown supported)"
+    input_schema: {
+        type: "object"
+        properties: {
+            title: { type: "string", description: "Note title" }
+            content: { type: "string", description: "Note content (markdown)" }
+            tags: {
+                type: "array",
+                items: { type: "string" },
+                description: "Tags (optional)"
+            }
+        }
+        required: ["title", "content"]
+    }
+}
+```
+
+**c5t_list_notes**:
+```nushell
+{
+    name: "c5t_list_notes"
+    description: "List notes with filtering"
+    input_schema: {
+        type: "object"
+        properties: {
+            tags: {
+                type: "array",
+                items: { type: "string" },
+                description: "Filter by tags"
+            }
+            note_type: {
+                type: "string",
+                enum: ["manual", "archived_todo", "scratchpad", "all"],
+                description: "Filter by type (default: all except scratchpad)"
+            }
+            limit: {
+                type: "integer",
+                minimum: 1,
+                maximum: 100,
+                description: "Max notes to return (default: 20)"
+            }
+        }
+    }
+}
+```
+
+**c5t_get_note**:
+```nushell
+{
+    name: "c5t_get_note"
+    description: "Get a specific note by ID"
+    input_schema: {
+        type: "object"
+        properties: {
+            note_id: { type: "string", description: "Note ID" }
+        }
+        required: ["note_id"]
+    }
+}
+```
+
+**c5t_search**:
+```nushell
+{
+    name: "c5t_search"
+    description: "Full-text search in notes"
+    input_schema: {
+        type: "object"
+        properties: {
+            query: { type: "string", description: "Search query" }
+            tags: {
+                type: "array",
+                items: { type: "string" },
+                description: "Also filter by tags (optional)"
+            }
+            limit: {
+                type: "integer",
+                minimum: 1,
+                maximum: 100,
+                description: "Max results (default: 20)"
+            }
+        }
+        required: ["query"]
+    }
+}
+```
+
+### Scratchpad
+
+**c5t_update_scratchpad**:
+```nushell
+{
+    name: "c5t_update_scratchpad"
+    description: "Update the session scratchpad (for context preservation)"
+    input_schema: {
+        type: "object"
+        properties: {
+            content: { type: "string", description: "Scratchpad content (markdown)" }
+        }
+        required: ["content"]
+    }
+}
+```
+
+**c5t_get_scratchpad**:
+```nushell
+{
+    name: "c5t_get_scratchpad"
+    description: "Get the current scratchpad content"
+    input_schema: {
+        type: "object"
+        properties: {}
+    }
+}
+```
+
+## Testing Approach
+
+### Manual Testing Commands
+
+```bash
+# Test database creation
+nu tools/c5t/mod.nu list-tools
+
+# Test todo workflow
+nu tools/c5t/mod.nu call-tool c5t_create_list '{"name": "Test", "tags": ["test"]}'
+nu tools/c5t/mod.nu call-tool c5t_add_item '{"list_id": "...", "content": "Item 1"}'
+nu tools/c5t/mod.nu call-tool c5t_complete_item '{"list_id": "...", "item_id": "..."}'
+nu tools/c5t/mod.nu call-tool c5t_list_active '{}'
+
+# Test notes
+nu tools/c5t/mod.nu call-tool c5t_create_note '{
+  "title": "Test Note",
+  "content": "# Test\n\nContent",
+  "tags": ["test"]
+}'
+nu tools/c5t/mod.nu call-tool c5t_search '{"query": "test"}'
+
+# Test scratchpad
+nu tools/c5t/mod.nu call-tool c5t_update_scratchpad '{"content": "## Session\n\nWorking on..."}'
+nu tools/c5t/mod.nu call-tool c5t_get_scratchpad '{}'
+```
+
+### Edge Cases to Test
+
+- [ ] Create list without tags
+- [ ] Add item to non-existent list
+- [ ] Complete already completed item
+- [ ] Complete item in archived list
+- [ ] Search with no results
+- [ ] List notes from empty database
+- [ ] Update scratchpad multiple times (should replace)
+
+## Questions & Decisions
+
+### Database Location
+**Decision**: Use `.memory/c5t.db` in project root (per-project storage)
+**Rationale**: Context is project-specific; separate databases prevent mixing unrelated work
+
+### Auto-Archive Trigger
+**Decision**: Automatically archive when last item is completed
+**Rationale**: Simplifies workflow; completed work becomes searchable knowledge immediately
+
+### Scratchpad Updates
+**Question**: How to trigger at 25% context intervals?
+**MVP Decision**: Manual trigger via `c5t_update_scratchpad`
+**Future**: Hook into OpenCode's context tracking if API available
+
+### Export/Import
+**Decision**: Defer to future iteration
+**Rationale**: Focus on core workflow first; export/import needed for backup/sync but not MVP
+
+### Markdown Rendering
+**Decision**: Store as-is, no rendering in tool output
+**Rationale**: MCP clients may render markdown; tool just preserves format
+
+### Tag Storage
+**Decision**: JSON array as TEXT in SQLite
+**Rationale**: Simple, queryable with SQLite JSON functions, easy to export
+
+## Success Criteria
+
+- [ ] Can create and manage todo lists
+- [ ] Auto-archive works when all items complete
+- [ ] Can create and search markdown notes
+- [ ] Scratchpad updates and retrieves correctly
+- [ ] Full-text search works across notes
+- [ ] Database persists across sessions
+- [ ] All tests pass
+- [ ] Documentation complete
+- [ ] Code formatted with topiary
+
+## Timeline Estimate
+
+- Milestone 1 (Structure & DB): 30 minutes
+- Milestone 2 (Create Lists): 30 minutes
+- Milestone 3 (Items): 30 minutes
+- Milestone 4 (Notes Update): 15 minutes
+- Milestone 5 (Auto-Archive): 45 minutes
+- Milestone 6 (Standalone Notes): 30 minutes
+- Milestone 7 (Search): 30 minutes
+- Milestone 8 (Scratchpad): 30 minutes
+- Milestone 9 (Formatters): 30 minutes
+- Milestone 10 (Error Handling): 30 minutes
+- Milestone 11 (Documentation): 30 minutes
+- Milestone 12 (Testing): 45 minutes
+
+**Total**: ~6 hours
+
+## Future Enhancements (Post-MVP)
+
+- Export to JSON (with markdown content)
+- Import from JSON exports
+- Links between notes (Obsidian-style)
+- Backlinks (what references this note?)
+- Note templates
+- Batch operations (archive multiple lists)
+- Statistics (completion rates, etc.)
+- Integration with TodoWrite tool
+
+## References
+
+- Nushell SQLite Documentation: https://www.nushell.sh/book/loading_data.html
+- SQLite FTS5: https://www.sqlite.org/fts5.html
+- Tool Development Guide: `docs/tool-development.md`
+- ArgoCD Implementation Plan (reference): `docs/implementation-plans/argocd-cli-auth.md`
