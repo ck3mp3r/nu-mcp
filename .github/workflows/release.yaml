@@ -138,6 +138,7 @@ jobs:
           open Formula/nu-mcp.rb | update-homebrew-formula $version "nu-mcp" $architectures | save --force Formula/nu-mcp.rb
           git add Formula/nu-mcp.rb
           git commit -m $"Update Homebrew formula to ($version)"
+          git push origin $"release/($version)"
 
           # Create release and upload artifacts using gh CLI
           create-github-release $version

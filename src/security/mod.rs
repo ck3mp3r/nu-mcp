@@ -107,14 +107,18 @@ fn extract_words(command: &str) -> Vec<String> {
         .map(|s| {
             // Strip surrounding quotes to get the actual argument value
             let s = s.trim();
-            if (s.starts_with('"') && s.ends_with('"'))
+            let s = if (s.starts_with('"') && s.ends_with('"'))
                 || (s.starts_with('\'') && s.ends_with('\''))
                 || (s.starts_with('`') && s.ends_with('`'))
             {
-                s[1..s.len() - 1].to_string()
+                &s[1..s.len() - 1]
             } else {
-                s.to_string()
-            }
+                s
+            };
+
+            // Strip trailing shell metacharacters (;, &, |, etc.)
+            let s = s.trim_end_matches([';', '&', '|', '>', '<']);
+            s.to_string()
         })
         .collect()
 }
@@ -227,62 +231,33 @@ pub fn validate_path_safety(
             continue;
         };
 
-        // For paths with .., we need to check the resolved canonical path
-        if word.contains("..") {
-            // Resolve the path (handles .. components)
-            // If the path doesn't exist, canonicalize will fail, so we manually resolve
-            match path_to_check.canonicalize() {
-                Ok(canonical_path) => {
-                    // Path exists - check if it's within any sandbox directory
-                    if !is_path_in_any_sandbox(&canonical_path, &canonical_sandboxes) {
-                        return Err(format!(
-                            "Path '{}' (resolves to '{}') escapes sandbox directories. Allowed: {}",
-                            &word,
-                            canonical_path.display(),
-                            format_sandbox_list(&canonical_sandboxes)
-                        ));
-                    }
-                }
-                Err(_) => {
-                    // Path doesn't exist - manually check if resolved path stays in sandbox directories
-                    // Use a simple component-based resolution
-                    if let Some(resolved) = resolve_relative_path(first_sandbox, &word) {
-                        // Normalize the resolved path for comparison
-                        // Since canonicalize failed (path doesn't exist), we compare the constructed path
-                        if !is_path_in_any_sandbox(&resolved, &canonical_sandboxes) {
-                            return Err(format!(
-                                "Path '{}' would escape sandbox directories (resolves to {}). Allowed: {}",
-                                &word,
-                                resolved.display(),
-                                format_sandbox_list(&canonical_sandboxes)
-                            ));
-                        }
-                    }
-                    // If we can't resolve, be conservative and allow it
-                    // (nushell will handle the actual path resolution and fail if invalid)
+        // Try to canonicalize the path if it exists, otherwise use manual resolution
+        let canonical_path = match path_to_check.canonicalize() {
+            Ok(canonical) => canonical,
+            Err(_) if word.contains("..") => {
+                // For non-existent paths with .., manually resolve components
+                match resolve_relative_path(first_sandbox, &word) {
+                    Some(resolved) => resolved,
+                    None => continue, // Can't resolve, skip
                 }
             }
-        } else {
-            // For existing paths without .., check if they're within any sandbox directory
-            if let Ok(canonical_path) = path_to_check.canonicalize() {
-                if !is_path_in_any_sandbox(&canonical_path, &canonical_sandboxes) {
-                    return Err(format!(
-                        "Path '{}' (resolves to '{}') escapes sandbox directories. Allowed: {}",
-                        &word,
-                        canonical_path.display(),
-                        format_sandbox_list(&canonical_sandboxes)
-                    ));
-                }
-            } else if path_to_check.is_absolute() {
-                // For non-existent absolute paths, check if they would be inside sandbox directories
-                if !is_path_in_any_sandbox(&path_to_check, &canonical_sandboxes) {
-                    return Err(format!(
-                        "Path '{}' escapes sandbox directories. Allowed: {}",
-                        &word,
-                        format_sandbox_list(&canonical_sandboxes)
-                    ));
-                }
+            Err(_) if path_to_check.is_absolute() => {
+                // Non-existent absolute path - use as-is for validation
+                path_to_check
             }
+            Err(_) => {
+                // Non-existent relative path - skip validation (Nushell will handle)
+                continue;
+            }
+        };
+
+        // Check if the canonical/resolved path is within any sandbox
+        if !is_path_in_any_sandbox(&canonical_path, &canonical_sandboxes) {
+            return Err(format!(
+                "Path '{}' escapes sandbox directories. Allowed: {}",
+                &word,
+                format_sandbox_list(&canonical_sandboxes)
+            ));
         }
     }
 
