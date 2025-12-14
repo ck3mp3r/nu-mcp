@@ -281,6 +281,28 @@ def "main list-tools" [] {
         required: ["query"]
       }
     }
+    {
+      name: "c5t_update_scratchpad"
+      description: "Update or create the scratchpad note. Only one scratchpad exists - it will be created if it doesn't exist, or updated if it does. Use this to maintain an auto-updating context summary."
+      input_schema: {
+        type: "object"
+        properties: {
+          content: {
+            type: "string"
+            description: "Markdown content for the scratchpad. Typically includes active todos, recent notes, files being worked on, and current timestamp."
+          }
+        }
+        required: ["content"]
+      }
+    }
+    {
+      name: "c5t_get_scratchpad"
+      description: "Retrieve the current scratchpad note. Returns null if no scratchpad exists yet."
+      input_schema: {
+        type: "object"
+        properties: {}
+      }
+    }
   ] | to json
 }
 
@@ -598,6 +620,39 @@ def "main call-tool" [
       }
 
       format-search-results $result.notes
+    }
+
+    "c5t_update_scratchpad" => {
+      if "content" not-in $parsed_args {
+        return "Error: Missing required field: 'content'"
+      }
+
+      let content = $parsed_args.content
+
+      let result = update-scratchpad $content
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $"✅ Scratchpad updated \(ID: ($result.scratchpad_id)\)
+
+Content preview:($content | lines | first 3 | str join (char newline))
+..."
+    }
+
+    "c5t_get_scratchpad" => {
+      let result = get-scratchpad
+
+      if not $result.success {
+        return $result.error
+      }
+
+      if $result.scratchpad == null {
+        return "📝 No scratchpad exists yet. Create one with c5t_update_scratchpad."
+      }
+
+      format-note-detail $result.scratchpad
     }
 
     _ => {

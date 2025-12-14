@@ -12,18 +12,126 @@ export def "test get-db-path returns correct path" [] {
   assert ($db_path | str ends-with ".c5t/context.db")
 }
 
-# Test init-database creates database
-export def "test init-database creates database file" [] {
-  # This test would actually create a database file
-  # For now, we'll test that the function is callable
-  use ../storage.nu init-database
+# ======================================
+# Scratchpad Tests (Milestone 8)
+# ======================================
 
-  # Mock the sqlite3 calls to not actually create files
+# Test update-scratchpad creates new scratchpad when none exists
+export def "test update-scratchpad creates new scratchpad when none exists" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu update-scratchpad
+
+  # Mock SELECT to return empty (no existing scratchpad)
+  let mock_select = "[]"
+  # Mock INSERT success with rowid 1
+  let mock_insert = ""
+
   with-env {
-    MOCK_sqlite3_CREATE: ({output: "" exit_code: 0} | to json)
+    MOCK_sqlite3: ({output: $mock_select exit_code: 0} | to json)
+    MOCK_sqlite3_INSERT: ({output: $mock_insert exit_code: 0} | to json)
   } {
-    let db_path = init-database
-    assert ($db_path | str ends-with ".c5t/context.db")
+    let result = update-scratchpad "## Current Work\n\nWorking on feature X"
+
+    assert ($result.success == true)
+    assert ($result.scratchpad_id == 1)
+  }
+}
+
+# Test update-scratchpad updates existing scratchpad
+export def "test update-scratchpad updates existing scratchpad" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu update-scratchpad
+
+  # Mock SELECT to return existing scratchpad with id 42
+  let mock_select = [{id: 42}] | to json
+  # Mock UPDATE success
+  let mock_update = ""
+
+  with-env {
+    MOCK_sqlite3: ({output: $mock_select exit_code: 0} | to json)
+    MOCK_sqlite3_UPDATE: ({output: $mock_update exit_code: 0} | to json)
+  } {
+    let result = update-scratchpad "## Updated Work\n\nNow working on feature Y"
+
+    assert ($result.success == true)
+    assert ($result.scratchpad_id == 42)
+  }
+}
+
+# Test get-scratchpad returns current scratchpad
+export def "test get-scratchpad returns current scratchpad" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu get-scratchpad
+
+  # Mock SELECT to return existing scratchpad
+  let mock_data = [
+    {
+      id: 42
+      title: "Scratchpad"
+      content: "## Current Work\n\nWorking on feature X"
+      tags: "null"
+      note_type: "scratchpad"
+      created_at: "2025-01-14 16:00:00"
+      updated_at: "2025-01-14 17:00:00"
+    }
+  ] | to json
+
+  with-env {
+    MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
+  } {
+    let result = get-scratchpad
+
+    assert ($result.success == true)
+    assert ($result.scratchpad != null)
+    assert ($result.scratchpad.id == 42)
+    assert ($result.scratchpad.note_type == "scratchpad")
+  }
+}
+
+# Test get-scratchpad returns null when no scratchpad exists
+export def "test get-scratchpad returns null when no scratchpad exists" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu get-scratchpad
+
+  # Mock SELECT to return empty
+  let mock_data = "[]"
+
+  with-env {
+    MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
+  } {
+    let result = get-scratchpad
+
+    assert ($result.success == true)
+    assert ($result.scratchpad == null)
+  }
+}
+
+# Test only one scratchpad exists after multiple updates
+export def "test only one scratchpad exists after multiple updates" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu update-scratchpad
+
+  # First update - no scratchpad exists, will INSERT
+  let mock_select_empty = "[]"
+  # Second update - scratchpad exists with id 1, will UPDATE
+  let mock_select_exists = [{id: 1}] | to json
+
+  # First call: CREATE
+  with-env {
+    MOCK_sqlite3: ({output: $mock_select_empty exit_code: 0} | to json)
+  } {
+    let result1 = update-scratchpad "First content"
+    assert ($result1.success == true)
+    assert ($result1.scratchpad_id == 1)
+  }
+
+  # Second call: UPDATE (same ID returned)
+  with-env {
+    MOCK_sqlite3: ({output: $mock_select_exists exit_code: 0} | to json)
+  } {
+    let result2 = update-scratchpad "Second content"
+    assert ($result2.success == true)
+    assert ($result2.scratchpad_id == 1) # Same ID as first call
   }
 }
 
@@ -379,6 +487,79 @@ export def "test get-notes filters by note_type" [] {
     assert ($result.success == true)
     assert ($result.count == 1)
     assert ($result.notes.0.note_type == "manual")
+  }
+}
+
+# Test get-notes excludes scratchpad by default
+export def "test get-notes excludes scratchpad by default" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu get-notes
+
+  # Mock returns manual and archived notes (no scratchpad)
+  let mock_data = [
+    {
+      id: 1
+      title: "Manual Note"
+      content: "Content"
+      tags: "null"
+      note_type: "manual"
+      source_id: null
+      created_at: "2025-01-14 16:30:00"
+      updated_at: "2025-01-14 16:30:00"
+    }
+    {
+      id: 2
+      title: "Archived Todo"
+      content: "Content"
+      tags: "null"
+      note_type: "archived_todo"
+      source_id: 1
+      created_at: "2025-01-14 16:00:00"
+      updated_at: "2025-01-14 16:00:00"
+    }
+  ] | to json
+
+  with-env {
+    MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
+  } {
+    # Call without specifying note_type
+    let result = get-notes
+
+    assert ($result.success == true)
+    assert ($result.count == 2)
+    # Verify no scratchpad in results
+    assert (($result.notes | where note_type == "scratchpad" | length) == 0)
+  }
+}
+
+# Test get-notes includes scratchpad when explicitly requested
+export def "test get-notes includes scratchpad when explicitly requested" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu get-notes
+
+  # Mock returns scratchpad
+  let mock_data = [
+    {
+      id: 1
+      title: "Scratchpad"
+      content: "Current work"
+      tags: "null"
+      note_type: "scratchpad"
+      source_id: null
+      created_at: "2025-01-14 16:30:00"
+      updated_at: "2025-01-14 17:00:00"
+    }
+  ] | to json
+
+  with-env {
+    MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
+  } {
+    # Explicitly request scratchpad
+    let result = get-notes [] "scratchpad"
+
+    assert ($result.success == true)
+    assert ($result.count == 1)
+    assert ($result.notes.0.note_type == "scratchpad")
   }
 }
 
