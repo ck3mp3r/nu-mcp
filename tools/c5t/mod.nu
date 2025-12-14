@@ -283,13 +283,13 @@ def "main list-tools" [] {
     }
     {
       name: "c5t_update_scratchpad"
-      description: "Update or create the scratchpad note. Only one scratchpad exists - it will be created if it doesn't exist, or updated if it does. Use this to maintain an auto-updating context summary."
+      description: "Update or create the scratchpad note for maintaining session context. Only one scratchpad exists - it will be created if it doesn't exist, or updated if it does. **Best Practice**: Update scratchpad at session milestones (every 3-5 todo changes, after completing major tasks, before context-heavy work). **Workflow**: Session start → get_scratchpad (review context), During work → update_scratchpad (capture progress/decisions), Session end → update_scratchpad (save state)."
       input_schema: {
         type: "object"
         properties: {
           content: {
             type: "string"
-            description: "Markdown content for the scratchpad. Typically includes active todos, recent notes, files being worked on, and current timestamp."
+            description: "Markdown content for the scratchpad. Typically includes: active work summary, in-progress items, recent accomplishments, key decisions/learnings, next steps, and current timestamp. Use c5t_generate_scratchpad_draft to auto-generate a starting template."
           }
         }
         required: ["content"]
@@ -297,7 +297,7 @@ def "main list-tools" [] {
     }
     {
       name: "c5t_get_scratchpad"
-      description: "Retrieve the current scratchpad note. Returns null if no scratchpad exists yet."
+      description: "**CONTEXT LOST? START HERE!** Retrieve the current scratchpad note containing session context, active work, and recent progress. This is THE context recovery tool - use it at session start or whenever you need to understand current state. Returns the scratchpad note with markdown content, or null if no scratchpad exists yet. **Workflow**: Lost context → get_scratchpad → review state → continue work."
       input_schema: {
         type: "object"
         properties: {}
@@ -313,7 +313,7 @@ def "main list-tools" [] {
     }
     {
       name: "c5t_get_summary"
-      description: "Get comprehensive summary/overview for quick status at-a-glance. Returns markdown-formatted summary with: overall stats (active lists, total items by status), active lists with counts, in-progress items, high-priority next steps (P4-P5), recently completed items, and scratchpad status. Perfect for session start or context recovery."
+      description: "Get comprehensive summary/overview for quick status at-a-glance. Returns markdown-formatted summary with: overall stats (active lists, total items by status), active lists with counts, in-progress items, high-priority next steps (P4-P5), recently completed items, and scratchpad status. **Use at session start** to see what's active, or **for context recovery** to get oriented. Complements c5t_get_scratchpad (detailed context) with high-level facts."
       input_schema: {
         type: "object"
         properties: {}
