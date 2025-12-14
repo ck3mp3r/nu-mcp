@@ -21,14 +21,11 @@ export def "test update-scratchpad creates new scratchpad when none exists" [] {
   use ../tests/mocks.nu *
   use ../storage.nu update-scratchpad
 
-  # First call: SELECT to check if scratchpad exists (returns empty string)
-  let mock_check = ""
-  # Second call: INSERT + SELECT returns the new ID
-  let mock_insert = [{id: 1}] | to json
-
   with-env {
-    MOCK_sqlite3_CHECK_SCRATCHPAD: ({output: $mock_check exit_code: 0} | to json)
-    MOCK_sqlite3: ({output: $mock_insert exit_code: 0} | to json)
+    # First call: SELECT to check if scratchpad exists (returns empty string)
+    MOCK_sqlite3_CHECK_SCRATCHPAD: ({output: "" exit_code: 0} | to json)
+    # Second call: INSERT + SELECT returns the new ID
+    MOCK_sqlite3: ({output: ([{id: 1}] | to json) exit_code: 0} | to json)
   } {
     let result = update-scratchpad "## Current Work\n\nWorking on feature X"
 
@@ -93,11 +90,9 @@ export def "test get-scratchpad returns null when no scratchpad exists" [] {
   use ../tests/mocks.nu *
   use ../storage.nu get-scratchpad
 
-  # Mock SELECT to return empty string (like real sqlite for no rows)
-  let mock_data = ""
-
   with-env {
-    MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
+    # Mock SELECT to return empty string (like real sqlite for no rows)
+    MOCK_sqlite3: ({output: "" exit_code: 0} | to json)
   } {
     let result = get-scratchpad
 
