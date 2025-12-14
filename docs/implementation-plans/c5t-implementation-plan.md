@@ -424,14 +424,75 @@ nu tools/c5t/mod.nu call-tool c5t_get_note '{
 
 ---
 
+### Database Migration: TEXT IDs → INTEGER PRIMARY KEY
+**Goal**: Migrate from human-readable TEXT IDs to SQLite-native INTEGER PRIMARY KEY
+
+**Why This Migration**:
+- TEXT IDs (`"20250114163000-9999"`) were incompatible with FTS5's `content_rowid`
+- INTEGER PRIMARY KEY is SQLite's natural auto-incrementing approach
+- Better performance (8 bytes vs variable TEXT)
+- Enables FTS5 full-text search (Milestone 7)
+- Standard SQLite practice - no manual ID generation needed
+
+**Changes Made**:
+1. **Schema Migration** (`0002_migrate_to_integer_ids.sql`):
+   - Convert all `id` columns from `TEXT PRIMARY KEY` to `INTEGER PRIMARY KEY`
+   - Update `source_id` in note table from TEXT to INTEGER
+   - Enable FTS5 virtual table (now compatible with INTEGER rowid)
+   - Enable FTS sync triggers
+
+2. **Code Changes**:
+   - Removed `generate-id()` function from utils.nu
+   - Updated all INSERT statements to omit `id` (SQLite auto-generates)
+   - Added `SELECT last_insert_rowid()` calls to retrieve auto-generated IDs
+   - Updated function signatures: `list_id: string` → `list_id: int`
+   - Updated formatters to accept `int` IDs
+
+3. **Test Updates**:
+   - Removed generate-id tests (2 tests)
+   - Updated all mock IDs from strings to integers
+   - Updated function calls to use integer IDs
+   - Total: 74/74 tests passing
+
+**SQLite INTEGER PRIMARY KEY**:
+```sql
+CREATE TABLE note (
+    id INTEGER PRIMARY KEY,  -- Auto-generated, alias for rowid
+    title TEXT NOT NULL,
+    ...
+);
+
+-- Insert without ID - SQLite assigns automatically
+INSERT INTO note (title, content) VALUES ('My Note', 'Content');
+
+-- Get the ID that was just created
+SELECT last_insert_rowid();  -- Returns: 1, 2, 3, etc.
+```
+
+**Benefits**:
+- ✅ No AUTOINCREMENT keyword needed (uses built-in rowid)
+- ✅ Zero overhead compared to AUTOINCREMENT
+- ✅ FTS5 compatibility
+- ✅ Simpler code (no ID generation)
+- ✅ Still have `created_at` for chronological ordering
+
+**Status**: ✅ COMPLETE (commit pending)
+
+---
+
 ### Milestone 7: Full-Text Search
-**Goal**: Search notes by content and title
+**Goal**: Search notes by content and title using FTS5
 
 **Tools to Implement**:
 - `c5t_search` - Full-text search using FTS5
 
 **Functions** (storage.nu, kebab-case):
 - `search-notes [query, tag_filter?, limit?]`
+
+**FTS5 Now Enabled**:
+- Virtual table `note_fts` created with INTEGER rowid compatibility
+- Triggers sync inserts/updates/deletes automatically
+- Searches both title and content fields
 
 **Validation**:
 ```bash

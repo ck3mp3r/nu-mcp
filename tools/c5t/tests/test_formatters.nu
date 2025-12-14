@@ -8,7 +8,7 @@ export def "test format-todo-created returns formatted output" [] {
 
   let list = {
     name: "Test List"
-    id: "20251214-1234"
+    id: 1234
     status: "active"
     created_at: "2025-12-14 13:45:30"
   }
@@ -16,7 +16,7 @@ export def "test format-todo-created returns formatted output" [] {
   let output = format-todo-created $list
 
   assert ($output | str contains "Test List")
-  assert ($output | str contains "20251214-1234")
+  assert ($output | str contains 1234)
   assert ($output | str contains "active")
   assert ($output | str contains "2025-12-14 13:45:30")
 }
@@ -56,16 +56,16 @@ export def "test format-todos-list formats multiple items" [] {
   use ../formatters.nu format-todos-list
 
   let lists = [
-    {name: "List 1" id: "id1" status: "active" created_at: "2025-12-14"}
-    {name: "List 2" id: "id2" status: "active" created_at: "2025-12-15"}
+    {name: "List 1" id: 1 status: "active" created_at: "2025-12-14"}
+    {name: "List 2" id: 2 status: "active" created_at: "2025-12-15"}
   ]
 
   let output = format-todos-list $lists
 
   assert ($output | str contains "List 1")
   assert ($output | str contains "List 2")
-  assert ($output | str contains "id1")
-  assert ($output | str contains "id2")
+  assert ($output | str contains 1)
+  assert ($output | str contains 2)
 }
 
 # Test format-note-created with valid note
@@ -74,7 +74,7 @@ export def "test format-note-created returns formatted output" [] {
 
   let note = {
     title: "Architecture Decision"
-    id: "note-123"
+    id: 123
     note_type: "manual"
     created_at: "2025-12-14 14:00:00"
   }
@@ -82,7 +82,7 @@ export def "test format-note-created returns formatted output" [] {
   let output = format-note-created $note
 
   assert ($output | str contains "Architecture Decision")
-  assert ($output | str contains "note-123")
+  assert ($output | str contains 123)
   assert ($output | str contains "manual")
   assert ($output | str contains "2025-12-14 14:00:00")
 }
@@ -103,7 +103,7 @@ export def "test format-notes-list formats single note" [] {
   let notes = [
     {
       title: "Meeting Notes"
-      id: "note-1"
+      id: 1
       note_type: "manual"
       created_at: "2025-12-14"
       content: "Discussed project timeline and deliverables for Q1 2025"
@@ -114,7 +114,7 @@ export def "test format-notes-list formats single note" [] {
 
   assert ($output | str contains "Notes:")
   assert ($output | str contains "Meeting Notes")
-  assert ($output | str contains "note-1")
+  assert ($output | str contains 1)
   assert ($output | str contains "Preview:")
 }
 
@@ -152,7 +152,7 @@ export def "test format-list-created with all fields" [] {
   use ../formatters.nu format-list-created
 
   let result = {
-    id: "20251214-1234"
+    id: 1234
     name: "Feature Work"
     description: "Implementing new authentication"
     tags: ["backend" "security"]
@@ -161,7 +161,7 @@ export def "test format-list-created with all fields" [] {
   let output = format-list-created $result
 
   assert ($output | str contains "Feature Work")
-  assert ($output | str contains "20251214-1234")
+  assert ($output | str contains 1234)
   assert ($output | str contains "backend, security")
   assert ($output | str contains "Implementing new authentication")
 }
@@ -171,7 +171,7 @@ export def "test format-list-created with minimal fields" [] {
   use ../formatters.nu format-list-created
 
   let result = {
-    id: "20251214-5678"
+    id: 5678
     name: "Bug Fixes"
     description: null
     tags: null
@@ -180,7 +180,7 @@ export def "test format-list-created with minimal fields" [] {
   let output = format-list-created $result
 
   assert ($output | str contains "Bug Fixes")
-  assert ($output | str contains "20251214-5678")
+  assert ($output | str contains 5678)
   assert ($output | str contains "none")
 }
 
@@ -199,7 +199,7 @@ export def "test format-active-lists formats single list" [] {
 
   let lists = [
     {
-      id: "20251214-1234"
+      id: 1234
       name: "Sprint Tasks"
       description: "Q1 2025 sprint items"
       notes: null
@@ -213,7 +213,7 @@ export def "test format-active-lists formats single list" [] {
 
   assert ($output | str contains "Active Todo Lists: 1")
   assert ($output | str contains "Sprint Tasks")
-  assert ($output | str contains "20251214-1234")
+  assert ($output | str contains 1234)
   assert ($output | str contains "sprint, q1")
   assert ($output | str contains "Q1 2025 sprint items")
 }
@@ -224,7 +224,7 @@ export def "test format-active-lists formats multiple lists" [] {
 
   let lists = [
     {
-      id: "id1"
+      id: 1
       name: "List 1"
       description: "First list"
       notes: null
@@ -233,7 +233,7 @@ export def "test format-active-lists formats multiple lists" [] {
       updated_at: "2025-12-14"
     }
     {
-      id: "id2"
+      id: 2
       name: "List 2"
       description: null
       notes: null
@@ -256,10 +256,10 @@ export def "test format-active-lists formats multiple lists" [] {
 export def "test format-notes-updated returns formatted output" [] {
   use ../formatters.nu format-notes-updated
 
-  let output = format-notes-updated "list-123"
+  let output = format-notes-updated 123
 
   assert ($output | str contains "✓")
-  assert ($output | str contains "list-123")
+  assert ($output | str contains 123)
   assert ($output | str contains "Progress notes updated")
 }
 
@@ -269,7 +269,7 @@ export def "test format-active-lists includes notes" [] {
 
   let lists = [
     {
-      id: "list-1"
+      id: 1
       name: "Test List"
       description: "Description"
       notes: "Some progress notes"
@@ -291,14 +291,14 @@ export def "test format-note-created-manual returns formatted output" [] {
 
   let note = {
     title: "Architecture Decision"
-    id: "20250114163000-9999"
+    id: 9999
     tags: ["architecture" "backend"]
   }
 
   let output = format-note-created-manual $note
 
   assert ($output | str contains "Architecture Decision")
-  assert ($output | str contains "20250114163000-9999")
+  assert ($output | str contains 9999)
   assert ($output | str contains "architecture, backend")
 }
 
@@ -318,7 +318,7 @@ export def "test format-notes-list-detailed formats single note" [] {
   let notes = [
     {
       title: "Meeting Notes"
-      id: "note-123"
+      id: 123
       note_type: "manual"
       tags: ["meeting" "planning"]
       created_at: "2025-01-14 16:30:00"
@@ -330,7 +330,7 @@ export def "test format-notes-list-detailed formats single note" [] {
 
   assert ($output | str contains "Notes: 1")
   assert ($output | str contains "Meeting Notes")
-  assert ($output | str contains "note-123")
+  assert ($output | str contains 123)
   assert ($output | str contains "📝") # Manual emoji
   assert ($output | str contains "meeting, planning")
   assert ($output | str contains "Preview:")
@@ -344,7 +344,7 @@ export def "test format-notes-list-detailed shows archived emoji" [] {
   let notes = [
     {
       title: "Completed Sprint"
-      id: "note-456"
+      id: 456
       note_type: "archived_todo"
       tags: []
       created_at: "2025-01-14 16:30:00"
@@ -364,7 +364,7 @@ export def "test format-note-detail shows full content" [] {
 
   let note = {
     title: "Architecture Decision"
-    id: "note-789"
+    id: 789
     note_type: "manual"
     tags: ["architecture" "backend"]
     created_at: "2025-01-14 16:30:00"
@@ -382,7 +382,7 @@ We decided to use Rust for the backend service.
   let output = format-note-detail $note
 
   assert ($output | str contains "Architecture Decision")
-  assert ($output | str contains "note-789")
+  assert ($output | str contains 789)
   assert ($output | str contains "Type: manual")
   assert ($output | str contains "Tags: architecture, backend")
   assert ($output | str contains "Created: 2025-01-14 16:30:00")
@@ -398,7 +398,7 @@ export def "test format-note-detail handles no tags" [] {
 
   let note = {
     title: "Simple Note"
-    id: "note-000"
+    id: 0
     note_type: "manual"
     tags: []
     created_at: "2025-01-14 16:30:00"

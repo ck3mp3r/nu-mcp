@@ -150,7 +150,7 @@ export def format-item-created [result: record] {
 }
 
 # Format item update response
-export def format-item-updated [field: string item_id: string value: any] {
+export def format-item-updated [field: string item_id: int value: any] {
   [
     $"✓ Item ($field) updated"
     $"  ID: ($item_id)"
@@ -159,7 +159,7 @@ export def format-item-updated [field: string item_id: string value: any] {
 }
 
 # Format item completion response
-export def format-item-completed [item_id: string] {
+export def format-item-completed [item_id: int] {
   [
     $"✓ Item marked as complete"
     $"  ID: ($item_id)"
@@ -167,7 +167,7 @@ export def format-item-completed [item_id: string] {
 }
 
 # Format notes update response
-export def format-notes-updated [list_id: string] {
+export def format-notes-updated [list_id: int] {
   [
     $"✓ Progress notes updated"
     $"  List ID: ($list_id)"
@@ -177,9 +177,9 @@ export def format-notes-updated [list_id: string] {
 # Format item update with auto-archive
 export def format-item-updated-with-archive [
   field: string
-  item_id: string
+  item_id: int
   value: any
-  note_id: string
+  note_id: int
 ] {
   [
     $"✓ Item ($field) updated"
@@ -194,8 +194,8 @@ export def format-item-updated-with-archive [
 
 # Format item completion with auto-archive
 export def format-item-completed-with-archive [
-  item_id: string
-  note_id: string
+  item_id: int
+  note_id: int
 ] {
   [
     $"✓ Item marked as complete"

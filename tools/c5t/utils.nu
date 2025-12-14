@@ -1,11 +1,7 @@
 # Utility functions for c5t tool
 
-# Generate a unique ID (timestamp-based with random suffix)
-export def generate-id [] {
-  let timestamp = date now | format date "%Y%m%d%H%M%S"
-  let random_num = random int 1000..9999
-  $"($timestamp)-($random_num)"
-}
+# NOTE: ID generation removed - SQLite auto-generates INTEGER PRIMARY KEY
+# IDs are now integers auto-assigned by SQLite using last_insert_rowid()
 
 # Validate list input
 export def validate-list-input [args: record] {

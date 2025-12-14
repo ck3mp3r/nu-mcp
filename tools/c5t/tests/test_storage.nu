@@ -103,7 +103,7 @@ export def "test get-active-lists returns lists" [] {
 
   let mock_data = [
     {
-      id: "20250114120000-1234"
+      id: 1
       name: "Test List 1"
       description: "Description 1"
       tags: '["tag1","tag2"]'
@@ -111,7 +111,7 @@ export def "test get-active-lists returns lists" [] {
       updated_at: "2025-01-14 12:00:00"
     }
     {
-      id: "20250114120100-5678"
+      id: 2
       name: "Test List 2"
       description: null
       tags: null
@@ -143,7 +143,7 @@ export def "test add-todo-item with all parameters" [] {
     MOCK_random_int: ({output: 7890} | to json)
     MOCK_date_now: ({output: "2025-12-14T16:00:00Z"} | to json)
   } {
-    let result = add-todo-item "list-123" "Test item" 5 "todo"
+    let result = add-todo-item 123 "Test item" 5 "todo"
 
     assert ($result.success == true)
     assert ($result.content == "Test item")
@@ -162,7 +162,7 @@ export def "test add-todo-item defaults to backlog" [] {
     MOCK_random_int: ({output: 1111} | to json)
     MOCK_date_now: ({output: "2025-12-14T16:00:00Z"} | to json)
   } {
-    let result = add-todo-item "list-123" "Test item"
+    let result = add-todo-item 123 "Test item"
 
     assert ($result.success == true)
     assert ($result.status == "backlog")
@@ -175,12 +175,12 @@ export def "test list-exists returns true for existing list" [] {
   use ../tests/mocks.nu *
   use ../storage.nu list-exists
 
-  let mock_data = [{id: "list-123"}] | to json
+  let mock_data = [{id: 123}] | to json
 
   with-env {
     MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
   } {
-    let result = list-exists "list-123"
+    let result = list-exists 123
 
     assert $result
   }
@@ -194,7 +194,7 @@ export def "test list-exists returns false for non-existent list" [] {
   with-env {
     MOCK_sqlite3: ({output: "[]" exit_code: 0} | to json)
   } {
-    let result = list-exists "non-existent"
+    let result = list-exists 999
 
     assert (not $result)
   }
@@ -205,12 +205,12 @@ export def "test item-exists returns true for existing item" [] {
   use ../tests/mocks.nu *
   use ../storage.nu item-exists
 
-  let mock_data = [{id: "item-123"}] | to json
+  let mock_data = [{id: 123}] | to json
 
   with-env {
     MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
   } {
-    let result = item-exists "list-123" "item-123"
+    let result = item-exists 123 123
 
     assert $result
   }
@@ -224,7 +224,7 @@ export def "test item-exists returns false for non-existent item" [] {
   with-env {
     MOCK_sqlite3: ({output: "[]" exit_code: 0} | to json)
   } {
-    let result = item-exists "list-123" "non-existent"
+    let result = item-exists 123 999
 
     assert (not $result)
   }
@@ -235,7 +235,7 @@ export def "test update-todo-notes updates notes field" [] {
   use ../tests/mocks.nu *
   use ../storage.nu update-todo-notes
 
-  let result = update-todo-notes "list-123" "Test notes content"
+  let result = update-todo-notes 123 "Test notes content"
 
   assert ($result.success == true)
 }
@@ -278,7 +278,7 @@ export def "test all-items-completed returns true when all done" [] {
   with-env {
     MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
   } {
-    let result = all-items-completed "list-123"
+    let result = all-items-completed 123
 
     assert $result
   }
@@ -295,7 +295,7 @@ export def "test all-items-completed returns false when items pending" [] {
   with-env {
     MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
   } {
-    let result = all-items-completed "list-123"
+    let result = all-items-completed 123
 
     assert (not $result)
   }
@@ -360,7 +360,7 @@ export def "test get-notes filters by note_type" [] {
 
   let mock_data = [
     {
-      id: "note-1"
+      id: 1
       title: "Manual Note"
       content: "Content"
       tags: null
@@ -389,7 +389,7 @@ export def "test get-note-by-id finds note" [] {
 
   let mock_data = [
     {
-      id: "note-123"
+      id: 123
       title: "Test Note"
       content: "Full content here"
       tags: '["tag1"]'
@@ -403,10 +403,10 @@ export def "test get-note-by-id finds note" [] {
   with-env {
     MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
   } {
-    let result = get-note-by-id "note-123"
+    let result = get-note-by-id 123
 
     assert ($result.success == true)
-    assert ($result.note.id == "note-123")
+    assert ($result.note.id == 123)
     assert ($result.note.title == "Test Note")
     assert ($result.note.tags == ["tag1"])
   }
@@ -420,7 +420,7 @@ export def "test get-note-by-id returns error for non-existent" [] {
   with-env {
     MOCK_sqlite3: ({output: "[]" exit_code: 0} | to json)
   } {
-    let result = get-note-by-id "non-existent"
+    let result = get-note-by-id 999
 
     assert ($result.success == false)
     assert ($result.error | str contains "Note not found")
