@@ -271,3 +271,97 @@ export def format-items-list [list: record items: list] {
 
   $output_lines | str join (char newline)
 }
+
+# Format manual note creation response
+export def format-note-created-manual [result: record] {
+  let tags_str = if "tags" in $result and $result.tags != null and ($result.tags | is-not-empty) {
+    $result.tags | str join ", "
+  } else {
+    "none"
+  }
+
+  let created_at_str = if "created_at" in $result {
+    $"  Created at: ($result.created_at)"
+  } else {
+    ""
+  }
+
+  let lines = [
+    $"✓ Note created: ($result.title)"
+    $"  ID: ($result.id)"
+    $"  Tags: ($tags_str)"
+  ]
+
+  let lines_with_created = if $created_at_str != "" {
+    $lines | append $created_at_str
+  } else {
+    $lines
+  }
+
+  $lines_with_created | str join (char newline)
+}
+
+# Format list of notes with detailed info
+export def format-notes-list-detailed [notes: list] {
+  if ($notes | is-empty) {
+    return "No notes found."
+  }
+
+  let items = $notes | each {|note|
+    let tags_str = if ($note.tags | is-not-empty) {
+      $note.tags | str join ", "
+    } else {
+      "none"
+    }
+
+    let type_emoji = match $note.note_type {
+      "manual" => "📝"
+      "archived_todo" => "🗃️"
+      "scratchpad" => "📋"
+      _ => "📄"
+    }
+
+    let content_preview = $note.content | str substring 0..100 | str replace --all (char newline) " "
+
+    [
+      $"  ($type_emoji) ($note.title)"
+      $"    ID: ($note.id) | Type: ($note.note_type) | Tags: ($tags_str)"
+      $"    Created: ($note.created_at)"
+      $"    Preview: ($content_preview)..."
+    ] | str join (char newline)
+  }
+
+  let count = $notes | length
+  [
+    $"Notes: ($count)"
+    ""
+    ...$items
+  ] | str join (char newline)
+}
+
+# Format detailed note view
+export def format-note-detail [note: record] {
+  let tags_str = if ($note.tags | is-not-empty) {
+    $note.tags | str join ", "
+  } else {
+    "none"
+  }
+
+  let type_info = if $note.note_type == "archived_todo" and $note.source_id != null {
+    $"\n  Source List ID: ($note.source_id)"
+  } else {
+    ""
+  }
+
+  [
+    $"Note: ($note.title)"
+    $"  ID: ($note.id)"
+    $"  Type: ($note.note_type) | Tags: ($tags_str)"
+    $"  Created: ($note.created_at) | Updated: ($note.updated_at)"
+    $type_info
+    ""
+    "---"
+    ""
+    $note.content
+  ] | str join (char newline)
+}

@@ -638,3 +638,148 @@ export def archive-todo-list [
     list_id: $list_id
   }
 }
+
+# Create a standalone note
+export def create-note [
+  title: string
+  content: string
+  tags?: list
+] {
+  let db_path = get-db-path
+
+  use utils.nu generate-id
+  let note_id = generate-id
+
+  let escaped_title = $title | str replace --all "'" "''"
+  let escaped_content = $content | str replace --all "'" "''"
+
+  let tags_value = if $tags != null and ($tags | is-not-empty) {
+    let tags_json = $tags | to json --raw
+    $"'($tags_json)'"
+  } else {
+    "NULL"
+  }
+
+  let sql = $"INSERT INTO note \(id, title, content, tags, note_type\) 
+             VALUES \('($note_id)', '($escaped_title)', '($escaped_content)', ($tags_value), 'manual'\);"
+
+  let result = execute-sql $db_path $sql
+
+  if $result.success {
+    {
+      success: true
+      id: $note_id
+      title: $title
+      tags: $tags
+    }
+  } else {
+    {
+      success: false
+      error: $"Failed to create note: ($result.error)"
+    }
+  }
+}
+
+# Get notes with optional filtering
+export def get-notes [
+  tag_filter?: list
+  note_type?: string
+  limit?: int
+] {
+  let db_path = get-db-path
+
+  # Build WHERE clauses
+  mut where_clauses = []
+
+  if $note_type != null {
+    $where_clauses = ($where_clauses | append $"note_type = '($note_type)'")
+  }
+
+  let where_sql = if ($where_clauses | is-not-empty) {
+    "WHERE " + ($where_clauses | str join " AND ")
+  } else {
+    ""
+  }
+
+  let limit_sql = if $limit != null {
+    $"LIMIT ($limit)"
+  } else {
+    ""
+  }
+
+  let sql = $"SELECT id, title, content, tags, note_type, source_id, created_at, updated_at 
+             FROM note 
+             ($where_sql)
+             ORDER BY created_at DESC 
+             ($limit_sql);"
+
+  let result = query-sql $db_path $sql
+
+  if not $result.success {
+    return {
+      success: false
+      error: $"Failed to get notes: ($result.error)"
+    }
+  }
+
+  let results = $result.data
+
+  # Filter by tags if specified
+  let filtered = if $tag_filter != null and ($tag_filter | is-not-empty) {
+    $results | where {|row|
+      let row_tags = parse-tags $row.tags
+      ($tag_filter | any {|tag| $tag in $row_tags })
+    }
+  } else {
+    $results
+  }
+
+  # Parse tags for each note
+  let parsed = if ($filtered | is-empty) {
+    []
+  } else {
+    $filtered | each {|row|
+      $row | upsert tags (parse-tags $row.tags)
+    }
+  }
+
+  {
+    success: true
+    notes: $parsed
+    count: ($parsed | length)
+  }
+}
+
+# Get a specific note by ID
+export def get-note-by-id [
+  note_id: string
+] {
+  let db_path = get-db-path
+
+  let sql = $"SELECT id, title, content, tags, note_type, source_id, created_at, updated_at 
+             FROM note 
+             WHERE id = '($note_id)';"
+
+  let result = query-sql $db_path $sql
+
+  if not $result.success {
+    return {
+      success: false
+      error: $"Failed to get note: ($result.error)"
+    }
+  }
+
+  if ($result.data | is-empty) {
+    return {
+      success: false
+      error: $"Note not found: ($note_id)"
+    }
+  }
+
+  let note = $result.data | first | upsert tags (parse-tags ($result.data | first | get tags))
+
+  {
+    success: true
+    note: $note
+  }
+}

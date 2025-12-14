@@ -375,15 +375,20 @@ nu tools/c5t/mod.nu call-tool c5t_update_notes '{
 ### Milestone 6: Standalone Notes
 **Goal**: Create and manage manual notes
 
-**Tools to Implement**:
-- `c5t_create_note` - Create standalone note
-- `c5t_list_notes` - List notes with filtering
-- `c5t_get_note` - Get specific note by ID
+**Tools Implemented**:
+- `c5t_create_note` - Create standalone note with title, content, and optional tags
+- `c5t_list_notes` - List notes with optional tag filter, note_type filter, and limit
+- `c5t_get_note` - Get specific note by ID with full content
 
-**Functions** (storage.nu, kebab-case):
-- `create-note [title, content, tags]`
-- `get-notes [tag_filter?, note_type?, limit?]`
-- `get-note-by-id [note_id]`
+**Functions Implemented** (storage.nu, kebab-case):
+- `create-note [title, content, tags?]` - Creates manual note, returns {success, id, title, tags}
+- `get-notes [tag_filter?: list, note_type?, limit?]` - Filters by tags (ANY match), note_type, and limit
+- `get-note-by-id [note_id]` - Returns {success, note} or {success: false, error}
+
+**Formatters Added**:
+- `format-note-created-manual [result]` - Confirmation with ID and tags
+- `format-notes-list-detailed [notes]` - List view with emoji indicators (📝 manual, 🗃️ archived_todo)
+- `format-note-detail [note]` - Full note view with metadata and complete content
 
 **Validation**:
 ```bash
@@ -397,14 +402,25 @@ nu tools/c5t/mod.nu call-tool c5t_list_notes '{
   "tags": ["architecture"],
   "limit": 10
 }'
+
+nu tools/c5t/mod.nu call-tool c5t_get_note '{
+  "note_id": "20250114163000-9999"
+}'
 ```
 
 **Acceptance Criteria**:
-- [ ] Can create notes with markdown content
-- [ ] Can list notes with tag filtering
-- [ ] Can retrieve specific note by ID
-- [ ] Note_type defaults to 'manual'
-- [ ] Timestamps set correctly
+- [x] Can create notes with markdown content
+- [x] Can list notes with tag filtering (ANY tag match)
+- [x] Can filter by note_type (manual, archived_todo, scratchpad)
+- [x] Can retrieve specific note by ID with full content
+- [x] Note_type defaults to 'manual'
+- [x] Timestamps set correctly (created_at, updated_at)
+- [x] Tags stored as JSON array
+- [x] Formatters include emoji indicators by note type
+- [x] Content preview in list view (100 chars)
+- [x] 76 tests passing (64 from M5 + 12 new tests)
+
+**Status**: ✅ COMPLETE (commit pending)
 
 ---
 

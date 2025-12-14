@@ -195,6 +195,67 @@ def "main list-tools" [] {
         required: ["list_id" "notes"]
       }
     }
+    {
+      name: "c5t_create_note"
+      description: "Create a standalone note with markdown content"
+      input_schema: {
+        type: "object"
+        properties: {
+          title: {
+            type: "string"
+            description: "Title of the note"
+          }
+          content: {
+            type: "string"
+            description: "Markdown-formatted content of the note"
+          }
+          tags: {
+            type: "array"
+            items: {type: "string"}
+            description: "Tags to organize the note (optional)"
+          }
+        }
+        required: ["title" "content"]
+      }
+    }
+    {
+      name: "c5t_list_notes"
+      description: "List notes with optional filtering by tags, type, and limit"
+      input_schema: {
+        type: "object"
+        properties: {
+          tags: {
+            type: "array"
+            items: {type: "string"}
+            description: "Filter notes by tags - shows notes with ANY of these tags (optional)"
+          }
+          note_type: {
+            type: "string"
+            description: "Filter by note type (optional)"
+            enum: ["manual" "archived_todo" "scratchpad"]
+          }
+          limit: {
+            type: "integer"
+            description: "Maximum number of notes to return (optional, default: all)"
+            minimum: 1
+          }
+        }
+      }
+    }
+    {
+      name: "c5t_get_note"
+      description: "Get a specific note by ID"
+      input_schema: {
+        type: "object"
+        properties: {
+          note_id: {
+            type: "string"
+            description: "ID of the note to retrieve"
+          }
+        }
+        required: ["note_id"]
+      }
+    }
   ] | to json
 }
 
@@ -445,6 +506,55 @@ def "main call-tool" [
       }
 
       format-notes-updated $list_id
+    }
+
+    "c5t_create_note" => {
+      let validation = validate-note-input $parsed_args
+      if not $validation.valid {
+        return $validation.error
+      }
+
+      let title = $parsed_args.title
+      let content = $parsed_args.content
+      let tags = if "tags" in $parsed_args { $parsed_args.tags } else { null }
+
+      let result = create-note $title $content $tags
+
+      if not $result.success {
+        return $result.error
+      }
+
+      format-note-created-manual $result
+    }
+
+    "c5t_list_notes" => {
+      let tag_filter = if "tags" in $parsed_args { $parsed_args.tags } else { null }
+      let note_type = if "note_type" in $parsed_args { $parsed_args.note_type } else { null }
+      let limit = if "limit" in $parsed_args { $parsed_args.limit } else { null }
+
+      let result = get-notes $tag_filter $note_type $limit
+
+      if not $result.success {
+        return $result.error
+      }
+
+      format-notes-list-detailed $result.notes
+    }
+
+    "c5t_get_note" => {
+      if "note_id" not-in $parsed_args {
+        return "Error: Missing required field: 'note_id'"
+      }
+
+      let note_id = $parsed_args.note_id
+
+      let result = get-note-by-id $note_id
+
+      if not $result.success {
+        return $result.error
+      }
+
+      format-note-detail $result.note
     }
 
     _ => {

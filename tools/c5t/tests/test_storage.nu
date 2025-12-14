@@ -300,3 +300,129 @@ export def "test all-items-completed returns false when items pending" [] {
     assert (not $result)
   }
 }
+
+# Test create-note with all parameters
+export def "test create-note with all parameters" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu create-note
+
+  with-env {
+    MOCK_random_int: ({output: 9999} | to json)
+    MOCK_date_now: ({output: "2025-01-14T16:30:00Z"} | to json)
+  } {
+    let result = create-note "Architecture Decision" "We decided to use Rust for the backend" ["architecture" "backend"]
+
+    assert ($result.success == true)
+    assert ($result.title == "Architecture Decision")
+    assert ($result.tags == ["architecture" "backend"])
+    assert ($result.id != null)
+  }
+}
+
+# Test create-note with minimal parameters (no tags)
+export def "test create-note with minimal parameters" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu create-note
+
+  with-env {
+    MOCK_random_int: ({output: 8888} | to json)
+    MOCK_date_now: ({output: "2025-01-14T16:30:00Z"} | to json)
+  } {
+    let result = create-note "Quick Note" "Just a quick thought"
+
+    assert ($result.success == true)
+    assert ($result.title == "Quick Note")
+    assert ($result.tags == null)
+    assert ($result.id != null)
+  }
+}
+
+# Test get-notes returns empty list when no notes
+export def "test get-notes returns empty list" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu get-notes
+
+  with-env {
+    MOCK_sqlite3: ({output: "[]" exit_code: 0} | to json)
+  } {
+    let result = get-notes
+
+    assert ($result.success == true)
+    assert ($result.count == 0)
+    assert ($result.notes == [])
+  }
+}
+
+# Test get-notes returns filtered notes by type
+export def "test get-notes filters by note_type" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu get-notes
+
+  let mock_data = [
+    {
+      id: "note-1"
+      title: "Manual Note"
+      content: "Content"
+      tags: null
+      note_type: "manual"
+      source_id: null
+      created_at: "2025-01-14 16:30:00"
+      updated_at: "2025-01-14 16:30:00"
+    }
+  ] | to json
+
+  with-env {
+    MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
+  } {
+    let result = get-notes [] "manual"
+
+    assert ($result.success == true)
+    assert ($result.count == 1)
+    assert ($result.notes.0.note_type == "manual")
+  }
+}
+
+# Test get-note-by-id finds note
+export def "test get-note-by-id finds note" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu get-note-by-id
+
+  let mock_data = [
+    {
+      id: "note-123"
+      title: "Test Note"
+      content: "Full content here"
+      tags: '["tag1"]'
+      note_type: "manual"
+      source_id: null
+      created_at: "2025-01-14 16:30:00"
+      updated_at: "2025-01-14 16:30:00"
+    }
+  ] | to json
+
+  with-env {
+    MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
+  } {
+    let result = get-note-by-id "note-123"
+
+    assert ($result.success == true)
+    assert ($result.note.id == "note-123")
+    assert ($result.note.title == "Test Note")
+    assert ($result.note.tags == ["tag1"])
+  }
+}
+
+# Test get-note-by-id returns error for non-existent ID
+export def "test get-note-by-id returns error for non-existent" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu get-note-by-id
+
+  with-env {
+    MOCK_sqlite3: ({output: "[]" exit_code: 0} | to json)
+  } {
+    let result = get-note-by-id "non-existent"
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "Note not found")
+  }
+}

@@ -284,3 +284,131 @@ export def "test format-active-lists includes notes" [] {
   assert ($output | str contains "Test List")
   assert ($output | str contains "Some progress notes")
 }
+
+# Test format-note-created-manual with valid note
+export def "test format-note-created-manual returns formatted output" [] {
+  use ../formatters.nu format-note-created-manual
+
+  let note = {
+    title: "Architecture Decision"
+    id: "20250114163000-9999"
+    tags: ["architecture" "backend"]
+  }
+
+  let output = format-note-created-manual $note
+
+  assert ($output | str contains "Architecture Decision")
+  assert ($output | str contains "20250114163000-9999")
+  assert ($output | str contains "architecture, backend")
+}
+
+# Test format-notes-list-detailed with empty list
+export def "test format-notes-list-detailed handles empty list" [] {
+  use ../formatters.nu format-notes-list-detailed
+
+  let output = format-notes-list-detailed []
+
+  assert equal $output "No notes found."
+}
+
+# Test format-notes-list-detailed with single note
+export def "test format-notes-list-detailed formats single note" [] {
+  use ../formatters.nu format-notes-list-detailed
+
+  let notes = [
+    {
+      title: "Meeting Notes"
+      id: "note-123"
+      note_type: "manual"
+      tags: ["meeting" "planning"]
+      created_at: "2025-01-14 16:30:00"
+      content: "Discussed project timeline and deliverables for Q1 2025. Team agreed on sprint structure."
+    }
+  ]
+
+  let output = format-notes-list-detailed $notes
+
+  assert ($output | str contains "Notes: 1")
+  assert ($output | str contains "Meeting Notes")
+  assert ($output | str contains "note-123")
+  assert ($output | str contains "📝") # Manual emoji
+  assert ($output | str contains "meeting, planning")
+  assert ($output | str contains "Preview:")
+  assert ($output | str contains "Discussed project timeline")
+}
+
+# Test format-notes-list-detailed with archived_todo note
+export def "test format-notes-list-detailed shows archived emoji" [] {
+  use ../formatters.nu format-notes-list-detailed
+
+  let notes = [
+    {
+      title: "Completed Sprint"
+      id: "note-456"
+      note_type: "archived_todo"
+      tags: []
+      created_at: "2025-01-14 16:30:00"
+      content: "Sprint completed successfully"
+    }
+  ]
+
+  let output = format-notes-list-detailed $notes
+
+  assert ($output | str contains "🗃️") # Archived emoji
+  assert ($output | str contains "Completed Sprint")
+}
+
+# Test format-note-detail with full note
+export def "test format-note-detail shows full content" [] {
+  use ../formatters.nu format-note-detail
+
+  let note = {
+    title: "Architecture Decision"
+    id: "note-789"
+    note_type: "manual"
+    tags: ["architecture" "backend"]
+    created_at: "2025-01-14 16:30:00"
+    updated_at: "2025-01-14 17:00:00"
+    content: "# Architecture Decision
+
+We decided to use Rust for the backend service.
+
+## Reasons
+- Performance
+- Memory safety
+- Great ecosystem"
+  }
+
+  let output = format-note-detail $note
+
+  assert ($output | str contains "Architecture Decision")
+  assert ($output | str contains "note-789")
+  assert ($output | str contains "Type: manual")
+  assert ($output | str contains "Tags: architecture, backend")
+  assert ($output | str contains "Created: 2025-01-14 16:30:00")
+  assert ($output | str contains "Updated: 2025-01-14 17:00:00")
+  assert ($output | str contains "# Architecture Decision")
+  assert ($output | str contains "Performance")
+  assert ($output | str contains "Memory safety")
+}
+
+# Test format-note-detail with minimal note (no tags)
+export def "test format-note-detail handles no tags" [] {
+  use ../formatters.nu format-note-detail
+
+  let note = {
+    title: "Simple Note"
+    id: "note-000"
+    note_type: "manual"
+    tags: []
+    created_at: "2025-01-14 16:30:00"
+    updated_at: "2025-01-14 16:30:00"
+    content: "Just a simple note"
+  }
+
+  let output = format-note-detail $note
+
+  assert ($output | str contains "Simple Note")
+  assert ($output | str contains "Tags: none")
+  assert ($output | str contains "Just a simple note")
+}
