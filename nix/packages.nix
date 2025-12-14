@@ -56,11 +56,19 @@
     buildInputs = [common-mcp-tools];
   };
 
+  c5t-mcp-tools = mkToolPackage {
+    pname = "c5t-mcp-tools";
+    src = ../tools/c5t;
+    installPath = "c5t";
+    description = "Context (c5t) MCP tool for nu-mcp - provides context/memory management with todo lists, notes, auto-archive, and full-text search";
+    buildInputs = [common-mcp-tools];
+  };
+
   # Combined tools package for convenience
   mcp-tools = mkToolPackage {
     pname = "mcp-tools";
     src = ../tools;
     installPath = "";
-    description = "Complete MCP tools catalog for nu-mcp - includes k8s, argocd, weather, finance, tmux, c67, and other useful tools";
+    description = "Complete MCP tools catalog for nu-mcp - includes k8s, argocd, weather, finance, tmux, c67, c5t (context), and other useful tools";
   };
 }
