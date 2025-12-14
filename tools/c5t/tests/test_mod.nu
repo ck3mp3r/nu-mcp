@@ -198,3 +198,18 @@ main call-tool "c5t_list_items" "{\"list_id\": 1}"
   # Should not crash, should return a message about no items
   assert ($output | str contains "No items in this list")
 }
+
+# Test c5t_get_summary returns formatted summary
+export def "test c5t_get_summary returns formatted summary" [] {
+  let test_script = '
+source tools/c5t/tests/mocks.nu
+source tools/c5t/mod.nu
+main call-tool "c5t_get_summary" "{}"
+'
+
+  let output = nu -c $test_script
+
+  # Should contain header and not crash
+  assert ($output | str contains "C5T Summary")
+  assert (($output | str length) > 0)
+}

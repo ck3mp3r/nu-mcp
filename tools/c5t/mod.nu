@@ -311,6 +311,14 @@ def "main list-tools" [] {
         properties: {}
       }
     }
+    {
+      name: "c5t_get_summary"
+      description: "Get comprehensive summary/overview for quick status at-a-glance. Returns markdown-formatted summary with: overall stats (active lists, total items by status), active lists with counts, in-progress items, high-priority next steps (P4-P5), recently completed items, and scratchpad status. Perfect for session start or context recovery."
+      input_schema: {
+        type: "object"
+        properties: {}
+      }
+    }
   ] | to json
 }
 
@@ -691,6 +699,16 @@ Content preview:($content | lines | first 3 | str join (char newline))
 Review the draft below, add your context/learnings/decisions in the marked sections, then call c5t_update_scratchpad with the enhanced content.
 
 ---($draft)"
+    }
+
+    "c5t_get_summary" => {
+      let result = get-summary
+
+      if not $result.success {
+        return $result.error
+      }
+
+      format-summary $result.summary
     }
 
     _ => {
