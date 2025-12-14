@@ -104,7 +104,7 @@ def "main list-tools" [] {
     }
     {
       name: "update_item_priority"
-      description: "Update the priority of a todo item"
+      description: "Change todo priority (1=critical, 5=low)"
       input_schema: {
         type: "object"
         properties: {
@@ -146,7 +146,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_items"
-      description: "List all items in a todo list, optionally filtered by status. Show to user."
+      description: "View all todos with status, priority, and timestamps. Filter by status if needed. Show to user."
       input_schema: {
         type: "object"
         properties: {
@@ -165,7 +165,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_active_items"
-      description: "List active items in a todo list (excludes 'done' and 'cancelled'). Show to user."
+      description: "See what's left to do (excludes completed/cancelled). Show to user."
       input_schema: {
         type: "object"
         properties: {
@@ -179,7 +179,7 @@ def "main list-tools" [] {
     }
     {
       name: "update_notes"
-      description: "Update the progress notes on a todo list (supports markdown)"
+      description: "Add progress notes or decisions to a list (markdown supported)"
       input_schema: {
         type: "object"
         properties: {
@@ -197,7 +197,7 @@ def "main list-tools" [] {
     }
     {
       name: "create_note"
-      description: "Create a standalone note with markdown content"
+      description: "Save important info or decisions as a searchable note (markdown supported)"
       input_schema: {
         type: "object"
         properties: {
@@ -220,7 +220,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_notes"
-      description: "List notes with optional filtering by tags, type, and limit. Show to user."
+      description: "Browse all saved notes and archived work. Filter by tags or type. Show to user."
       input_schema: {
         type: "object"
         properties: {
@@ -244,7 +244,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_note"
-      description: "Get a specific note by ID. Show to user."
+      description: "Retrieve a saved note or archived list. Show to user."
       input_schema: {
         type: "object"
         properties: {
@@ -305,7 +305,7 @@ def "main list-tools" [] {
     }
     {
       name: "generate_scratchpad_draft"
-      description: "Generate scratchpad draft with auto-populated facts (active lists, in-progress, completed, priorities). Review, add context/decisions, then call update_scratchpad."
+      description: "Auto-generate session summary from current work (active lists, progress, git status). Review and enhance before saving."
       input_schema: {
         type: "object"
         properties: {}
@@ -313,7 +313,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_summary"
-      description: "Get comprehensive overview: stats, active lists, in-progress items, high-priority items (P4-P5), recently completed, scratchpad status. Use at session start or for context recovery. Always show the full summary to the user."
+      description: "Quick status overview: what's active, what's done, what's priority. Perfect for session start. Always show the full summary to the user."
       input_schema: {
         type: "object"
         properties: {}
