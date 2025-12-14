@@ -60,8 +60,8 @@ def "main call-tool" [
   tool_name: string
   args: any = {}
 ] {
-  # Initialize database on first access
-  init-database | ignore
+  # Database should already be initialized by list-tools
+  # No initialization here
 
   # Parse arguments - handle both string (from Rust) and record (from direct calls)
   let parsed_args = if ($args | describe) == "string" {

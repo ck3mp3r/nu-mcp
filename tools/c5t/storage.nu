@@ -16,9 +16,19 @@ export def get-db-path [] {
 export def init-database [] {
   let db_path = get-db-path
 
-  # Create all tables and indexes
-  create-schema $db_path
+  # Only run migrations if database doesn't exist yet
+  # This prevents running migrations on every tool call
+  if not ($db_path | path exists) {
+    create-schema $db_path
+  }
 
+  $db_path
+}
+
+# Explicitly run migrations (useful for applying new migrations)
+export def run-migrations [] {
+  let db_path = get-db-path
+  create-schema $db_path
   $db_path
 }
 
