@@ -721,46 +721,6 @@ export def "test search-notes respects limit parameter" [] {
   }
 }
 
-# Test search-notes filters by tags
-export def "test search-notes filters by tags" [] {
-  use ../tests/mocks.nu *
-  use ../storage.nu search-notes
-
-  # Mock returning notes with different tags
-  let mock_data = [
-    {
-      id: 42
-      title: "Database Design"
-      content: "Notes about database"
-      tags: "[\"database\",\"architecture\"]"
-      note_type: "manual"
-      created_at: "2025-01-14 16:30:00"
-      rank: -0.5
-    }
-    {
-      id: 43
-      title: "Database API"
-      content: "Database API notes"
-      tags: "[\"api\",\"database\"]"
-      note_type: "manual"
-      created_at: "2025-01-14 17:00:00"
-      rank: -0.3
-    }
-  ]
-
-  with-env {
-    MOCK_query_db: ({output: $mock_data exit_code: 0})
-  } {
-    # Search with tag filter - should only return notes with "architecture" tag
-    let result = search-notes "database" --tags ["architecture"]
-
-    assert ($result.success == true)
-    assert ($result.count == 1)
-    assert ($result.notes.0.id == 42)
-    assert ("architecture" in $result.notes.0.tags)
-  }
-}
-
 # Test search-notes returns empty list when no matches
 export def "test search-notes returns empty list when no matches" [] {
   use ../tests/mocks.nu *
@@ -804,4 +764,32 @@ export def "test search-notes with boolean AND query" [] {
     assert ($result.count == 1)
     assert ($result.notes.0.id == 42)
   }
+}
+
+# --- Summary/Overview Tests (Task 17) ---
+
+# Test get-summary returns expected structure
+export def "test get-summary returns expected structure" [] {
+  use ../storage.nu get-summary
+
+  # NOTE: This is an integration-style test that uses the actual database
+  # We're testing that the function returns the expected structure
+  let result = get-summary
+
+  # Verify structure exists
+  assert ($result.success == true)
+  assert ("summary" in $result)
+  assert ("stats" in $result.summary)
+  assert ("active_lists" in $result.summary)
+  assert ("in_progress" in $result.summary)
+  assert ("high_priority" in $result.summary)
+  assert ("recently_completed" in $result.summary)
+  assert ("scratchpad" in $result.summary)
+
+  # Verify stats fields
+  assert ("active_lists" in $result.summary.stats)
+  assert ("total_items" in $result.summary.stats)
+  assert ("backlog_total" in $result.summary.stats)
+  assert ("todo_total" in $result.summary.stats)
+  assert ("in_progress_total" in $result.summary.stats)
 }

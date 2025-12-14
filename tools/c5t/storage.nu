@@ -1126,3 +1126,114 @@ export def get-high-priority-next-steps [] {
     count: ($result.data | length)
   }
 }
+
+# Get comprehensive summary/overview for quick status at-a-glance
+export def get-summary [] {
+  let db_path = get-db-path
+
+  # Get overall stats across all active lists
+  let stats_sql = "SELECT 
+                     COUNT(DISTINCT tl.id) as active_lists,
+                     COUNT(CASE WHEN ti.status = 'backlog' THEN 1 END) as backlog_total,
+                     COUNT(CASE WHEN ti.status = 'todo' THEN 1 END) as todo_total,
+                     COUNT(CASE WHEN ti.status = 'in_progress' THEN 1 END) as in_progress_total,
+                     COUNT(CASE WHEN ti.status = 'review' THEN 1 END) as review_total,
+                     COUNT(CASE WHEN ti.status = 'done' THEN 1 END) as done_total,
+                     COUNT(CASE WHEN ti.status = 'cancelled' THEN 1 END) as cancelled_total,
+                     COUNT(ti.id) as total_items
+                   FROM todo_list tl
+                   LEFT JOIN todo_item ti ON tl.id = ti.list_id
+                   WHERE tl.status = 'active';"
+
+  let stats_result = query-sql $db_path $stats_sql
+
+  if not $stats_result.success {
+    return {
+      success: false
+      error: $"Failed to get summary stats: ($stats_result.error)"
+    }
+  }
+
+  # Handle empty database - return zeros
+  let stats = if ($stats_result.data | is-empty) {
+    {
+      active_lists: 0
+      backlog_total: 0
+      todo_total: 0
+      in_progress_total: 0
+      review_total: 0
+      done_total: 0
+      cancelled_total: 0
+      total_items: 0
+    }
+  } else {
+    $stats_result.data | first
+  }
+
+  # Get active lists with counts
+  let lists_result = get-active-lists-with-counts
+
+  if not $lists_result.success {
+    return {
+      success: false
+      error: $"Failed to get active lists: ($lists_result.error)"
+    }
+  }
+
+  # Get in-progress items
+  let in_progress_result = get-all-in-progress-items
+
+  if not $in_progress_result.success {
+    return {
+      success: false
+      error: $"Failed to get in-progress items: ($in_progress_result.error)"
+    }
+  }
+
+  # Get high-priority next steps
+  let priority_result = get-high-priority-next-steps
+
+  if not $priority_result.success {
+    return {
+      success: false
+      error: $"Failed to get high-priority items: ($priority_result.error)"
+    }
+  }
+
+  # Get recently completed items
+  let completed_result = get-recently-completed-items
+
+  if not $completed_result.success {
+    return {
+      success: false
+      error: $"Failed to get completed items: ($completed_result.error)"
+    }
+  }
+
+  # Get scratchpad status
+  let scratchpad_result = get-scratchpad
+
+  let scratchpad_info = if $scratchpad_result.success and $scratchpad_result.scratchpad != null {
+    {
+      exists: true
+      last_updated: $scratchpad_result.scratchpad.updated_at
+    }
+  } else {
+    {
+      exists: false
+      last_updated: null
+    }
+  }
+
+  {
+    success: true
+    summary: {
+      stats: $stats
+      active_lists: $lists_result.lists
+      in_progress: $in_progress_result.items
+      high_priority: $priority_result.items
+      recently_completed: $completed_result.items
+      scratchpad: $scratchpad_info
+    }
+  }
+}
