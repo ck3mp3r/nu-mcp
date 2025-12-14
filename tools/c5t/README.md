@@ -86,6 +86,52 @@ c5t_list_notes {"note_type": "scratchpad"}
 
 Only one scratchpad exists - updates replace content.
 
+### Scratchpad Template
+
+The scratchpad should capture session context for recovery. Include:
+
+```markdown
+# Session: [Feature/Task Name] - [Date]
+
+## Current Work
+[What you're actively working on right now]
+
+## Active Todo Lists
+- List: [Name] (ID: X) - [X items: Y in progress, Z todo]
+  - In Progress: [Item descriptions]
+  - Next Up: [High priority items]
+
+## Recent Accomplishments
+- [Completed task 1]
+- [Completed task 2]
+
+## Key Decisions & Learnings
+- [Important decision made and reasoning]
+- [Technical insight or gotcha discovered]
+
+## Blockers & Questions
+- [Current blockers or open questions]
+
+## Next Steps
+1. [Next immediate task]
+2. [Following task]
+
+## Context Notes
+- Branch: [branch-name]
+- Files modified: [key files]
+- Tests: [status]
+
+---
+Last updated: [timestamp]
+```
+
+**Best Practices:**
+- Update scratchpad every 3-5 todo changes or after major milestones
+- Use `c5t_generate_scratchpad_draft` for auto-populated starting point
+- Include git context (branch, status) for development work
+- Add reasoning behind decisions, not just facts
+- Use `c5t_get_scratchpad` at session start for context recovery
+
 ## All Available Tools
 
 ### Todo Lists
