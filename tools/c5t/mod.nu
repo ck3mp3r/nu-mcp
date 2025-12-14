@@ -256,6 +256,31 @@ def "main list-tools" [] {
         required: ["note_id"]
       }
     }
+    {
+      name: "c5t_search"
+      description: "Search notes using full-text search. Supports FTS5 query syntax: simple terms, boolean operators (AND, OR, NOT), phrases (\"exact match\"), and prefix matching (term*)"
+      input_schema: {
+        type: "object"
+        properties: {
+          query: {
+            type: "string"
+            description: "Search query. Examples: 'database', 'api AND database', '\"error handling\"', 'auth*'"
+          }
+          tags: {
+            type: "array"
+            items: {type: "string"}
+            description: "Filter results by tags - shows notes with ANY of these tags (optional)"
+          }
+          limit: {
+            type: "integer"
+            description: "Maximum number of results to return (default: 10)"
+            minimum: 1
+            default: 10
+          }
+        }
+        required: ["query"]
+      }
+    }
   ] | to json
 }
 
@@ -555,6 +580,24 @@ def "main call-tool" [
       }
 
       format-note-detail $result.note
+    }
+
+    "c5t_search" => {
+      if "query" not-in $parsed_args {
+        return "Error: Missing required field: 'query'"
+      }
+
+      let query = $parsed_args.query
+      let tag_filter = if "tags" in $parsed_args { $parsed_args.tags } else { [] }
+      let limit = if "limit" in $parsed_args { $parsed_args.limit } else { 10 }
+
+      let result = search-notes $query --limit $limit --tags $tag_filter
+
+      if not $result.success {
+        return $result.error
+      }
+
+      format-search-results $result.notes
     }
 
     _ => {

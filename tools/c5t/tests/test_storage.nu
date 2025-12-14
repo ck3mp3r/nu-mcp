@@ -426,3 +426,161 @@ export def "test get-note-by-id returns error for non-existent" [] {
     assert ($result.error | str contains "Note not found")
   }
 }
+
+# --- Full-Text Search Tests (Milestone 7) ---
+
+# Test search-notes with basic query returns results
+export def "test search-notes basic query returns results" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu search-notes
+
+  # Mock FTS5 search result
+  let mock_data = [
+    {
+      id: 42
+      title: "Database Design"
+      content: "Notes about database architecture"
+      tags: "[\"database\",\"architecture\"]"
+      note_type: "manual"
+      created_at: "2025-01-14 16:30:00"
+      rank: -0.5
+    }
+    {
+      id: 43
+      title: "API Database"
+      content: "Database schema for API"
+      tags: "[\"api\",\"database\"]"
+      note_type: "manual"
+      created_at: "2025-01-14 17:00:00"
+      rank: -0.3
+    }
+  ] | to json
+
+  with-env {
+    MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
+  } {
+    let result = search-notes "database"
+
+    assert ($result.success == true)
+    assert ($result.count == 2)
+    assert ($result.notes.0.id == 42)
+    assert ($result.notes.0.title == "Database Design")
+    assert ($result.notes.0.tags == ["database" "architecture"])
+    assert ($result.notes.1.id == 43)
+    assert ($result.notes.1.tags == ["api" "database"])
+  }
+}
+
+# Test search-notes respects limit parameter
+export def "test search-notes respects limit parameter" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu search-notes
+
+  # Mock returning only 1 result (simulating SQL LIMIT)
+  let mock_data = [
+    {
+      id: 42
+      title: "Database Design"
+      content: "Notes about database architecture"
+      tags: "[\"database\"]"
+      note_type: "manual"
+      created_at: "2025-01-14 16:30:00"
+      rank: -0.5
+    }
+  ] | to json
+
+  with-env {
+    MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
+  } {
+    let result = search-notes "database" --limit 1
+
+    assert ($result.success == true)
+    assert ($result.count == 1)
+    assert ($result.notes.0.id == 42)
+  }
+}
+
+# Test search-notes filters by tags
+export def "test search-notes filters by tags" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu search-notes
+
+  # Mock returning notes with different tags
+  let mock_data = [
+    {
+      id: 42
+      title: "Database Design"
+      content: "Notes about database"
+      tags: "[\"database\",\"architecture\"]"
+      note_type: "manual"
+      created_at: "2025-01-14 16:30:00"
+      rank: -0.5
+    }
+    {
+      id: 43
+      title: "Database API"
+      content: "Database API notes"
+      tags: "[\"api\",\"database\"]"
+      note_type: "manual"
+      created_at: "2025-01-14 17:00:00"
+      rank: -0.3
+    }
+  ] | to json
+
+  with-env {
+    MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
+  } {
+    # Search with tag filter - should only return notes with "architecture" tag
+    let result = search-notes "database" --tags ["architecture"]
+
+    assert ($result.success == true)
+    assert ($result.count == 1)
+    assert ($result.notes.0.id == 42)
+    assert ("architecture" in $result.notes.0.tags)
+  }
+}
+
+# Test search-notes returns empty list when no matches
+export def "test search-notes returns empty list when no matches" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu search-notes
+
+  with-env {
+    MOCK_sqlite3: ({output: "[]" exit_code: 0} | to json)
+  } {
+    let result = search-notes "nonexistent"
+
+    assert ($result.success == true)
+    assert ($result.count == 0)
+    assert ($result.notes == [])
+  }
+}
+
+# Test search-notes with boolean AND query
+export def "test search-notes with boolean AND query" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu search-notes
+
+  let mock_data = [
+    {
+      id: 42
+      title: "Database API Design"
+      content: "Notes about database API architecture"
+      tags: "[\"database\",\"api\"]"
+      note_type: "manual"
+      created_at: "2025-01-14 16:30:00"
+      rank: -0.5
+    }
+  ] | to json
+
+  with-env {
+    MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
+  } {
+    # FTS5 boolean query
+    let result = search-notes "database AND api"
+
+    assert ($result.success == true)
+    assert ($result.count == 1)
+    assert ($result.notes.0.id == 42)
+  }
+}

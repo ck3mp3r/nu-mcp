@@ -815,3 +815,61 @@ export def get-note-by-id [
     note: $note
   }
 }
+
+# Search notes using FTS5 full-text search
+export def search-notes [
+  query: string
+  --limit: int = 10
+  --tags: list = []
+] {
+  let db_path = get-db-path
+
+  # Escape single quotes in query for SQL
+  let escaped_query = $query | str replace --all "'" "''"
+
+  # FTS5 search query with bm25 ranking
+  let sql = $"SELECT 
+               note.id, 
+               note.title, 
+               note.content, 
+               note.tags, 
+               note.note_type,
+               note.created_at,
+               bm25\(note_fts\) as rank
+             FROM note_fts
+             JOIN note ON note.id = note_fts.rowid
+             WHERE note_fts MATCH '($escaped_query)'
+             ORDER BY rank
+             LIMIT ($limit);"
+
+  let result = query-sql $db_path $sql
+
+  if not $result.success {
+    return {
+      success: false
+      error: $"Search failed: ($result.error)"
+    }
+  }
+
+  # Parse tags for each note
+  let parsed = $result.data | each {|note|
+    $note | upsert tags (parse-tags ($note | get tags))
+  }
+
+  # Filter by tags if specified (client-side filtering)
+  let filtered = if ($tags | is-not-empty) {
+    $parsed | where {|note|
+      let note_tags = $note.tags
+      # Check if any of the filter tags are in the note's tags
+      $tags | any {|tag| $tag in $note_tags }
+    }
+  } else {
+    $parsed
+  }
+
+  {
+    success: true
+    notes: $filtered
+    count: ($filtered | length)
+  }
+}

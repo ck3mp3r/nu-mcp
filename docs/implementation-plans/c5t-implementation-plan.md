@@ -420,79 +420,40 @@ nu tools/c5t/mod.nu call-tool c5t_get_note '{
 - [x] Content preview in list view (100 chars)
 - [x] 76 tests passing (64 from M5 + 12 new tests)
 
-**Status**: ✅ COMPLETE (commit pending)
-
----
-
-### Database Migration: TEXT IDs → INTEGER PRIMARY KEY
-**Goal**: Migrate from human-readable TEXT IDs to SQLite-native INTEGER PRIMARY KEY
-
-**Why This Migration**:
-- TEXT IDs (`"20250114163000-9999"`) were incompatible with FTS5's `content_rowid`
-- INTEGER PRIMARY KEY is SQLite's natural auto-incrementing approach
-- Better performance (8 bytes vs variable TEXT)
-- Enables FTS5 full-text search (Milestone 7)
-- Standard SQLite practice - no manual ID generation needed
-
-**Changes Made**:
-1. **Schema Migration** (`0002_migrate_to_integer_ids.sql`):
-   - Convert all `id` columns from `TEXT PRIMARY KEY` to `INTEGER PRIMARY KEY`
-   - Update `source_id` in note table from TEXT to INTEGER
-   - Enable FTS5 virtual table (now compatible with INTEGER rowid)
-   - Enable FTS sync triggers
-
-2. **Code Changes**:
-   - Removed `generate-id()` function from utils.nu
-   - Updated all INSERT statements to omit `id` (SQLite auto-generates)
-   - Added `SELECT last_insert_rowid()` calls to retrieve auto-generated IDs
-   - Updated function signatures: `list_id: string` → `list_id: int`
-   - Updated formatters to accept `int` IDs
-
-3. **Test Updates**:
-   - Removed generate-id tests (2 tests)
-   - Updated all mock IDs from strings to integers
-   - Updated function calls to use integer IDs
-   - Total: 74/74 tests passing
-
-**SQLite INTEGER PRIMARY KEY**:
-```sql
-CREATE TABLE note (
-    id INTEGER PRIMARY KEY,  -- Auto-generated, alias for rowid
-    title TEXT NOT NULL,
-    ...
-);
-
--- Insert without ID - SQLite assigns automatically
-INSERT INTO note (title, content) VALUES ('My Note', 'Content');
-
--- Get the ID that was just created
-SELECT last_insert_rowid();  -- Returns: 1, 2, 3, etc.
-```
-
-**Benefits**:
-- ✅ No AUTOINCREMENT keyword needed (uses built-in rowid)
-- ✅ Zero overhead compared to AUTOINCREMENT
-- ✅ FTS5 compatibility
-- ✅ Simpler code (no ID generation)
-- ✅ Still have `created_at` for chronological ordering
-
-**Status**: ✅ COMPLETE (commit pending)
+**Status**: ✅ COMPLETE
 
 ---
 
 ### Milestone 7: Full-Text Search
 **Goal**: Search notes by content and title using FTS5
 
-**Tools to Implement**:
-- `c5t_search` - Full-text search using FTS5
+**Tools Implemented**:
+- `c5t_search` - Full-text search using FTS5 with boolean operators and tag filtering
 
-**Functions** (storage.nu, kebab-case):
-- `search-notes [query, tag_filter?, limit?]`
+**Functions Implemented** (storage.nu, kebab-case):
+- `search-notes [query, --limit, --tags]` - FTS5 search with bm25 ranking, client-side tag filtering
 
-**FTS5 Now Enabled**:
-- Virtual table `note_fts` created with INTEGER rowid compatibility
+**FTS5 Implementation**:
+- Virtual table `note_fts` created with INTEGER rowid compatibility (enabled in 0001_initial_schema.sql)
 - Triggers sync inserts/updates/deletes automatically
 - Searches both title and content fields
+- BM25 relevance ranking (lower scores = better matches)
+- Supports FTS5 query syntax:
+  - Simple terms: `"database"`
+  - Boolean: `"api AND database"`, `"auth OR user"`
+  - Phrases: `"error handling"`
+  - Prefix: `"auth*"` (matches "authentication", "authorize", etc.)
+  - NOT operator: `"api NOT deprecated"`
+
+**Formatter**:
+- Uses existing `format-search-results` (formatters.nu:121)
+
+**Tests Implemented** (test_storage.nu):
+- `test search-notes basic query returns results` - Single term search
+- `test search-notes respects limit parameter` - LIMIT clause
+- `test search-notes filters by tags` - Client-side tag filtering
+- `test search-notes returns empty list when no matches` - Empty results
+- `test search-notes with boolean AND query` - FTS5 boolean operators
 
 **Validation**:
 ```bash
@@ -502,17 +463,39 @@ nu tools/c5t/mod.nu call-tool c5t_search '{
 }'
 
 nu tools/c5t/mod.nu call-tool c5t_search '{
-  "query": "authentication",
+  "query": "authentication AND api",
   "tags": ["backend"]
+}'
+
+nu tools/c5t/mod.nu call-tool c5t_search '{
+  "query": "auth*"
 }'
 ```
 
+**SQL Query**:
+```sql
+SELECT 
+  note.id, note.title, note.content, note.tags, note.note_type, note.created_at,
+  bm25(note_fts) as rank
+FROM note_fts
+JOIN note ON note.id = note_fts.rowid
+WHERE note_fts MATCH '<query>'
+ORDER BY rank
+LIMIT <limit>;
+```
+
 **Acceptance Criteria**:
-- [ ] FTS5 full-text search works
-- [ ] Searches both title and content
-- [ ] Can combine with tag filtering
-- [ ] Results sorted by relevance
-- [ ] Limit parameter works
+- [x] FTS5 full-text search works
+- [x] Searches both title and content
+- [x] Can combine with tag filtering (client-side after FTS query)
+- [x] Results sorted by relevance (bm25 ranking)
+- [x] Limit parameter works (default: 10)
+- [x] Supports boolean operators (AND, OR, NOT)
+- [x] Supports phrase queries
+- [x] Supports prefix matching
+- [x] 79 tests passing (74 from M6 + 5 new search tests)
+
+**Status**: ✅ COMPLETE
 
 ---
 
