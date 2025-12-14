@@ -125,3 +125,104 @@ export def validate-item-update-input [args: record] {
 
   {valid: true}
 }
+
+# Generate scratchpad markdown template from current state
+export def generate-scratchpad-template [
+  lists: list
+  in_progress: list
+  completed: list
+  high_priority: list
+] {
+  mut lines = [
+    "# Session Context"
+    ""
+    $"**Last Updated**: (date now | format date '%Y-%m-%d %H:%M:%S')"
+    ""
+    "---"
+    ""
+  ]
+
+  # Active Lists Section
+  $lines = ($lines | append "## Active Work")
+  $lines = ($lines | append "")
+
+  if ($lists | is-empty) {
+    $lines = ($lines | append "*No active lists*")
+    $lines = ($lines | append "")
+  } else {
+    for list in $lists {
+      let active_count = $list.backlog_count + $list.todo_count + $list.in_progress_count + $list.review_count
+      $lines = ($lines | append $"### ($list.name) \(List ID: ($list.id)\)")
+      if $list.description != null and $list.description != "" {
+        $lines = ($lines | append $"> ($list.description)")
+      }
+      $lines = ($lines | append "")
+      $lines = ($lines | append $"**Progress**: ($list.done_count) done | ($active_count) active \(($list.in_progress_count) in progress, ($list.todo_count) todo, ($list.backlog_count) backlog\)")
+      $lines = ($lines | append "")
+    }
+  }
+
+  # In Progress Items Section
+  $lines = ($lines | append "## Currently In Progress")
+  $lines = ($lines | append "")
+
+  if ($in_progress | is-empty) {
+    $lines = ($lines | append "*No items in progress*")
+    $lines = ($lines | append "")
+  } else {
+    for item in $in_progress {
+      let priority_indicator = if $item.priority != null {
+        $" [P($item.priority)]"
+      } else {
+        ""
+      }
+      $lines = ($lines | append $"- **($item.list_name)**: ($item.content)($priority_indicator)")
+      $lines = ($lines | append $"  - Item ID: ($item.id) | Started: ($item.started_at)")
+    }
+    $lines = ($lines | append "")
+  }
+
+  # Recently Completed Section
+  $lines = ($lines | append "## Recently Completed")
+  $lines = ($lines | append "")
+
+  if ($completed | is-empty) {
+    $lines = ($lines | append "*No recently completed items*")
+    $lines = ($lines | append "")
+  } else {
+    for item in $completed {
+      let status_emoji = if $item.status == "done" { "✅" } else { "❌" }
+      $lines = ($lines | append $"- ($status_emoji) ($item.content) \(($item.list_name) - ($item.completed_at)\)")
+    }
+    $lines = ($lines | append "")
+  }
+
+  # High Priority Next Steps
+  $lines = ($lines | append "## High-Priority Next Steps")
+  $lines = ($lines | append "")
+
+  if ($high_priority | is-empty) {
+    $lines = ($lines | append "*No high-priority items pending*")
+    $lines = ($lines | append "")
+  } else {
+    for item in $high_priority {
+      $lines = ($lines | append $"- [P($item.priority)] ($item.content) \(($item.list_name)\)")
+      $lines = ($lines | append $"  - Status: ($item.status) | Item ID: ($item.id)")
+    }
+    $lines = ($lines | append "")
+  }
+
+  # Git Status Section (placeholder for LLM to fill)
+  $lines = ($lines | append "## Git Status")
+  $lines = ($lines | append "")
+  $lines = ($lines | append "*[LLM: Add git branch, status, recent commits if relevant]*")
+  $lines = ($lines | append "")
+
+  # Key Learnings & Context
+  $lines = ($lines | append "## Key Learnings & Context")
+  $lines = ($lines | append "")
+  $lines = ($lines | append "*[LLM: Add insights, decisions, important context for next session]*")
+  $lines = ($lines | append "")
+
+  $lines | str join (char newline)
+}

@@ -303,6 +303,14 @@ def "main list-tools" [] {
         properties: {}
       }
     }
+    {
+      name: "c5t_generate_scratchpad_draft"
+      description: "Generate a scratchpad draft with auto-populated facts (active lists, in-progress items, recently completed items, high-priority next steps). LLM should review, add context/learnings/decisions, then call c5t_update_scratchpad."
+      input_schema: {
+        type: "object"
+        properties: {}
+      }
+    }
   ] | to json
 }
 
@@ -653,6 +661,36 @@ Content preview:($content | lines | first 3 | str join (char newline))
       }
 
       format-note-detail $result.scratchpad
+    }
+
+    "c5t_generate_scratchpad_draft" => {
+      # Get all the data we need
+      let lists_result = get-active-lists-with-counts
+      let in_progress_result = get-all-in-progress-items
+      let completed_result = get-recently-completed-items
+      let high_priority_result = get-high-priority-next-steps
+
+      if not $lists_result.success {
+        return $lists_result.error
+      }
+      if not $in_progress_result.success {
+        return $in_progress_result.error
+      }
+      if not $completed_result.success {
+        return $completed_result.error
+      }
+      if not $high_priority_result.success {
+        return $high_priority_result.error
+      }
+
+      # Generate the template
+      let draft = generate-scratchpad-template $lists_result.lists $in_progress_result.items $completed_result.items $high_priority_result.items
+
+      $"📝 Scratchpad Draft Generated
+
+Review the draft below, add your context/learnings/decisions in the marked sections, then call c5t_update_scratchpad with the enhanced content.
+
+---($draft)"
     }
 
     _ => {

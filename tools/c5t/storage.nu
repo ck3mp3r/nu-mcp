@@ -1018,3 +1018,149 @@ export def get-scratchpad [] {
     scratchpad: $scratchpad
   }
 }
+
+# Get active lists with item counts by status for scratchpad auto-generation
+export def get-active-lists-with-counts [] {
+  let db_path = get-db-path
+
+  let sql = "SELECT 
+               tl.id,
+               tl.name,
+               tl.description,
+               tl.tags,
+               COUNT(CASE WHEN ti.status = 'backlog' THEN 1 END) as backlog_count,
+               COUNT(CASE WHEN ti.status = 'todo' THEN 1 END) as todo_count,
+               COUNT(CASE WHEN ti.status = 'in_progress' THEN 1 END) as in_progress_count,
+               COUNT(CASE WHEN ti.status = 'review' THEN 1 END) as review_count,
+               COUNT(CASE WHEN ti.status = 'done' THEN 1 END) as done_count,
+               COUNT(CASE WHEN ti.status = 'cancelled' THEN 1 END) as cancelled_count,
+               COUNT(ti.id) as total_count
+             FROM todo_list tl
+             LEFT JOIN todo_item ti ON tl.id = ti.list_id
+             WHERE tl.status = 'active'
+             GROUP BY tl.id
+             ORDER BY tl.created_at DESC;"
+
+  let result = query-sql $db_path $sql
+
+  if not $result.success {
+    return {
+      success: false
+      error: $"Failed to get active lists with counts: ($result.error)"
+    }
+  }
+
+  let parsed = $result.data | each {|row|
+      $row | upsert tags (parse-tags $row.tags)
+    }
+
+  {
+    success: true
+    lists: $parsed
+    count: ($parsed | length)
+  }
+}
+
+# Get all in-progress items across all lists for scratchpad auto-generation
+export def get-all-in-progress-items [] {
+  let db_path = get-db-path
+
+  let sql = "SELECT 
+               ti.id,
+               ti.list_id,
+               ti.content,
+               ti.priority,
+               ti.started_at,
+               tl.name as list_name
+             FROM todo_item ti
+             JOIN todo_list tl ON ti.list_id = tl.id
+             WHERE ti.status = 'in_progress'
+             AND tl.status = 'active'
+             ORDER BY ti.priority DESC NULLS LAST, ti.started_at ASC;"
+
+  let result = query-sql $db_path $sql
+
+  if not $result.success {
+    return {
+      success: false
+      error: $"Failed to get in-progress items: ($result.error)"
+    }
+  }
+
+  {
+    success: true
+    items: $result.data
+    count: ($result.data | length)
+  }
+}
+
+# Get recently completed items for scratchpad auto-generation
+export def get-recently-completed-items [] {
+  let db_path = get-db-path
+
+  let sql = "SELECT 
+               ti.id,
+               ti.list_id,
+               ti.content,
+               ti.status,
+               ti.priority,
+               ti.completed_at,
+               tl.name as list_name
+             FROM todo_item ti
+             JOIN todo_list tl ON ti.list_id = tl.id
+             WHERE ti.status IN ('done', 'cancelled')
+             AND tl.status = 'active'
+             AND ti.completed_at IS NOT NULL
+             ORDER BY ti.completed_at DESC
+             LIMIT 20;"
+
+  let result = query-sql $db_path $sql
+
+  if not $result.success {
+    return {
+      success: false
+      error: $"Failed to get recently completed items: ($result.error)"
+    }
+  }
+
+  {
+    success: true
+    items: $result.data
+    count: ($result.data | length)
+  }
+}
+
+# Get high-priority pending items for scratchpad auto-generation
+export def get-high-priority-next-steps [] {
+  let db_path = get-db-path
+
+  let sql = "SELECT 
+               ti.id,
+               ti.list_id,
+               ti.content,
+               ti.status,
+               ti.priority,
+               tl.name as list_name
+             FROM todo_item ti
+             JOIN todo_list tl ON ti.list_id = tl.id
+             WHERE ti.status IN ('backlog', 'todo')
+             AND tl.status = 'active'
+             AND ti.priority >= 4
+             ORDER BY ti.priority DESC, ti.created_at ASC
+             LIMIT 10;"
+
+  let result = query-sql $db_path $sql
+
+  if not $result.success {
+    return {
+      success: false
+      error: $"Failed to get high-priority items: ($result.error)"
+    }
+  }
+
+  {
+    success: true
+    items: $result.data
+    count: ($result.data | length)
+  }
+}
