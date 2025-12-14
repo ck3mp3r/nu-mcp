@@ -3,23 +3,17 @@
 
 # Mock sqlite3 command - returns output or simulates database operations
 export def --wrapped sqlite3 [...rest] {
-  let db_path = $rest.0
-  let sql = if ($rest | length) > 1 { $rest.1 } else { "" }
-
-  # Create a normalized key for the mock
-  let sql_hash = $sql | str replace --all " " "_" | str replace --all "\n" "_" | str substring 0..50
-  let mock_var = $"MOCK_sqlite3_($sql_hash)"
-
-  if $mock_var in $env {
-    let mock_data = $env | get $mock_var | from json
+  # Check for generic mock first
+  if "MOCK_sqlite3" in $env {
+    let mock_data = $env | get MOCK_sqlite3 | from json
     if $mock_data.exit_code != 0 {
       error make {msg: $"SQLite error: ($mock_data.output)"}
     }
-    $mock_data.output
-  } else {
-    # Default: success with empty output (for CREATE TABLE, etc.)
-    ""
+    return $mock_data.output
   }
+
+  # Default: success with empty output (for CREATE TABLE, etc.)
+  ""
 }
 
 # Mock date now - returns a fixed timestamp for testing

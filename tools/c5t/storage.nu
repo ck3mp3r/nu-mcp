@@ -22,100 +22,77 @@ export def init-database [] {
   $db_path
 }
 
-# Execute SQL command on database
-def run-sql [db_path: string sql: string] {
+# Get list of migration files in order
+def get-migration-files [] {
+  let sql_dir = "tools/c5t/sql"
+
+  # List all .sql files in the sql directory and sort them
+  glob $"($sql_dir)/*.sql" | sort
+}
+
+# Extract version from migration filename (e.g., "0001" from "0001_initial_schema.sql")
+def get-migration-version [filepath: string] {
+  $filepath | path basename | split row "_" | first
+}
+
+# Check if migration has been applied
+def migration-applied [db_path: string version: string] {
   try {
-    ^sqlite3 $db_path $sql
+    # Query schema_migrations table
+    let result = sqlite3 -json $db_path $"SELECT version FROM schema_migrations WHERE version = '($version)';"
+
+    # Parse JSON if not empty
+    if ($result | str trim | is-empty) {
+      false
+    } else {
+      let parsed = $result | from json
+      ($parsed | length) > 0
+    }
   } catch {
-    # Ignore errors for IF NOT EXISTS statements
-    null
+    # If table doesn't exist yet, no migrations have been applied
+    false
   }
 }
 
+# Record that a migration has been applied
+def record-migration [db_path: string version: string] {
+  sqlite3 $db_path $"INSERT OR IGNORE INTO schema_migrations \(version\) VALUES \('($version)'\);"
+}
+
 # Create database schema (tables, indexes, triggers)
+# Runs all migration files in order, tracking which have been applied
 def create-schema [db_path: string] {
-  # Todo List table
-  run-sql $db_path "CREATE TABLE IF NOT EXISTS todo_list (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT,
-        notes TEXT,
-        tags TEXT,
-        status TEXT DEFAULT 'active' CHECK(status IN ('active', 'archived')),
-        created_at TEXT DEFAULT (datetime('now')),
-        updated_at TEXT DEFAULT (datetime('now')),
-        archived_at TEXT
-    );"
+  # Always ensure migrations table exists first
+  let migrations_table_sql = "CREATE TABLE IF NOT EXISTS schema_migrations (
+    version TEXT PRIMARY KEY,
+    applied_at TEXT DEFAULT (datetime('now'))
+  );"
+  sqlite3 $db_path $migrations_table_sql
 
-  # Todo Item table
-  run-sql $db_path "CREATE TABLE IF NOT EXISTS todo_item (
-        id TEXT PRIMARY KEY,
-        list_id TEXT NOT NULL,
-        content TEXT NOT NULL,
-        status TEXT DEFAULT 'todo' CHECK(status IN ('backlog', 'todo', 'in_progress', 'review', 'done', 'cancelled')),
-        position INTEGER DEFAULT 0,
-        created_at TEXT DEFAULT (datetime('now')),
-        started_at TEXT,
-        completed_at TEXT,
-        FOREIGN KEY (list_id) REFERENCES todo_list(id) ON DELETE CASCADE
-    );"
+  # Get all migration files
+  let migrations = get-migration-files
 
-  # Note table
-  run-sql $db_path "CREATE TABLE IF NOT EXISTS note (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        content TEXT NOT NULL,
-        tags TEXT,
-        note_type TEXT DEFAULT 'manual' CHECK(note_type IN ('manual', 'archived_todo', 'scratchpad')),
-        source_id TEXT,
-        created_at TEXT DEFAULT (datetime('now')),
-        updated_at TEXT DEFAULT (datetime('now'))
-    );"
+  # Execute each migration in order
+  # Use 'sqlite3' not '^sqlite3' so mocks can intercept
+  for migration in $migrations {
+    let version = get-migration-version $migration
 
-  # Indexes
-  run-sql $db_path "CREATE INDEX IF NOT EXISTS idx_todo_list_status ON todo_list(status);"
-  run-sql $db_path "CREATE INDEX IF NOT EXISTS idx_todo_item_list ON todo_item(list_id);"
-  run-sql $db_path "CREATE INDEX IF NOT EXISTS idx_todo_item_status ON todo_item(status);"
-  run-sql $db_path "CREATE INDEX IF NOT EXISTS idx_todo_item_list_status ON todo_item(list_id, status);"
-  run-sql $db_path "CREATE INDEX IF NOT EXISTS idx_note_type ON note(note_type);"
+    # Check if this migration has already been applied
+    if not (migration-applied $db_path $version) {
+      # Apply the migration
+      sqlite3 $db_path $".read ($migration)"
 
-  # Full-text search virtual table
-  run-sql $db_path "CREATE VIRTUAL TABLE IF NOT EXISTS note_fts USING fts5(
-        title,
-        content,
-        content=note,
-        content_rowid=id
-    );"
-
-  # FTS sync triggers
-  run-sql $db_path "CREATE TRIGGER IF NOT EXISTS note_ai AFTER INSERT ON note BEGIN
-        INSERT INTO note_fts(rowid, title, content) 
-        VALUES (new.id, new.title, new.content);
-    END;"
-
-  run-sql $db_path "CREATE TRIGGER IF NOT EXISTS note_au AFTER UPDATE ON note BEGIN
-        UPDATE note_fts SET title = new.title, content = new.content 
-        WHERE rowid = new.id;
-    END;"
-
-  run-sql $db_path "CREATE TRIGGER IF NOT EXISTS note_ad AFTER DELETE ON note BEGIN
-        DELETE FROM note_fts WHERE rowid = old.id;
-    END;"
-
-  # Auto-update timestamp triggers
-  run-sql $db_path "CREATE TRIGGER IF NOT EXISTS todo_list_update AFTER UPDATE ON todo_list BEGIN
-        UPDATE todo_list SET updated_at = datetime('now') WHERE id = NEW.id;
-    END;"
-
-  run-sql $db_path "CREATE TRIGGER IF NOT EXISTS note_update AFTER UPDATE ON note BEGIN
-        UPDATE note SET updated_at = datetime('now') WHERE id = NEW.id;
-    END;"
+      # Record that we applied it
+      record-migration $db_path $version
+    }
+  }
 }
 
 # Execute SQL query and return result (abstraction over sqlite3)
 def execute-sql [db_path: string sql: string] {
   try {
-    ^sqlite3 $db_path $sql
+    # Use 'sqlite3' not '^sqlite3' so mocks can intercept
+    sqlite3 $db_path $sql
     {success: true output: ""}
   } catch {|err|
     {success: false error: $err.msg}
@@ -125,7 +102,8 @@ def execute-sql [db_path: string sql: string] {
 # Execute SQL query and return JSON result
 def query-sql [db_path: string sql: string] {
   try {
-    let result = ^sqlite3 -json $db_path $sql | from json
+    # Use 'sqlite3' not '^sqlite3' so mocks can intercept
+    let result = sqlite3 -json $db_path $sql | from json
     {success: true data: $result}
   } catch {|err|
     {success: false error: $err.msg}
