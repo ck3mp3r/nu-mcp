@@ -21,14 +21,14 @@ export def "test update-scratchpad creates new scratchpad when none exists" [] {
   use ../tests/mocks.nu *
   use ../storage.nu update-scratchpad
 
-  # Mock SELECT to return empty (no existing scratchpad)
-  let mock_select = "[]"
-  # Mock INSERT success with rowid 1
-  let mock_insert = ""
+  # First call: SELECT to check if scratchpad exists (returns empty)
+  let mock_check = "[]"
+  # Second call: INSERT + SELECT returns the new ID
+  let mock_insert = [{id: 1}] | to json
 
   with-env {
-    MOCK_sqlite3: ({output: $mock_select exit_code: 0} | to json)
-    MOCK_sqlite3_INSERT: ({output: $mock_insert exit_code: 0} | to json)
+    MOCK_sqlite3_CHECK_SCRATCHPAD: ({output: $mock_check exit_code: 0} | to json)
+    MOCK_sqlite3: ({output: $mock_insert exit_code: 0} | to json)
   } {
     let result = update-scratchpad "## Current Work\n\nWorking on feature X"
 
@@ -111,23 +111,25 @@ export def "test only one scratchpad exists after multiple updates" [] {
   use ../tests/mocks.nu *
   use ../storage.nu update-scratchpad
 
-  # First update - no scratchpad exists, will INSERT
-  let mock_select_empty = "[]"
-  # Second update - scratchpad exists with id 1, will UPDATE
-  let mock_select_exists = [{id: 1}] | to json
+  # First call: CREATE (check returns empty, INSERT returns ID 1)
+  let mock_check_empty = "[]"
+  let mock_insert = [{id: 1}] | to json
 
-  # First call: CREATE
   with-env {
-    MOCK_sqlite3: ({output: $mock_select_empty exit_code: 0} | to json)
+    MOCK_sqlite3_CHECK_SCRATCHPAD: ({output: $mock_check_empty exit_code: 0} | to json)
+    MOCK_sqlite3: ({output: $mock_insert exit_code: 0} | to json)
   } {
     let result1 = update-scratchpad "First content"
     assert ($result1.success == true)
     assert ($result1.scratchpad_id == 1)
   }
 
-  # Second call: UPDATE (same ID returned)
+  # Second call: UPDATE (check returns ID 1, no INSERT needed)
+  let mock_check_exists = [{id: 1}] | to json
+
   with-env {
-    MOCK_sqlite3: ({output: $mock_select_exists exit_code: 0} | to json)
+    MOCK_sqlite3_CHECK_SCRATCHPAD: ({output: $mock_check_exists exit_code: 0} | to json)
+    MOCK_sqlite3: ({output: "" exit_code: 0} | to json) # UPDATE doesn't return data
   } {
     let result2 = update-scratchpad "Second content"
     assert ($result2.success == true)
@@ -151,13 +153,14 @@ export def "test init-database calls create-schema" [] {
 
 # Test create-todo-list with all parameters
 export def "test create-todo-list with all parameters" [] {
-  # Source mocks first, then storage (relative to project root)
   use ../tests/mocks.nu *
   use ../storage.nu create-todo-list
 
+  # Mock the chained INSERT + SELECT response
+  let mock_response = [{id: 42}] | to json
+
   with-env {
-    MOCK_random_int: ({output: 1234} | to json)
-    MOCK_date_now: ({output: "2025-01-14T12:00:00Z"} | to json)
+    MOCK_sqlite3: ({output: $mock_response exit_code: 0} | to json)
   } {
     let result = create-todo-list "Test List" "A test description" ["tag1" "tag2"]
 
@@ -165,7 +168,7 @@ export def "test create-todo-list with all parameters" [] {
     assert ($result.name == "Test List")
     assert ($result.description == "A test description")
     assert ($result.tags == ["tag1" "tag2"])
-    assert ($result.id != null)
+    assert ($result.id == 42)
   }
 }
 
@@ -174,9 +177,11 @@ export def "test create-todo-list with minimal parameters" [] {
   use ../tests/mocks.nu *
   use ../storage.nu create-todo-list
 
+  # Mock the chained INSERT + SELECT response
+  let mock_response = [{id: 99}] | to json
+
   with-env {
-    MOCK_random_int: ({output: 5678} | to json)
-    MOCK_date_now: ({output: "2025-01-14T12:00:00Z"} | to json)
+    MOCK_sqlite3: ({output: $mock_response exit_code: 0} | to json)
   } {
     let result = create-todo-list "Minimal List"
 
@@ -184,6 +189,7 @@ export def "test create-todo-list with minimal parameters" [] {
     assert ($result.name == "Minimal List")
     assert ($result.description == null)
     assert ($result.tags == null)
+    assert ($result.id == 99)
   }
 }
 
@@ -247,9 +253,11 @@ export def "test add-todo-item with all parameters" [] {
   use ../tests/mocks.nu *
   use ../storage.nu add-todo-item
 
+  # Mock the chained INSERT + SELECT response
+  let mock_response = [{id: 55}] | to json
+
   with-env {
-    MOCK_random_int: ({output: 7890} | to json)
-    MOCK_date_now: ({output: "2025-12-14T16:00:00Z"} | to json)
+    MOCK_sqlite3: ({output: $mock_response exit_code: 0} | to json)
   } {
     let result = add-todo-item 123 "Test item" 5 "todo"
 
@@ -257,7 +265,7 @@ export def "test add-todo-item with all parameters" [] {
     assert ($result.content == "Test item")
     assert ($result.status == "todo")
     assert ($result.priority == 5)
-    assert ($result.id != null)
+    assert ($result.id == 55)
   }
 }
 
@@ -266,15 +274,18 @@ export def "test add-todo-item defaults to backlog" [] {
   use ../tests/mocks.nu *
   use ../storage.nu add-todo-item
 
+  # Mock the chained INSERT + SELECT response
+  let mock_response = [{id: 66}] | to json
+
   with-env {
-    MOCK_random_int: ({output: 1111} | to json)
-    MOCK_date_now: ({output: "2025-12-14T16:00:00Z"} | to json)
+    MOCK_sqlite3: ({output: $mock_response exit_code: 0} | to json)
   } {
     let result = add-todo-item 123 "Test item"
 
     assert ($result.success == true)
     assert ($result.status == "backlog")
     assert ($result.priority == null)
+    assert ($result.id == 66)
   }
 }
 
@@ -414,16 +425,18 @@ export def "test create-note with all parameters" [] {
   use ../tests/mocks.nu *
   use ../storage.nu create-note
 
+  # Mock the chained INSERT + SELECT response
+  let mock_response = [{id: 77}] | to json
+
   with-env {
-    MOCK_random_int: ({output: 9999} | to json)
-    MOCK_date_now: ({output: "2025-01-14T16:30:00Z"} | to json)
+    MOCK_sqlite3: ({output: $mock_response exit_code: 0} | to json)
   } {
     let result = create-note "Architecture Decision" "We decided to use Rust for the backend" ["architecture" "backend"]
 
     assert ($result.success == true)
     assert ($result.title == "Architecture Decision")
     assert ($result.tags == ["architecture" "backend"])
-    assert ($result.id != null)
+    assert ($result.id == 77)
   }
 }
 
@@ -432,16 +445,18 @@ export def "test create-note with minimal parameters" [] {
   use ../tests/mocks.nu *
   use ../storage.nu create-note
 
+  # Mock the chained INSERT + SELECT response
+  let mock_response = [{id: 88}] | to json
+
   with-env {
-    MOCK_random_int: ({output: 8888} | to json)
-    MOCK_date_now: ({output: "2025-01-14T16:30:00Z"} | to json)
+    MOCK_sqlite3: ({output: $mock_response exit_code: 0} | to json)
   } {
     let result = create-note "Quick Note" "Just a quick thought"
 
     assert ($result.success == true)
     assert ($result.title == "Quick Note")
     assert ($result.tags == null)
-    assert ($result.id != null)
+    assert ($result.id == 88)
   }
 }
 

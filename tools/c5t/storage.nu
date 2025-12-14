@@ -115,34 +115,41 @@ export def create-todo-list [
   }
 
   # Insert without specifying id - SQLite auto-generates INTEGER PRIMARY KEY
+  # Use RETURNING clause or chain INSERT with SELECT in same connection
   let sql = $"INSERT INTO todo_list \(name, description, tags\) 
-             VALUES \('($escaped_name)', ($desc_value), '($tags_json)'\);"
+             VALUES \('($escaped_name)', ($desc_value), '($tags_json)'\);
+             SELECT last_insert_rowid\(\) as id;"
 
-  let result = execute-sql $db_path $sql
+  # Execute INSERT and SELECT in same sqlite3 call to preserve session
+  let result = try {
+    let output = sqlite3 -json $db_path $sql | from json
+    {success: true data: $output}
+  } catch {|err|
+    {success: false error: $err.msg}
+  }
 
-  if $result.success {
-    # Get the auto-generated ID
-    let id_result = query-sql $db_path "SELECT last_insert_rowid() as id;"
-
-    # Extract ID from result, or use 1 for mocked tests
-    let list_id = if $id_result.success and ($id_result.data | is-not-empty) {
-      $id_result.data.0.id
-    } else {
-      1 # Fallback for mocked tests where database isn't real
-    }
-
-    {
-      success: true
-      id: $list_id
-      name: $name
-      description: $description
-      tags: $tags
-    }
-  } else {
-    {
+  if not $result.success {
+    return {
       success: false
       error: $"Failed to create todo list: ($result.error)"
     }
+  }
+
+  if ($result.data | is-empty) {
+    return {
+      success: false
+      error: "Failed to retrieve inserted ID"
+    }
+  }
+
+  let list_id = $result.data.0.id
+
+  {
+    success: true
+    id: $list_id
+    name: $name
+    description: $description
+    tags: $tags
   }
 }
 
@@ -215,35 +222,41 @@ export def add-todo-item [
   let priority_value = if $priority != null { $priority } else { "null" }
 
   # Insert without specifying id - SQLite auto-generates
+  # Chain INSERT with SELECT to get ID in same connection
   let sql = $"INSERT INTO todo_item \(list_id, content, status, priority\) 
-             VALUES \(($list_id), '($escaped_content)', '($item_status)', ($priority_value)\);"
+             VALUES \(($list_id), '($escaped_content)', '($item_status)', ($priority_value)\);
+             SELECT last_insert_rowid\(\) as id;"
 
-  let result = execute-sql $db_path $sql
+  let result = try {
+    let output = sqlite3 -json $db_path $sql | from json
+    {success: true data: $output}
+  } catch {|err|
+    {success: false error: $err.msg}
+  }
 
-  if $result.success {
-    # Get the auto-generated ID
-    let id_result = query-sql $db_path "SELECT last_insert_rowid() as id;"
-
-    # Extract ID from result, or use 1 for mocked tests
-    let item_id = if $id_result.success and ($id_result.data | is-not-empty) {
-      $id_result.data.0.id
-    } else {
-      1 # Fallback for mocked tests where database isn't real
-    }
-
-    {
-      success: true
-      id: $item_id
-      list_id: $list_id
-      content: $content
-      status: $item_status
-      priority: $priority
-    }
-  } else {
-    {
+  if not $result.success {
+    return {
       success: false
       error: $"Failed to add todo item: ($result.error)"
     }
+  }
+
+  if ($result.data | is-empty) {
+    return {
+      success: false
+      error: "Failed to retrieve inserted item ID"
+    }
+  }
+
+  let item_id = $result.data.0.id
+
+  {
+    success: true
+    id: $item_id
+    list_id: $list_id
+    content: $content
+    status: $item_status
+    priority: $priority
   }
 }
 
@@ -620,10 +633,17 @@ export def archive-todo-list [
   }
 
   # Insert without specifying id - SQLite auto-generates
+  # Chain INSERT with SELECT to get ID in same connection
   let insert_note_sql = $"INSERT INTO note \(title, content, tags, note_type, source_id\) 
-                         VALUES \('($escaped_title)', '($escaped_content)', ($tags_value), 'archived_todo', ($list_id)\);"
+                         VALUES \('($escaped_title)', '($escaped_content)', ($tags_value), 'archived_todo', ($list_id)\);
+                         SELECT last_insert_rowid\(\) as id;"
 
-  let note_result = execute-sql $db_path $insert_note_sql
+  let note_result = try {
+    let output = sqlite3 -json $db_path $insert_note_sql | from json
+    {success: true data: $output}
+  } catch {|err|
+    {success: false error: $err.msg}
+  }
 
   if not $note_result.success {
     return {
@@ -632,15 +652,14 @@ export def archive-todo-list [
     }
   }
 
-  # Get the auto-generated note ID
-  let id_result = query-sql $db_path "SELECT last_insert_rowid() as id;"
-
-  # Extract ID from result, or use 1 for mocked tests
-  let note_id = if $id_result.success and ($id_result.data | is-not-empty) {
-    $id_result.data.0.id
-  } else {
-    1 # Fallback for mocked tests where database isn't real
+  if ($note_result.data | is-empty) {
+    return {
+      success: false
+      error: "Failed to retrieve archive note ID"
+    }
   }
+
+  let note_id = $note_result.data.0.id
 
   # Update list status to archived
   let archive_list_sql = $"UPDATE todo_list 
@@ -682,33 +701,39 @@ export def create-note [
   }
 
   # Insert without specifying id - SQLite auto-generates
+  # Chain INSERT with SELECT to get ID in same connection
   let sql = $"INSERT INTO note \(title, content, tags, note_type\) 
-             VALUES \('($escaped_title)', '($escaped_content)', ($tags_value), 'manual'\);"
+             VALUES \('($escaped_title)', '($escaped_content)', ($tags_value), 'manual'\);
+             SELECT last_insert_rowid\(\) as id;"
 
-  let result = execute-sql $db_path $sql
+  let result = try {
+    let output = sqlite3 -json $db_path $sql | from json
+    {success: true data: $output}
+  } catch {|err|
+    {success: false error: $err.msg}
+  }
 
-  if $result.success {
-    # Get the auto-generated ID
-    let id_result = query-sql $db_path "SELECT last_insert_rowid() as id;"
-
-    # Extract ID from result, or use 1 for mocked tests
-    let note_id = if $id_result.success and ($id_result.data | is-not-empty) {
-      $id_result.data.0.id
-    } else {
-      1 # Fallback for mocked tests where database isn't real
-    }
-
-    {
-      success: true
-      id: $note_id
-      title: $title
-      tags: $tags
-    }
-  } else {
-    {
+  if not $result.success {
+    return {
       success: false
       error: $"Failed to create note: ($result.error)"
     }
+  }
+
+  if ($result.data | is-empty) {
+    return {
+      success: false
+      error: "Failed to retrieve note ID"
+    }
+  }
+
+  let note_id = $result.data.0.id
+
+  {
+    success: true
+    id: $note_id
+    title: $title
+    tags: $tags
   }
 }
 
@@ -900,10 +925,17 @@ export def update-scratchpad [
 
   if ($check_result.data | is-empty) {
     # CREATE new scratchpad
+    # Chain INSERT with SELECT to get ID in same connection
     let insert_sql = $"INSERT INTO note \(title, content, note_type\) 
-                       VALUES \('Scratchpad', '($escaped_content)', 'scratchpad'\);"
+                       VALUES \('Scratchpad', '($escaped_content)', 'scratchpad'\);
+                       SELECT last_insert_rowid\(\) as id;"
 
-    let insert_result = execute-sql $db_path $insert_sql
+    let insert_result = try {
+      let output = sqlite3 -json $db_path $insert_sql | from json
+      {success: true data: $output}
+    } catch {|err|
+      {success: false error: $err.msg}
+    }
 
     if not $insert_result.success {
       return {
@@ -912,15 +944,14 @@ export def update-scratchpad [
       }
     }
 
-    # Get the inserted ID
-    let id_result = query-sql $db_path "SELECT last_insert_rowid() as id;"
-
-    # Extract ID from result, or use 1 for mocked tests
-    let scratchpad_id = if $id_result.success and ($id_result.data | is-not-empty) {
-      $id_result.data.0.id
-    } else {
-      1 # Fallback for mocked tests where database isn't real
+    if ($insert_result.data | is-empty) {
+      return {
+        success: false
+        error: "Failed to retrieve scratchpad ID"
+      }
     }
+
+    let scratchpad_id = $insert_result.data.0.id
 
     {
       success: true

@@ -3,7 +3,21 @@
 
 # Mock sqlite3 command - returns output or simulates database operations
 export def --wrapped sqlite3 [...rest] {
-  # Check for generic mock first
+  # Extract SQL from arguments (usually last argument)
+  let sql = $rest | last
+
+  # Check for SQL-specific mocks first (for multiple calls with different responses)
+  if ($sql | str contains "SELECT id FROM note WHERE note_type = 'scratchpad'") {
+    if "MOCK_sqlite3_CHECK_SCRATCHPAD" in $env {
+      let mock_data = $env | get MOCK_sqlite3_CHECK_SCRATCHPAD | from json
+      if $mock_data.exit_code != 0 {
+        error make {msg: $"SQLite error: ($mock_data.output)"}
+      }
+      return $mock_data.output
+    }
+  }
+
+  # Check for generic mock
   if "MOCK_sqlite3" in $env {
     let mock_data = $env | get MOCK_sqlite3 | from json
     if $mock_data.exit_code != 0 {
