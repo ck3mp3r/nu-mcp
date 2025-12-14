@@ -10,9 +10,9 @@ export def auto-update-scratchpad [] {
     use storage.nu *
 
     # Get existing scratchpad to preserve LLM context
-    let existing = get-scratchpad
-    let llm_context = if $existing != null {
-      extract-llm-context $existing.content
+    let existing_result = get-scratchpad
+    let llm_context = if $existing_result.success and $existing_result.scratchpad != null {
+      extract-llm-context $existing_result.scratchpad.content
     } else {
       "*[LLM: Add insights, decisions, important context for next session]*"
     }

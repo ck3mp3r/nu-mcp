@@ -269,26 +269,69 @@ export def "test validate-item-update-input rejects missing item_id" [] {
   assert ($result.error | str contains "item_id")
 }
 
-# Test auto-update-scratchpad doesn't crash (integration tested separately)
+# Test auto-update-scratchpad preserves LLM context with proper mocks
 export def "test auto-update-scratchpad generates and updates scratchpad" [] {
   use ../utils.nu auto-update-scratchpad
   use mocks.nu *
 
-  # Just verify the function can be called without crashing
-  # Full DB integration is tested via tool calls in production
+  # Mock all database queries
+  let existing_scratchpad = [
+    {
+      id: 1
+      title: "Scratchpad"
+      content: "## Active Work\n\nOld data\n\n## Key Learnings & Context\n\nMy custom context\n- Important insight"
+      tags: ""
+      note_type: "scratchpad"
+      created_at: "2025-01-01"
+      updated_at: "2025-01-01"
+    }
+  ]
+
   with-env {
-    # Mock git to prevent git errors
+    # Mock get-scratchpad (first query returns existing)
+    MOCK_query_db: {output: $existing_scratchpad exit_code: 0}
+    # Mock get-active-lists-with-counts
+    MOCK_query_db_TODO_LIST: {output: [] exit_code: 0}
+    # Mock get-all-in-progress-items, get-recently-completed-items, get-high-priority-next-steps
+    MOCK_query_db_EMPTY_ITEMS: true
+    # Mock update-scratchpad (UPDATE query)
+    MOCK_query_db_CHECK_SCRATCHPAD: {output: [{id: 1}] exit_code: 0}
+    MOCK_query_db_UPDATE: {output: [] exit_code: 0}
+    # Mock git
     MOCK_git_rev_parse___git_dir: ({exit_code: 0 output: ".git"} | to json)
     MOCK_git_branch___show_current: ({exit_code: 0 output: "main"} | to json)
     MOCK_git_status___porcelain: ({exit_code: 0 output: ""} | to json)
     MOCK_git_log__3___oneline___no_decorate: ({exit_code: 0 output: ""} | to json)
   } {
-    # Call auto-update-scratchpad - will return false if DB doesn't exist, but shouldn't crash
     let result = auto-update-scratchpad
 
-    # Function executes without crashing (may return false due to missing DB)
-    assert ($result == false or $result == true)
+    # Should succeed
+    assert ($result == true)
   }
+}
+
+# Test hybrid scratchpad preserves LLM context through extraction
+export def "test hybrid scratchpad preserves LLM context" [] {
+  use ../utils.nu extract-llm-context
+
+  # Create a scratchpad with custom LLM content
+  let original = "## Active Work
+
+Lists here
+
+## Key Learnings & Context
+
+My custom insights
+- Decision A
+- Learning B"
+
+  # Extract should preserve the custom content
+  let extracted = extract-llm-context $original
+
+  assert ($extracted | str contains "custom insights")
+  assert ($extracted | str contains "Decision A")
+  assert ($extracted | str contains "Learning B")
+  assert (not ($extracted | str contains "[LLM:"))
 }
 
 # Test extract-llm-context extracts LLM section
