@@ -155,6 +155,9 @@ export def format-item-updated [field: string item_id: int value: any] {
     $"✓ Item ($field) updated"
     $"  ID: ($item_id)"
     $"  New ($field): ($value)"
+    ""
+    $"💡 Tip: Update scratchpad to track this progress"
+    $"  Use: c5t_update_scratchpad with current session context"
   ] | str join (char newline)
 }
 
@@ -163,6 +166,9 @@ export def format-item-completed [item_id: int] {
   [
     $"✓ Item marked as complete"
     $"  ID: ($item_id)"
+    ""
+    $"💡 Tip: Update scratchpad to track this milestone"
+    $"  Use: c5t_update_scratchpad with completed tasks + next steps"
   ] | str join (char newline)
 }
 

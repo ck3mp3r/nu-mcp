@@ -3,6 +3,20 @@
 # NOTE: ID generation removed - SQLite auto-generates INTEGER PRIMARY KEY
 # IDs are now integers auto-assigned by SQLite using last_insert_rowid()
 
+# Auto-update scratchpad with generated content
+export def auto-update-scratchpad [] {
+  use storage.nu *
+
+  # Generate fresh scratchpad content
+  let content = generate-scratchpad-content
+
+  # Update or create scratchpad
+  let result = upsert-scratchpad $content
+
+  # Return success silently
+  $result.success
+}
+
 # Get git status for scratchpad
 export def get-git-status [] {
   # Check if we're in a git repo - use try/catch since git returns non-zero outside repo

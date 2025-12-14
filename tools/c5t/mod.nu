@@ -436,6 +436,9 @@ def "main call-tool" [
         return $result.error
       }
 
+      # Auto-update scratchpad after status change
+      auto-update-scratchpad | ignore
+
       if $result.archived {
         format-item-updated-with-archive "status" $item_id $status $result.note_id
       } else {
@@ -496,6 +499,9 @@ def "main call-tool" [
       if not $result.success {
         return $result.error
       }
+
+      # Auto-update scratchpad after completion
+      auto-update-scratchpad | ignore
 
       if $result.archived {
         format-item-completed-with-archive $item_id $result.note_id
