@@ -38,7 +38,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_active"
-      description: "List all active todo lists, optionally filtered by tags"
+      description: "List all active todo lists, optionally filtered by tags. Show to user."
       input_schema: {
         type: "object"
         properties: {
@@ -146,7 +146,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_items"
-      description: "List all items in a todo list, optionally filtered by status"
+      description: "List all items in a todo list, optionally filtered by status. Show to user."
       input_schema: {
         type: "object"
         properties: {
@@ -165,7 +165,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_active_items"
-      description: "List active items in a todo list (excludes 'done' and 'cancelled')"
+      description: "List active items in a todo list (excludes 'done' and 'cancelled'). Show to user."
       input_schema: {
         type: "object"
         properties: {
@@ -220,7 +220,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_notes"
-      description: "List notes with optional filtering by tags, type, and limit"
+      description: "List notes with optional filtering by tags, type, and limit. Show to user."
       input_schema: {
         type: "object"
         properties: {
@@ -244,7 +244,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_note"
-      description: "Get a specific note by ID"
+      description: "Get a specific note by ID. Show to user."
       input_schema: {
         type: "object"
         properties: {
@@ -258,7 +258,7 @@ def "main list-tools" [] {
     }
     {
       name: "search"
-      description: "Search notes using FTS5 syntax. Examples: 'term', 'term1 AND term2', 'term1 OR term2', 'NOT term', '\"exact phrase\"', 'prefix*'. Searches title and content."
+      description: "Search notes using FTS5 syntax. Examples: 'term', 'term1 AND term2', 'term1 OR term2', 'NOT term', '\"exact phrase\"', 'prefix*'. Searches title and content. Show to user."
       input_schema: {
         type: "object"
         properties: {
@@ -313,7 +313,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_summary"
-      description: "Get comprehensive overview: stats, active lists, in-progress items, high-priority items (P4-P5), recently completed, scratchpad status. Use at session start or for context recovery. Returns markdown summary."
+      description: "Get comprehensive overview: stats, active lists, in-progress items, high-priority items (P4-P5), recently completed, scratchpad status. Use at session start or for context recovery. Always show the full summary to the user."
       input_schema: {
         type: "object"
         properties: {}
