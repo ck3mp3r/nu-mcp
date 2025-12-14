@@ -23,7 +23,7 @@ This causes developers to re-search for files, re-explain context, and lose mome
 3. **Markdown Notes**: Store knowledge with rich formatting
 4. **Scratchpad**: Auto-update context snapshot every 25% token usage
 5. **Search**: Find past decisions and knowledge
-6. **Per-Project Storage**: Each project has its own `.memory/c5t.db`
+6. **Per-Project Storage**: Each project has its own `.c5t/context.db`
 
 ## Capabilities
 
@@ -155,7 +155,7 @@ END;
 
 - **No safety modes needed**: This tool manages local project data only
 - **No sensitive data**: All data is project-specific context
-- **File permissions**: Database stored in `.memory/` (can be gitignored)
+- **File permissions**: Database stored in `.c5t/` (can be gitignored)
 
 ## Implementation Milestones
 
@@ -176,13 +176,13 @@ END;
 nu tools/c5t/mod.nu list-tools | from json
 # Should return empty array
 
-ls .memory/c5t.db
+ls .c5t/context.db
 # Database file should exist with correct schema
 ```
 
 **Acceptance Criteria**:
 - [ ] Tool discovered by nu-mcp
-- [ ] Database created in `.memory/c5t.db`
+- [ ] Database created in `.c5t/context.db`
 - [ ] Schema created successfully
 - [ ] All tables and triggers exist
 
@@ -830,7 +830,7 @@ nu tools/c5t/mod.nu call-tool c5t_get_scratchpad '{}'
 ## Questions & Decisions
 
 ### Database Location
-**Decision**: Use `.memory/c5t.db` in project root (per-project storage)
+**Decision**: Use `.c5t/context.db` in project root (per-project storage)
 **Rationale**: Context is project-specific; separate databases prevent mixing unrelated work
 
 ### Auto-Archive Trigger

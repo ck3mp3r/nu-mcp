@@ -52,3 +52,6 @@ result
 tarpaulin-report.*
 .pre-commit-config.yaml
 .vscode/
+
+# c5t tool database
+.c5t/
