@@ -229,3 +229,13 @@ export def "test item-exists returns false for non-existent item" [] {
     assert (not $result)
   }
 }
+
+# Test update-todo-notes
+export def "test update-todo-notes updates notes field" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu update-todo-notes
+
+  let result = update-todo-notes "list-123" "Test notes content"
+
+  assert ($result.success == true)
+}

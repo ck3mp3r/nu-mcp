@@ -151,7 +151,7 @@ export def get-active-lists [
 ] {
   let db_path = get-db-path
 
-  let sql = "SELECT id, name, description, tags, created_at, updated_at 
+  let sql = "SELECT id, name, description, notes, tags, created_at, updated_at 
              FROM todo_list 
              WHERE status = 'active' 
              ORDER BY created_at DESC;"
@@ -449,4 +449,29 @@ export def item-exists [
   let result = query-sql $db_path $sql
 
   $result.success and (not ($result.data | is-empty))
+}
+
+# Update notes on a todo list
+export def update-todo-notes [
+  list_id: string
+  notes: string
+] {
+  let db_path = get-db-path
+
+  let escaped_notes = $notes | str replace --all "'" "''"
+
+  let sql = $"UPDATE todo_list 
+             SET notes = '($escaped_notes)' 
+             WHERE id = '($list_id)';"
+
+  let result = execute-sql $db_path $sql
+
+  if $result.success {
+    {success: true}
+  } else {
+    {
+      success: false
+      error: $"Failed to update notes: ($result.error)"
+    }
+  }
 }

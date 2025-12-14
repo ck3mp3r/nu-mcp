@@ -202,6 +202,7 @@ export def "test format-active-lists formats single list" [] {
       id: "20251214-1234"
       name: "Sprint Tasks"
       description: "Q1 2025 sprint items"
+      notes: null
       tags: ["sprint" "q1"]
       created_at: "2025-12-14"
       updated_at: "2025-12-14"
@@ -226,6 +227,7 @@ export def "test format-active-lists formats multiple lists" [] {
       id: "id1"
       name: "List 1"
       description: "First list"
+      notes: null
       tags: ["tag1"]
       created_at: "2025-12-14"
       updated_at: "2025-12-14"
@@ -234,6 +236,7 @@ export def "test format-active-lists formats multiple lists" [] {
       id: "id2"
       name: "List 2"
       description: null
+      notes: null
       tags: []
       created_at: "2025-12-15"
       updated_at: "2025-12-15"
@@ -247,4 +250,37 @@ export def "test format-active-lists formats multiple lists" [] {
   assert ($output | str contains "List 2")
   assert ($output | str contains "tag1")
   assert ($output | str contains "none")
+}
+
+# Test format-notes-updated
+export def "test format-notes-updated returns formatted output" [] {
+  use ../formatters.nu format-notes-updated
+
+  let output = format-notes-updated "list-123"
+
+  assert ($output | str contains "✓")
+  assert ($output | str contains "list-123")
+  assert ($output | str contains "Progress notes updated")
+}
+
+# Test format-active-lists with notes field
+export def "test format-active-lists includes notes" [] {
+  use ../formatters.nu format-active-lists
+
+  let lists = [
+    {
+      id: "list-1"
+      name: "Test List"
+      description: "Description"
+      notes: "Some progress notes"
+      tags: ["test"]
+      created_at: "2025-12-14"
+      updated_at: "2025-12-14"
+    }
+  ]
+
+  let output = format-active-lists $lists
+
+  assert ($output | str contains "Test List")
+  assert ($output | str contains "Some progress notes")
 }

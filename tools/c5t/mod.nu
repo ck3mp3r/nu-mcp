@@ -177,6 +177,24 @@ def "main list-tools" [] {
         required: ["list_id"]
       }
     }
+    {
+      name: "c5t_update_notes"
+      description: "Update the progress notes on a todo list (supports markdown)"
+      input_schema: {
+        type: "object"
+        properties: {
+          list_id: {
+            type: "string"
+            description: "ID of the todo list to update"
+          }
+          notes: {
+            type: "string"
+            description: "Markdown-formatted progress notes (can be empty to clear notes)"
+          }
+        }
+        required: ["list_id" "notes"]
+      }
+    }
   ] | to json
 }
 
@@ -393,6 +411,32 @@ def "main call-tool" [
       }
 
       format-items-list $result.list $result.items
+    }
+
+    "c5t_update_notes" => {
+      if "list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'list_id'"
+      }
+
+      if "notes" not-in $parsed_args {
+        return "Error: Missing required field: 'notes'"
+      }
+
+      let list_id = $parsed_args.list_id
+      let notes = $parsed_args.notes
+
+      # Check if list exists
+      if not (list-exists $list_id) {
+        return $"Error: List not found: ($list_id)"
+      }
+
+      let result = update-todo-notes $list_id $notes
+
+      if not $result.success {
+        return $result.error
+      }
+
+      format-notes-updated $list_id
     }
 
     _ => {

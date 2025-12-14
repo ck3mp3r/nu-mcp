@@ -41,10 +41,17 @@ export def format-active-lists [lists: list] {
       ""
     }
 
+    let notes = if $list.notes != null and $list.notes != "" {
+      $"\n    Notes: ($list.notes)"
+    } else {
+      ""
+    }
+
     [
       $"  • ($list.name)"
       $"    ID: ($list.id) | Tags: ($tags_str)"
       $desc
+      $notes
     ] | str join (char newline)
   }
 
@@ -156,6 +163,14 @@ export def format-item-completed [item_id: string] {
   [
     $"✓ Item marked as complete"
     $"  ID: ($item_id)"
+  ] | str join (char newline)
+}
+
+# Format notes update response
+export def format-notes-updated [list_id: string] {
+  [
+    $"✓ Progress notes updated"
+    $"  List ID: ($list_id)"
   ] | str join (char newline)
 }
 

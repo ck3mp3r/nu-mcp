@@ -281,11 +281,18 @@ nu tools/c5t/mod.nu call-tool c5t_list_active '{}'
 ### Milestone 4: Progress Notes on Todo Lists
 **Goal**: Update progress notes on todo lists
 
-**Tools to Implement**:
-- `c5t_update_notes` - Update notes field on list
+**Tools Implemented**:
+- `c5t_update_notes` - Update notes field on list (supports markdown)
 
-**Functions** (storage.nu, kebab-case):
-- `update-todo-notes [list_id, notes]`
+**Functions Implemented** (storage.nu, kebab-case):
+- `update-todo-notes [list_id, notes]` - Update notes field with SQL escaping
+
+**Formatter Added**:
+- `format-notes-updated [list_id]` - Confirmation message for notes update
+
+**Modified Functions**:
+- `get-active-lists` - Now includes notes field in SELECT query
+- `format-active-lists` - Displays notes if present
 
 **Validation**:
 ```bash
@@ -296,10 +303,13 @@ nu tools/c5t/mod.nu call-tool c5t_update_notes '{
 ```
 
 **Acceptance Criteria**:
-- [ ] Can update notes field with markdown
-- [ ] Notes preserved as-is (no markdown rendering)
-- [ ] Updated_at timestamp changes
-- [ ] Notes visible in list_active output
+- [x] Can update notes field with markdown
+- [x] Notes preserved as-is (no markdown rendering)
+- [x] Updated_at timestamp changes automatically (database trigger)
+- [x] Notes visible in list_active output
+- [x] 61 tests passing (58 from M3 + 3 new tests)
+
+**Status**: ✅ COMPLETE (commit pending)
 
 ---
 
