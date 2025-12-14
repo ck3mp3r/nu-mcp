@@ -146,3 +146,105 @@ export def "test format-search-results formats results" [] {
   assert ($output | str contains "Search Result 1")
   assert ($output | str contains "sr-1")
 }
+
+# Test format-list-created with all fields
+export def "test format-list-created with all fields" [] {
+  use ../formatters.nu format-list-created
+
+  let result = {
+    id: "20251214-1234"
+    name: "Feature Work"
+    description: "Implementing new authentication"
+    tags: ["backend" "security"]
+  }
+
+  let output = format-list-created $result
+
+  assert ($output | str contains "Feature Work")
+  assert ($output | str contains "20251214-1234")
+  assert ($output | str contains "backend, security")
+  assert ($output | str contains "Implementing new authentication")
+}
+
+# Test format-list-created with minimal fields
+export def "test format-list-created with minimal fields" [] {
+  use ../formatters.nu format-list-created
+
+  let result = {
+    id: "20251214-5678"
+    name: "Bug Fixes"
+    description: null
+    tags: null
+  }
+
+  let output = format-list-created $result
+
+  assert ($output | str contains "Bug Fixes")
+  assert ($output | str contains "20251214-5678")
+  assert ($output | str contains "none")
+}
+
+# Test format-active-lists with empty list
+export def "test format-active-lists handles empty list" [] {
+  use ../formatters.nu format-active-lists
+
+  let output = format-active-lists []
+
+  assert equal $output "No active todo lists found."
+}
+
+# Test format-active-lists with single list
+export def "test format-active-lists formats single list" [] {
+  use ../formatters.nu format-active-lists
+
+  let lists = [
+    {
+      id: "20251214-1234"
+      name: "Sprint Tasks"
+      description: "Q1 2025 sprint items"
+      tags: ["sprint" "q1"]
+      created_at: "2025-12-14"
+      updated_at: "2025-12-14"
+    }
+  ]
+
+  let output = format-active-lists $lists
+
+  assert ($output | str contains "Active Todo Lists: 1")
+  assert ($output | str contains "Sprint Tasks")
+  assert ($output | str contains "20251214-1234")
+  assert ($output | str contains "sprint, q1")
+  assert ($output | str contains "Q1 2025 sprint items")
+}
+
+# Test format-active-lists with multiple lists
+export def "test format-active-lists formats multiple lists" [] {
+  use ../formatters.nu format-active-lists
+
+  let lists = [
+    {
+      id: "id1"
+      name: "List 1"
+      description: "First list"
+      tags: ["tag1"]
+      created_at: "2025-12-14"
+      updated_at: "2025-12-14"
+    }
+    {
+      id: "id2"
+      name: "List 2"
+      description: null
+      tags: []
+      created_at: "2025-12-15"
+      updated_at: "2025-12-15"
+    }
+  ]
+
+  let output = format-active-lists $lists
+
+  assert ($output | str contains "Active Todo Lists: 2")
+  assert ($output | str contains "List 1")
+  assert ($output | str contains "List 2")
+  assert ($output | str contains "tag1")
+  assert ($output | str contains "none")
+}
