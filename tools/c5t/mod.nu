@@ -15,7 +15,7 @@ def "main list-tools" [] {
   [
     {
       name: "create_list"
-      description: "Create a new todo list to track work items. Supports statuses (backlog→todo→in_progress→review→done→cancelled), priorities 1-5, auto-archive when all items complete."
+      description: "Track todos with full context: searchable history, auto-archive completed work, never lose progress across sessions. Supports 6 statuses, priorities 1-5, tags, and auto-timestamps."
       input_schema: {
         type: "object"
         properties: {
@@ -38,7 +38,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_active"
-      description: "List all active todo lists, optionally filtered by tags. Show to user."
+      description: "See all your active work at a glance. Show to user."
       input_schema: {
         type: "object"
         properties: {
@@ -52,7 +52,7 @@ def "main list-tools" [] {
     }
     {
       name: "add_item"
-      description: "Add a todo item to a list. Defaults to 'backlog' status. Workflow: backlog→todo→in_progress→review→done→cancelled. Priority 1-5 where 1=critical."
+      description: "Add a todo with auto-timestamps. 6 statuses (backlog→todo→in_progress→review→done→cancelled), priority 1-5 (1=critical). Defaults to 'backlog'."
       input_schema: {
         type: "object"
         properties: {
@@ -258,7 +258,7 @@ def "main list-tools" [] {
     }
     {
       name: "search"
-      description: "Search notes using FTS5 syntax. Examples: 'term', 'term1 AND term2', 'term1 OR term2', 'NOT term', '\"exact phrase\"', 'prefix*'. Searches title and content. Show to user."
+      description: "Find past work instantly. Searches all notes and archived todos with boolean operators (AND, OR, NOT). Show to user."
       input_schema: {
         type: "object"
         properties: {
@@ -297,7 +297,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_scratchpad"
-      description: "CONTEXT LOST? START HERE. Retrieve scratchpad with session context, active work, and recent progress. Use at session start or for context recovery. Returns markdown note or null if none exists."
+      description: "CONTEXT LOST? START HERE. Recover exactly where you left off: active work, recent progress, git status, decisions. Essential for session continuity."
       input_schema: {
         type: "object"
         properties: {}
