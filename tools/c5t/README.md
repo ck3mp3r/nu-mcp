@@ -40,6 +40,11 @@ c5t_update_notes {"list_id": 1, "notes": "## Progress\n\nCompleted research"}
 
 **Statuses**: `backlog`, `todo`, `in_progress`, `review`, `done`, `cancelled`
 
+**Timestamps** (auto-managed):
+- `created_at`: Set when item is created
+- `started_at`: Set when item moves to `in_progress` status
+- `completed_at`: Set when item moves to `done` or `cancelled` status
+
 ## Notes Workflow
 
 ```bash
