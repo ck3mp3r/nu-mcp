@@ -48,8 +48,8 @@ This causes developers to re-search for files, re-explain context, and lose mome
 ### Tables
 
 ```sql
--- Todo Lists
-CREATE TABLE IF NOT EXISTS todo_lists (
+-- Todo List
+CREATE TABLE IF NOT EXISTS todo_list (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT,
@@ -61,19 +61,19 @@ CREATE TABLE IF NOT EXISTS todo_lists (
     archived_at TEXT
 );
 
--- Todo Items
-CREATE TABLE IF NOT EXISTS todo_items (
+-- Todo Item
+CREATE TABLE IF NOT EXISTS todo_item (
     id TEXT PRIMARY KEY,
     list_id TEXT NOT NULL,
     content TEXT NOT NULL,
     status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'completed')),
     created_at TEXT DEFAULT (datetime('now')),
     completed_at TEXT,
-    FOREIGN KEY (list_id) REFERENCES todo_lists(id) ON DELETE CASCADE
+    FOREIGN KEY (list_id) REFERENCES todo_list(id) ON DELETE CASCADE
 );
 
--- Notes (archived todos + standalone notes + scratchpad)
-CREATE TABLE IF NOT EXISTS notes (
+-- Note (archived todos + standalone notes + scratchpad)
+CREATE TABLE IF NOT EXISTS note (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
     content TEXT NOT NULL,         -- Markdown content
@@ -85,40 +85,40 @@ CREATE TABLE IF NOT EXISTS notes (
 );
 
 -- Indexes
-CREATE INDEX IF NOT EXISTS idx_todo_lists_status ON todo_lists(status);
-CREATE INDEX IF NOT EXISTS idx_todo_items_list ON todo_items(list_id);
-CREATE INDEX IF NOT EXISTS idx_notes_type ON notes(note_type);
+CREATE INDEX IF NOT EXISTS idx_todo_list_status ON todo_list(status);
+CREATE INDEX IF NOT EXISTS idx_todo_item_list ON todo_item(list_id);
+CREATE INDEX IF NOT EXISTS idx_note_type ON note(note_type);
 
 -- Full-text search
-CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
+CREATE VIRTUAL TABLE IF NOT EXISTS note_fts USING fts5(
     title,
     content,
-    content=notes,
+    content=note,
     content_rowid=id
 );
 
 -- FTS sync triggers
-CREATE TRIGGER IF NOT EXISTS notes_ai AFTER INSERT ON notes BEGIN
-    INSERT INTO notes_fts(rowid, title, content) 
+CREATE TRIGGER IF NOT EXISTS note_ai AFTER INSERT ON note BEGIN
+    INSERT INTO note_fts(rowid, title, content) 
     VALUES (new.id, new.title, new.content);
 END;
 
-CREATE TRIGGER IF NOT EXISTS notes_au AFTER UPDATE ON notes BEGIN
-    UPDATE notes_fts SET title = new.title, content = new.content 
+CREATE TRIGGER IF NOT EXISTS note_au AFTER UPDATE ON note BEGIN
+    UPDATE note_fts SET title = new.title, content = new.content 
     WHERE rowid = new.id;
 END;
 
-CREATE TRIGGER IF NOT EXISTS notes_ad AFTER DELETE ON notes BEGIN
-    DELETE FROM notes_fts WHERE rowid = old.id;
+CREATE TRIGGER IF NOT EXISTS note_ad AFTER DELETE ON note BEGIN
+    DELETE FROM note_fts WHERE rowid = old.id;
 END;
 
 -- Auto-update timestamps
-CREATE TRIGGER IF NOT EXISTS todo_lists_update AFTER UPDATE ON todo_lists BEGIN
-    UPDATE todo_lists SET updated_at = datetime('now') WHERE id = NEW.id;
+CREATE TRIGGER IF NOT EXISTS todo_list_update AFTER UPDATE ON todo_list BEGIN
+    UPDATE todo_list SET updated_at = datetime('now') WHERE id = NEW.id;
 END;
 
-CREATE TRIGGER IF NOT EXISTS notes_update AFTER UPDATE ON notes BEGIN
-    UPDATE notes SET updated_at = datetime('now') WHERE id = NEW.id;
+CREATE TRIGGER IF NOT EXISTS note_update AFTER UPDATE ON note BEGIN
+    UPDATE note SET updated_at = datetime('now') WHERE id = NEW.id;
 END;
 ```
 
