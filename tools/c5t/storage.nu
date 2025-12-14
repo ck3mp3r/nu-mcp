@@ -1,5 +1,10 @@
 # SQLite database operations for c5t tool
 
+# Wrapper for query db - can be mocked in tests
+def run-query-db [db_path: string sql: string params: list = []] {
+  open $db_path | query db $sql -p $params
+}
+
 export def get-db-path [] {
   let db_dir = ".c5t"
 
@@ -75,24 +80,18 @@ def create-schema [db_path: string] {
   }
 }
 
-def execute-sql [db_path: string sql: string] {
+def execute-sql [db_path: string sql: string params: list = []] {
   try {
-    sqlite3 $db_path $sql
+    run-query-db $db_path $sql $params
     {success: true output: ""}
   } catch {|err|
     {success: false error: $err.msg}
   }
 }
 
-def query-sql [db_path: string sql: string] {
+def query-sql [db_path: string sql: string params: list = []] {
   try {
-    let output = sqlite3 -json $db_path $sql
-    # Handle empty result (sqlite returns empty string for no rows)
-    let result = if ($output | is-empty) {
-      []
-    } else {
-      $output | from json
-    }
+    let result = run-query-db $db_path $sql $params
     {success: true data: $result}
   } catch {|err|
     {success: false error: $err.msg}
@@ -109,30 +108,23 @@ export def create-todo-list [
   let tags_json = if $tags != null and ($tags | is-not-empty) {
     $tags | to json --raw
   } else {
-    "null"
+    null
   }
 
-  let escaped_name = $name | str replace --all "'" "''"
   let desc_value = if $description != null {
-    let escaped_desc = $description | str replace --all "'" "''"
-    $"'($escaped_desc)'"
+    $description
   } else {
-    "null"
+    null
   }
 
-  # Insert without specifying id - SQLite auto-generates INTEGER PRIMARY KEY
-  # Use RETURNING clause or chain INSERT with SELECT in same connection
-  let sql = $"INSERT INTO todo_list \(name, description, tags\) 
-             VALUES \('($escaped_name)', ($desc_value), '($tags_json)'\);
-             SELECT last_insert_rowid\(\) as id;"
+  # Use INSERT ... RETURNING with parameters
+  let sql = "INSERT INTO todo_list (name, description, tags) 
+             VALUES (?, ?, ?) 
+             RETURNING id"
 
-  # Execute INSERT and SELECT in same sqlite3 call to preserve session
-  let result = try {
-    let output = sqlite3 -json $db_path $sql | from json
-    {success: true data: $output}
-  } catch {|err|
-    {success: false error: $err.msg}
-  }
+  let params = [$name $desc_value $tags_json]
+
+  let result = query-sql $db_path $sql $params
 
   if not $result.success {
     return {
@@ -224,21 +216,16 @@ export def add-todo-item [
   # Default status is 'backlog'
   let item_status = if $status != null { $status } else { "backlog" }
 
-  let escaped_content = $content | str replace --all "'" "''"
-  let priority_value = if $priority != null { $priority } else { "null" }
+  let priority_value = if $priority != null { $priority } else { null }
 
-  # Insert without specifying id - SQLite auto-generates
-  # Chain INSERT with SELECT to get ID in same connection
-  let sql = $"INSERT INTO todo_item \(list_id, content, status, priority\) 
-             VALUES \(($list_id), '($escaped_content)', '($item_status)', ($priority_value)\);
-             SELECT last_insert_rowid\(\) as id;"
+  # Use INSERT ... RETURNING with parameters
+  let sql = "INSERT INTO todo_item (list_id, content, status, priority) 
+             VALUES (?, ?, ?, ?) 
+             RETURNING id"
 
-  let result = try {
-    let output = sqlite3 -json $db_path $sql | from json
-    {success: true data: $output}
-  } catch {|err|
-    {success: false error: $err.msg}
-  }
+  let params = [$list_id $content $item_status $priority_value]
+
+  let result = query-sql $db_path $sql $params
 
   if not $result.success {
     return {
@@ -303,7 +290,7 @@ export def update-item-status [
     $timestamp_updates = ($timestamp_updates | append "started_at = NULL")
   }
 
-  # Build SQL with timestamp updates
+  # Build SQL with timestamp updates (still need dynamic SQL here)
   let timestamp_sql = if ($timestamp_updates | is-not-empty) {
     ", " + ($timestamp_updates | str join ", ")
   } else {
@@ -311,10 +298,11 @@ export def update-item-status [
   }
 
   let sql = $"UPDATE todo_item 
-             SET status = '($new_status)'($timestamp_sql) 
-             WHERE id = '($item_id)' AND list_id = '($list_id)';"
+             SET status = ?($timestamp_sql) 
+             WHERE id = ? AND list_id = ?"
 
-  let result = execute-sql $db_path $sql
+  let params = [$new_status $item_id $list_id]
+  let result = execute-sql $db_path $sql $params
 
   if not $result.success {
     return {
@@ -348,13 +336,14 @@ export def update-item-priority [
 ] {
   let db_path = get-db-path
 
-  let priority_value = if $priority != null { $priority } else { "null" }
+  let priority_value = if $priority != null { $priority } else { null }
 
-  let sql = $"UPDATE todo_item 
-             SET priority = ($priority_value) 
-             WHERE id = '($item_id)' AND list_id = '($list_id)';"
+  let sql = "UPDATE todo_item 
+             SET priority = ? 
+             WHERE id = ? AND list_id = ?"
 
-  let result = execute-sql $db_path $sql
+  let params = [$priority_value $item_id $list_id]
+  let result = execute-sql $db_path $sql $params
 
   if $result.success {
     {success: true}
@@ -511,13 +500,12 @@ export def update-todo-notes [
 ] {
   let db_path = get-db-path
 
-  let escaped_notes = $notes | str replace --all "'" "''"
+  let sql = "UPDATE todo_list 
+             SET notes = ? 
+             WHERE id = ?"
 
-  let sql = $"UPDATE todo_list 
-             SET notes = '($escaped_notes)' 
-             WHERE id = '($list_id)';"
-
-  let result = execute-sql $db_path $sql
+  let params = [$notes $list_id]
+  let result = execute-sql $db_path $sql $params
 
   if $result.success {
     {success: true}
@@ -628,28 +616,19 @@ export def archive-todo-list [
   # Generate archive note content
   let note_content = generate-archive-note $list_data.list $list_data.items
 
-  # Create note
-  let escaped_title = $list_data.list.name | str replace --all "'" "''"
-  let escaped_content = $note_content | str replace --all "'" "''"
+  # Create note with parameters
   let tags_value = if $list_data.list.tags != null and ($list_data.list.tags | is-not-empty) {
-    let tags_json = $list_data.list.tags | to json --raw
-    $"'($tags_json)'"
+    $list_data.list.tags | to json --raw
   } else {
-    "NULL"
+    null
   }
 
-  # Insert without specifying id - SQLite auto-generates
-  # Chain INSERT with SELECT to get ID in same connection
-  let insert_note_sql = $"INSERT INTO note \(title, content, tags, note_type, source_id\) 
-                         VALUES \('($escaped_title)', '($escaped_content)', ($tags_value), 'archived_todo', ($list_id)\);
-                         SELECT last_insert_rowid\(\) as id;"
+  let insert_note_sql = "INSERT INTO note (title, content, tags, note_type, source_id) 
+                         VALUES (?, ?, ?, ?, ?) 
+                         RETURNING id"
 
-  let note_result = try {
-    let output = sqlite3 -json $db_path $insert_note_sql | from json
-    {success: true data: $output}
-  } catch {|err|
-    {success: false error: $err.msg}
-  }
+  let params = [$list_data.list.name $note_content $tags_value "archived_todo" $list_id]
+  let note_result = query-sql $db_path $insert_note_sql $params
 
   if not $note_result.success {
     return {
@@ -667,12 +646,13 @@ export def archive-todo-list [
 
   let note_id = $note_result.data.0.id
 
-  # Update list status to archived
-  let archive_list_sql = $"UPDATE todo_list 
-                           SET status = 'archived', archived_at = datetime\('now'\) 
-                           WHERE id = ($list_id);"
+  # Update list status to archived with parameters
+  let archive_list_sql = "UPDATE todo_list 
+                           SET status = 'archived', archived_at = datetime('now') 
+                           WHERE id = ?"
 
-  let archive_result = execute-sql $db_path $archive_list_sql
+  let archive_params = [$list_id]
+  let archive_result = execute-sql $db_path $archive_list_sql $archive_params
 
   if not $archive_result.success {
     return {
@@ -696,28 +676,18 @@ export def create-note [
 ] {
   let db_path = get-db-path
 
-  let escaped_title = $title | str replace --all "'" "''"
-  let escaped_content = $content | str replace --all "'" "''"
-
   let tags_value = if $tags != null and ($tags | is-not-empty) {
-    let tags_json = $tags | to json --raw
-    $"'($tags_json)'"
+    $tags | to json --raw
   } else {
-    "NULL"
+    null
   }
 
-  # Insert without specifying id - SQLite auto-generates
-  # Chain INSERT with SELECT to get ID in same connection
-  let sql = $"INSERT INTO note \(title, content, tags, note_type\) 
-             VALUES \('($escaped_title)', '($escaped_content)', ($tags_value), 'manual'\);
-             SELECT last_insert_rowid\(\) as id;"
+  let sql = "INSERT INTO note (title, content, tags, note_type) 
+             VALUES (?, ?, ?, ?) 
+             RETURNING id"
 
-  let result = try {
-    let output = sqlite3 -json $db_path $sql | from json
-    {success: true data: $output}
-  } catch {|err|
-    {success: false error: $err.msg}
-  }
+  let params = [$title $content $tags_value "manual"]
+  let result = query-sql $db_path $sql $params
 
   if not $result.success {
     return {
@@ -858,25 +828,23 @@ export def search-notes [
 ] {
   let db_path = get-db-path
 
-  # Escape single quotes in query for SQL
-  let escaped_query = $query | str replace --all "'" "''"
-
-  # FTS5 search query with bm25 ranking
-  let sql = $"SELECT 
+  # FTS5 search query with bm25 ranking using parameters
+  let sql = "SELECT 
                note.id, 
                note.title, 
                note.content, 
                note.tags, 
                note.note_type,
                note.created_at,
-               bm25\(note_fts\) as rank
+               bm25(note_fts) as rank
              FROM note_fts
              JOIN note ON note.id = note_fts.rowid
-             WHERE note_fts MATCH '($escaped_query)'
+             WHERE note_fts MATCH ?
              ORDER BY rank
-             LIMIT ($limit);"
+             LIMIT ?"
 
-  let result = query-sql $db_path $sql
+  let params = [$query $limit]
+  let result = query-sql $db_path $sql $params
 
   if not $result.success {
     return {
@@ -916,7 +884,7 @@ export def update-scratchpad [
   let db_path = get-db-path
 
   # Check if scratchpad exists
-  let check_sql = "SELECT id FROM note WHERE note_type = 'scratchpad' LIMIT 1;"
+  let check_sql = "SELECT id FROM note WHERE note_type = 'scratchpad' LIMIT 1"
   let check_result = query-sql $db_path $check_sql
 
   if not $check_result.success {
@@ -926,22 +894,14 @@ export def update-scratchpad [
     }
   }
 
-  # Escape single quotes in content
-  let escaped_content = $content | str replace --all "'" "''"
-
   if ($check_result.data | is-empty) {
-    # CREATE new scratchpad
-    # Chain INSERT with SELECT to get ID in same connection
-    let insert_sql = $"INSERT INTO note \(title, content, note_type\) 
-                       VALUES \('Scratchpad', '($escaped_content)', 'scratchpad'\);
-                       SELECT last_insert_rowid\(\) as id;"
+    # CREATE new scratchpad with parameters
+    let insert_sql = "INSERT INTO note (title, content, note_type) 
+                      VALUES (?, ?, ?) 
+                      RETURNING id"
 
-    let insert_result = try {
-      let output = sqlite3 -json $db_path $insert_sql | from json
-      {success: true data: $output}
-    } catch {|err|
-      {success: false error: $err.msg}
-    }
+    let params = ["Scratchpad" $content "scratchpad"]
+    let insert_result = query-sql $db_path $insert_sql $params
 
     if not $insert_result.success {
       return {
@@ -964,13 +924,14 @@ export def update-scratchpad [
       scratchpad_id: $scratchpad_id
     }
   } else {
-    # UPDATE existing scratchpad
+    # UPDATE existing scratchpad with parameters
     let scratchpad_id = $check_result.data | first | get id
-    let update_sql = $"UPDATE note 
-                       SET content = '($escaped_content)'
-                       WHERE id = ($scratchpad_id);"
+    let update_sql = "UPDATE note 
+                      SET content = ? 
+                      WHERE id = ?"
 
-    let update_result = execute-sql $db_path $update_sql
+    let params = [$content $scratchpad_id]
+    let update_result = execute-sql $db_path $update_sql $params
 
     if not $update_result.success {
       return {

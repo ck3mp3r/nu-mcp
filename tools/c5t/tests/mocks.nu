@@ -1,17 +1,14 @@
 # Mock wrapper functions for external commands used in c5t
 # These check for MOCK_* environment variables for testing
 
-# Mock sqlite3 command - returns output or simulates database operations
-export def --wrapped sqlite3 [...rest] {
-  # Extract SQL from arguments (usually last argument)
-  let sql = $rest | last
-
+# Mock run-query-db wrapper - returns output or simulates database operations
+export def run-query-db [db_path: string sql: string params: list = []] {
   # Check for SQL-specific mocks first (for multiple calls with different responses)
   if ($sql | str contains "SELECT id FROM note WHERE note_type = 'scratchpad'") {
-    if "MOCK_sqlite3_CHECK_SCRATCHPAD" in $env {
-      let mock_data = $env | get MOCK_sqlite3_CHECK_SCRATCHPAD | from json
+    if "MOCK_query_db_CHECK_SCRATCHPAD" in $env {
+      let mock_data = $env | get MOCK_query_db_CHECK_SCRATCHPAD | from nuon
       if $mock_data.exit_code != 0 {
-        error make {msg: $"SQLite error: ($mock_data.output)"}
+        error make {msg: $"SQLite error: ($mock_data.error)"}
       }
       return $mock_data.output
     }
@@ -19,34 +16,34 @@ export def --wrapped sqlite3 [...rest] {
 
   # Mock for empty items list scenario
   if ($sql | str contains "FROM todo_item") {
-    if "MOCK_sqlite3_EMPTY_ITEMS" in $env {
-      # Return empty string (this is what real sqlite does for no rows!)
-      return ""
+    if "MOCK_query_db_EMPTY_ITEMS" in $env {
+      # Return empty list (query db returns structured data, not strings)
+      return []
     }
   }
 
   # Mock for todo list query
   if ($sql | str contains "FROM todo_list") {
-    if "MOCK_sqlite3_TODO_LIST" in $env {
-      let mock_data = $env | get MOCK_sqlite3_TODO_LIST | from json
+    if "MOCK_query_db_TODO_LIST" in $env {
+      let mock_data = $env | get MOCK_query_db_TODO_LIST | from nuon
       if $mock_data.exit_code != 0 {
-        error make {msg: $"SQLite error: ($mock_data.output)"}
+        error make {msg: $"SQLite error: ($mock_data.error)"}
       }
       return $mock_data.output
     }
   }
 
   # Check for generic mock
-  if "MOCK_sqlite3" in $env {
-    let mock_data = $env | get MOCK_sqlite3 | from json
+  if "MOCK_query_db" in $env {
+    let mock_data = $env | get MOCK_query_db | from nuon
     if $mock_data.exit_code != 0 {
-      error make {msg: $"SQLite error: ($mock_data.output)"}
+      error make {msg: $"SQLite error: ($mock_data.error)"}
     }
     return $mock_data.output
   }
 
-  # Default: success with empty output (for CREATE TABLE, etc.)
-  ""
+  # Default: success with empty list (for INSERT/UPDATE/DELETE)
+  []
 }
 
 # Mock date now - returns a fixed timestamp for testing
