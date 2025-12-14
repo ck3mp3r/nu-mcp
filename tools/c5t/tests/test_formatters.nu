@@ -412,3 +412,88 @@ export def "test format-note-detail handles no tags" [] {
   assert ($output | str contains "Tags: none")
   assert ($output | str contains "Just a simple note")
 }
+
+# --- Summary Formatter Tests (Task 17) ---
+
+# Test format-summary with data
+export def "test format-summary with active work" [] {
+  use ../formatters.nu format-summary
+
+  let summary = {
+    stats: {
+      active_lists: 2
+      total_items: 15
+      backlog_total: 5
+      todo_total: 4
+      in_progress_total: 3
+      review_total: 1
+      done_total: 2
+      cancelled_total: 0
+    }
+    active_lists: [
+      {name: "Project Alpha" total_count: 10 in_progress_count: 2 todo_count: 3}
+      {name: "Project Beta" total_count: 5 in_progress_count: 1 todo_count: 1}
+    ]
+    in_progress: [
+      {content: "Working on feature X" priority: 5 list_name: "Project Alpha"}
+      {content: "Bug fix in progress" priority: 4 list_name: "Project Beta"}
+    ]
+    high_priority: [
+      {content: "Critical security fix" priority: 5 status: "todo" list_name: "Project Alpha"}
+    ]
+    recently_completed: [
+      {content: "Completed task" completed_at: "2025-12-14 10:00:00" list_name: "Project Alpha"}
+    ]
+    scratchpad: {exists: true last_updated: "2025-12-14 12:00:00"}
+  }
+
+  let output = format-summary $summary
+
+  # Should contain stats summary
+  assert ($output | str contains "Active Lists: 2")
+  assert ($output | str contains "Total Items: 15")
+
+  # Should list active lists
+  assert ($output | str contains "Project Alpha")
+  assert ($output | str contains "Project Beta")
+
+  # Should show in-progress items
+  assert ($output | str contains "Working on feature X")
+  assert ($output | str contains "Bug fix in progress")
+
+  # Should show high-priority items
+  assert ($output | str contains "Critical security fix")
+
+  # Should show scratchpad status
+  assert ($output | str contains "Scratchpad")
+}
+
+# Test format-summary with no activity
+export def "test format-summary with no activity" [] {
+  use ../formatters.nu format-summary
+
+  let summary = {
+    stats: {
+      active_lists: 0
+      total_items: 0
+      backlog_total: 0
+      todo_total: 0
+      in_progress_total: 0
+      review_total: 0
+      done_total: 0
+      cancelled_total: 0
+    }
+    active_lists: []
+    in_progress: []
+    high_priority: []
+    recently_completed: []
+    scratchpad: {exists: false last_updated: null}
+  }
+
+  let output = format-summary $summary
+
+  # Should indicate no activity
+  assert ($output | str contains "No active lists")
+  # Formatter returns early when no lists, so won't show in-progress section
+  assert (not ($output | str contains "In Progress"))
+}
