@@ -207,7 +207,7 @@ export def format-item-completed-with-archive [
   ] | str join (char newline)
 }
 
-# Format list of items as markdown table
+# Format list of items as table
 export def format-items-table [list: record items: list] {
   let header = [
     $"# ($list.name) \(ID: ($list.id)\)"
@@ -218,31 +218,12 @@ export def format-items-table [list: record items: list] {
     return $"($header)No items."
   }
 
-  # Build markdown table
-  let table_header = "| ID | Status | P | Content |"
-  let table_separator = "|---:|--------|--:|---------|"
+  # Select key columns and let Nushell render as table
+  let table_data = $items
+    | select id content status priority
+    | table --width 120
 
-  let table_rows = $items
-    | each {|item|
-      let status_display = match $item.status {
-        "backlog" => "📋 Backlog"
-        "todo" => "📝 To Do"
-        "in_progress" => "🔄 In Progress"
-        "review" => "👀 Review"
-        "done" => "✅ Done"
-        "cancelled" => "❌ Cancelled"
-        _ => $item.status
-      }
-      $"| ($item.id) | ($status_display) | ($item.priority) | ($item.content) |"
-    }
-    | str join (char newline)
-
-  [
-    $header
-    $table_header
-    $table_separator
-    $table_rows
-  ] | str join (char newline)
+  $"($header)($table_data)"
 }
 
 # Format list with items (legacy bullet format)
