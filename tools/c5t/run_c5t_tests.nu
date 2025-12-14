@@ -12,6 +12,13 @@ def main [] {
     exit 1
   }
 
+  # Ensure .c5t directory and dummy db file exist for tests
+  # Tests use mocked query db, but storage.nu does 'open $db_path' which needs a file
+  mkdir .c5t
+  if not (".c5t/context.db" | path exists) {
+    touch .c5t/context.db
+  }
+
   # Discover all test files
   let test_files = glob tools/c5t/tests/test_*.nu
 
