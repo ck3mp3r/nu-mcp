@@ -166,3 +166,24 @@ main list-tools
   let get_note = $tools | where name == "c5t_get_note" | first
   assert ($get_note.input_schema.properties.note_id.type == "integer")
 }
+
+# Test c5t_list_items handles empty list (no items)
+export def "test c5t_list_items handles empty list" [] {
+  let test_script = '
+source tools/c5t/tests/mocks.nu
+
+# Mock todo_list query - returns one list
+$env.MOCK_sqlite3_TODO_LIST = "{\"exit_code\": 0, \"output\": \"[{\\\"id\\\":1,\\\"name\\\":\\\"Test List\\\",\\\"description\\\":\\\"\\\",\\\"notes\\\":\\\"\\\",\\\"tags\\\":\\\"\\\",\\\"created_at\\\":\\\"2025-01-01\\\",\\\"updated_at\\\":\\\"2025-01-01\\\"}]\"}"
+
+# Mock todo_item query - returns EMPTY STRING (like real sqlite!)
+$env.MOCK_sqlite3_EMPTY_ITEMS = true
+
+source tools/c5t/mod.nu
+main call-tool "c5t_list_items" "{\"list_id\": 1}"
+'
+
+  let output = nu -c $test_script
+
+  # Should not crash, should return a message about no items
+  assert ($output | str contains "No items")
+}

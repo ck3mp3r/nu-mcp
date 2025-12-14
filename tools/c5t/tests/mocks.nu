@@ -17,6 +17,25 @@ export def --wrapped sqlite3 [...rest] {
     }
   }
 
+  # Mock for empty items list scenario
+  if ($sql | str contains "FROM todo_item") {
+    if "MOCK_sqlite3_EMPTY_ITEMS" in $env {
+      # Return empty string (this is what real sqlite does for no rows!)
+      return ""
+    }
+  }
+
+  # Mock for todo list query
+  if ($sql | str contains "FROM todo_list") {
+    if "MOCK_sqlite3_TODO_LIST" in $env {
+      let mock_data = $env | get MOCK_sqlite3_TODO_LIST | from json
+      if $mock_data.exit_code != 0 {
+        error make {msg: $"SQLite error: ($mock_data.output)"}
+      }
+      return $mock_data.output
+    }
+  }
+
   # Check for generic mock
   if "MOCK_sqlite3" in $env {
     let mock_data = $env | get MOCK_sqlite3 | from json

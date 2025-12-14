@@ -21,14 +21,11 @@ export def "test update-scratchpad creates new scratchpad when none exists" [] {
   use ../tests/mocks.nu *
   use ../storage.nu update-scratchpad
 
-  # First call: SELECT to check if scratchpad exists (returns empty)
-  let mock_check = "[]"
-  # Second call: INSERT + SELECT returns the new ID
-  let mock_insert = [{id: 1}] | to json
-
   with-env {
-    MOCK_sqlite3_CHECK_SCRATCHPAD: ({output: $mock_check exit_code: 0} | to json)
-    MOCK_sqlite3: ({output: $mock_insert exit_code: 0} | to json)
+    # First call: SELECT to check if scratchpad exists (returns empty string)
+    MOCK_sqlite3_CHECK_SCRATCHPAD: ({output: "" exit_code: 0} | to json)
+    # Second call: INSERT + SELECT returns the new ID
+    MOCK_sqlite3: ({output: ([{id: 1}] | to json) exit_code: 0} | to json)
   } {
     let result = update-scratchpad "## Current Work\n\nWorking on feature X"
 
@@ -93,11 +90,9 @@ export def "test get-scratchpad returns null when no scratchpad exists" [] {
   use ../tests/mocks.nu *
   use ../storage.nu get-scratchpad
 
-  # Mock SELECT to return empty
-  let mock_data = "[]"
-
   with-env {
-    MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
+    # Mock SELECT to return empty string (like real sqlite for no rows)
+    MOCK_sqlite3: ({output: "" exit_code: 0} | to json)
   } {
     let result = get-scratchpad
 
@@ -111,8 +106,8 @@ export def "test only one scratchpad exists after multiple updates" [] {
   use ../tests/mocks.nu *
   use ../storage.nu update-scratchpad
 
-  # First call: CREATE (check returns empty, INSERT returns ID 1)
-  let mock_check_empty = "[]"
+  # First call: CREATE (check returns empty string, INSERT returns ID 1)
+  let mock_check_empty = ""
   let mock_insert = [{id: 1}] | to json
 
   with-env {
@@ -198,9 +193,9 @@ export def "test get-active-lists returns empty list" [] {
   use ../tests/mocks.nu *
   use ../storage.nu get-active-lists
 
-  # Mock sqlite3 to return empty JSON array
+  # Mock sqlite3 to return empty string (like real sqlite for no rows)
   with-env {
-    MOCK_sqlite3: ({output: "[]" exit_code: 0} | to json)
+    MOCK_sqlite3: ({output: "" exit_code: 0} | to json)
   } {
     let result = get-active-lists
 
@@ -311,7 +306,7 @@ export def "test list-exists returns false for non-existent list" [] {
   use ../storage.nu list-exists
 
   with-env {
-    MOCK_sqlite3: ({output: "[]" exit_code: 0} | to json)
+    MOCK_sqlite3: ({output: "" exit_code: 0} | to json)
   } {
     let result = list-exists 999
 
@@ -341,7 +336,7 @@ export def "test item-exists returns false for non-existent item" [] {
   use ../storage.nu item-exists
 
   with-env {
-    MOCK_sqlite3: ({output: "[]" exit_code: 0} | to json)
+    MOCK_sqlite3: ({output: "" exit_code: 0} | to json)
   } {
     let result = item-exists 123 999
 
@@ -466,7 +461,7 @@ export def "test get-notes returns empty list" [] {
   use ../storage.nu get-notes
 
   with-env {
-    MOCK_sqlite3: ({output: "[]" exit_code: 0} | to json)
+    MOCK_sqlite3: ({output: "" exit_code: 0} | to json)
   } {
     let result = get-notes
 
@@ -614,7 +609,7 @@ export def "test get-note-by-id returns error for non-existent" [] {
   use ../storage.nu get-note-by-id
 
   with-env {
-    MOCK_sqlite3: ({output: "[]" exit_code: 0} | to json)
+    MOCK_sqlite3: ({output: "" exit_code: 0} | to json)
   } {
     let result = get-note-by-id 999
 
@@ -742,7 +737,7 @@ export def "test search-notes returns empty list when no matches" [] {
   use ../storage.nu search-notes
 
   with-env {
-    MOCK_sqlite3: ({output: "[]" exit_code: 0} | to json)
+    MOCK_sqlite3: ({output: "" exit_code: 0} | to json)
   } {
     let result = search-notes "nonexistent"
 
