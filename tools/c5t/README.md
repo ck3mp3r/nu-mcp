@@ -145,7 +145,7 @@ Last updated: [timestamp]
 - `c5t_add_item` - Add item to list
 - `c5t_list_items` - View list with items grouped by status
 - `c5t_update_item_status` - Change item status
-- `c5t_update_item_priority` - Set priority (1-5)
+- `c5t_update_item_priority` - Set priority (1-5, where 1 is highest)
 - `c5t_complete_item` - Mark item done
 - `c5t_update_notes` - Add/update progress notes on list
 

@@ -52,7 +52,7 @@ def "main list-tools" [] {
     }
     {
       name: "add_item"
-      description: "Add a todo item to a list. Defaults to 'backlog' status. Workflow: backlog→todo→in_progress→review→done→cancelled. Priority 1-5 where 5=critical."
+      description: "Add a todo item to a list. Defaults to 'backlog' status. Workflow: backlog→todo→in_progress→review→done→cancelled. Priority 1-5 where 1=critical."
       input_schema: {
         type: "object"
         properties: {
@@ -66,7 +66,7 @@ def "main list-tools" [] {
           }
           priority: {
             type: "integer"
-            description: "Priority level (1-5, where 5 is highest priority) (optional)"
+            description: "Priority level (1-5, where 1 is highest priority) (optional)"
             minimum: 1
             maximum: 5
           }
@@ -118,7 +118,7 @@ def "main list-tools" [] {
           }
           priority: {
             type: "integer"
-            description: "New priority level (1-5, where 5 is highest)"
+            description: "New priority level (1-5, where 1 is highest)"
             minimum: 1
             maximum: 5
           }
