@@ -56,27 +56,29 @@ CREATE INDEX IF NOT EXISTS idx_todo_item_list_priority ON todo_item(list_id, pri
 CREATE INDEX IF NOT EXISTS idx_note_type ON note(note_type);
 
 -- Full-text search virtual table for notes
-CREATE VIRTUAL TABLE IF NOT EXISTS note_fts USING fts5(
-    title,
-    content,
-    content=note,
-    content_rowid=id
-);
+-- NOTE: Disabled until Milestone 7 (Search) - TEXT IDs incompatible with FTS rowid
+-- CREATE VIRTUAL TABLE IF NOT EXISTS note_fts USING fts5(
+--     title,
+--     content,
+--     content=note,
+--     content_rowid=id
+-- );
 
 -- FTS sync triggers - keep full-text index in sync with note table
-CREATE TRIGGER IF NOT EXISTS note_ai AFTER INSERT ON note BEGIN
-    INSERT INTO note_fts(rowid, title, content) 
-    VALUES (new.id, new.title, new.content);
-END;
+-- NOTE: Disabled until Milestone 7 (Search)
+-- CREATE TRIGGER IF NOT EXISTS note_ai AFTER INSERT ON note BEGIN
+--     INSERT INTO note_fts(rowid, title, content) 
+--     VALUES (new.id, new.title, new.content);
+-- END;
 
-CREATE TRIGGER IF NOT EXISTS note_au AFTER UPDATE ON note BEGIN
-    UPDATE note_fts SET title = new.title, content = new.content 
-    WHERE rowid = new.id;
-END;
+-- CREATE TRIGGER IF NOT EXISTS note_au AFTER UPDATE ON note BEGIN
+--     UPDATE note_fts SET title = new.title, content = new.content 
+--     WHERE rowid = new.id;
+-- END;
 
-CREATE TRIGGER IF NOT EXISTS note_ad AFTER DELETE ON note BEGIN
-    DELETE FROM note_fts WHERE rowid = old.id;
-END;
+-- CREATE TRIGGER IF NOT EXISTS note_ad AFTER DELETE ON note BEGIN
+--     DELETE FROM note_fts WHERE rowid = old.id;
+-- END;
 
 -- Auto-update timestamp triggers
 CREATE TRIGGER IF NOT EXISTS todo_list_update AFTER UPDATE ON todo_list BEGIN

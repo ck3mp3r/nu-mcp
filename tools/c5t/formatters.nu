@@ -174,6 +174,39 @@ export def format-notes-updated [list_id: string] {
   ] | str join (char newline)
 }
 
+# Format item update with auto-archive
+export def format-item-updated-with-archive [
+  field: string
+  item_id: string
+  value: any
+  note_id: string
+] {
+  [
+    $"✓ Item ($field) updated"
+    $"  ID: ($item_id)"
+    $"  New ($field): ($value)"
+    ""
+    $"🗃️  List auto-archived!"
+    $"  All items completed - list has been archived as a note"
+    $"  Note ID: ($note_id)"
+  ] | str join (char newline)
+}
+
+# Format item completion with auto-archive
+export def format-item-completed-with-archive [
+  item_id: string
+  note_id: string
+] {
+  [
+    $"✓ Item marked as complete"
+    $"  ID: ($item_id)"
+    ""
+    $"🗃️  List auto-archived!"
+    $"  All items completed - list has been archived as a note"
+    $"  Note ID: ($note_id)"
+  ] | str join (char newline)
+}
+
 # Format list with items
 export def format-items-list [list: record items: list] {
   if ($items | is-empty) {

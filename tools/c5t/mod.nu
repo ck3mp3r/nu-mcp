@@ -312,7 +312,11 @@ def "main call-tool" [
         return $result.error
       }
 
-      format-item-updated "status" $item_id $status
+      if $result.archived {
+        format-item-updated-with-archive "status" $item_id $status $result.note_id
+      } else {
+        format-item-updated "status" $item_id $status
+      }
     }
 
     "c5t_update_item_priority" => {
@@ -369,7 +373,11 @@ def "main call-tool" [
         return $result.error
       }
 
-      format-item-completed $item_id
+      if $result.archived {
+        format-item-completed-with-archive $item_id $result.note_id
+      } else {
+        format-item-completed $item_id
+      }
     }
 
     "c5t_list_items" => {

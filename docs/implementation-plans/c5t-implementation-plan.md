@@ -316,9 +316,15 @@ nu tools/c5t/mod.nu call-tool c5t_update_notes '{
 ### Milestone 5: Auto-Archive Logic
 **Goal**: Automatically archive completed todo lists as notes
 
-**Functions** (storage.nu, kebab-case):
-- `archive-todo-list [list_id]`
-- `generate-archive-note [todo_list, items]`
+**Functions Implemented** (storage.nu, kebab-case):
+- `generate-archive-note [todo_list, items]` - Creates formatted markdown from list and items
+- `all-items-completed [list_id]` - Checks if all items are done/cancelled
+- `archive-todo-list [list_id]` - Creates note and archives list
+- Modified `update-item-status` - Triggers auto-archive when last item completes
+
+**Formatters Added**:
+- `format-item-updated-with-archive` - Shows archive confirmation with status update
+- `format-item-completed-with-archive` - Shows archive confirmation with completion
 
 **Archive Note Content**:
 ```markdown
@@ -327,8 +333,8 @@ nu tools/c5t/mod.nu call-tool c5t_update_notes '{
 <todo list description>
 
 ## Completed Items
-- <item 1 content> (completed: <timestamp>)
-- <item 2 content> (completed: <timestamp>)
+- ✅ <item content> (completed: <timestamp>)  # done items
+- ❌ <item content> (completed: <timestamp>)  # cancelled items
 
 ## Progress Notes
 <todo list notes field>
@@ -337,20 +343,32 @@ nu tools/c5t/mod.nu call-tool c5t_update_notes '{
 *Auto-archived on <timestamp>*
 ```
 
-**Validation**:
-```bash
-# Complete all items in a list
-# Verify auto-archive happens
-# Check notes table for archived note
-```
+**Auto-Archive Trigger**:
+- When `update-item-status` or `complete-item` changes last pending item to done/cancelled
+- Checks if all items completed using COUNT(*) query
+- Creates note with `note_type='archived_todo'`
+- Updates list: `status='archived'`, sets `archived_at` timestamp
+- User sees special message with note ID
+
+**Bug Fixes**:
+- Disabled FTS (full-text search) until Milestone 7 - TEXT IDs incompatible with FTS rowid
+- Fixed empty list handling in `get-active-lists`
+- Added `notes` field to `get-list-with-items` SELECT query
+- Escaped parentheses and asterisk in SQL strings for Nushell parsing
 
 **Acceptance Criteria**:
-- [ ] When last item completes, list auto-archives
-- [ ] Note created with note_type='archived_todo'
-- [ ] Note content includes all items and notes
-- [ ] Source_id points to original todo list
-- [ ] Todo list status changes to 'archived'
-- [ ] Archived_at timestamp set
+- [x] When last item completes, list auto-archives
+- [x] Note created with note_type='archived_todo'
+- [x] Note content includes all completed items with timestamps and emojis
+- [x] Note content includes description and progress notes
+- [x] Source_id points to original todo list ID
+- [x] Todo list status changes to 'archived'
+- [x] Archived_at timestamp set automatically
+- [x] Archived lists don't appear in c5t_list_active
+- [x] Tags preserved from list to note
+- [x] 64 tests passing (61 from M4 + 3 new tests)
+
+**Status**: ✅ COMPLETE (commit pending)
 
 ---
 

@@ -239,3 +239,64 @@ export def "test update-todo-notes updates notes field" [] {
 
   assert ($result.success == true)
 }
+
+# Test generate-archive-note creates markdown
+export def "test generate-archive-note generates markdown" [] {
+  use ../storage.nu generate-archive-note
+
+  let list = {
+    name: "Test List"
+    description: "Test description"
+    notes: "Test notes"
+  }
+
+  let items = [
+    {content: "Item 1" status: "done" completed_at: "2025-12-14"}
+    {content: "Item 2" status: "cancelled" completed_at: null}
+  ]
+
+  let markdown = generate-archive-note $list $items
+
+  assert ($markdown | str contains "# Test List")
+  assert ($markdown | str contains "Test description")
+  assert ($markdown | str contains "## Completed Items")
+  assert ($markdown | str contains "Item 1")
+  assert ($markdown | str contains "Item 2")
+  assert ($markdown | str contains "## Progress Notes")
+  assert ($markdown | str contains "Test notes")
+  assert ($markdown | str contains "Auto-archived on")
+}
+
+# Test all-items-completed returns true when all done
+export def "test all-items-completed returns true when all done" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu all-items-completed
+
+  # Mock: no non-completed items
+  let mock_data = [{count: 0}] | to json
+
+  with-env {
+    MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
+  } {
+    let result = all-items-completed "list-123"
+
+    assert $result
+  }
+}
+
+# Test all-items-completed returns false when items pending
+export def "test all-items-completed returns false when items pending" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu all-items-completed
+
+  # Mock: 2 non-completed items
+  let mock_data = [{count: 2}] | to json
+
+  with-env {
+    MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
+  } {
+    let result = all-items-completed "list-123"
+
+    assert (not $result)
+  }
+}

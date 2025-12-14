@@ -176,8 +176,12 @@ export def get-active-lists [
     $results
   }
 
-  let parsed = $filtered | each {|row|
-    $row | upsert tags (parse-tags $row.tags)
+  let parsed = if ($filtered | is-empty) {
+    []
+  } else {
+    $filtered | each {|row|
+      $row | upsert tags (parse-tags $row.tags)
+    }
   }
 
   {
@@ -277,14 +281,28 @@ export def update-item-status [
 
   let result = execute-sql $db_path $sql
 
-  if $result.success {
-    {success: true}
-  } else {
-    {
+  if not $result.success {
+    return {
       success: false
       error: $"Failed to update item status: ($result.error)"
     }
   }
+
+  # Check if all items are now completed and auto-archive if so
+  if $new_status in ["done" "cancelled"] {
+    if (all-items-completed $list_id) {
+      let archive_result = archive-todo-list $list_id
+      if $archive_result.success {
+        return {
+          success: true
+          archived: true
+          note_id: $archive_result.note_id
+        }
+      }
+    }
+  }
+
+  {success: true archived: false}
 }
 
 # Update item priority
@@ -321,7 +339,7 @@ export def get-list-with-items [
   let db_path = get-db-path
 
   # Get the list
-  let list_sql = $"SELECT id, name, description, tags, created_at, updated_at 
+  let list_sql = $"SELECT id, name, description, notes, tags, created_at, updated_at 
                    FROM todo_list 
                    WHERE id = '($list_id)';"
 
@@ -473,5 +491,150 @@ export def update-todo-notes [
       success: false
       error: $"Failed to update notes: ($result.error)"
     }
+  }
+}
+
+# Generate markdown content for archived todo list
+export def generate-archive-note [
+  todo_list: record
+  items: list
+] {
+  mut lines = [
+    $"# ($todo_list.name)"
+    ""
+  ]
+
+  # Add description if present
+  if $todo_list.description != null and $todo_list.description != "" {
+    $lines = ($lines | append $todo_list.description)
+    $lines = ($lines | append "")
+  }
+
+  # Add completed items section
+  $lines = ($lines | append "## Completed Items")
+  $lines = ($lines | append "")
+
+  let completed_items = $items | where status in ["done" "cancelled"]
+
+  if ($completed_items | is-empty) {
+    $lines = ($lines | append "No items were completed.")
+  } else {
+    for item in $completed_items {
+      let status_emoji = if $item.status == "done" { "✅" } else { "❌" }
+      let timestamp = if $item.completed_at != null {
+        $" \(completed: ($item.completed_at)\)"
+      } else {
+        ""
+      }
+      $lines = ($lines | append $"- ($status_emoji) ($item.content)($timestamp)")
+    }
+  }
+
+  $lines = ($lines | append "")
+
+  # Add progress notes if present
+  if $todo_list.notes != null and $todo_list.notes != "" {
+    $lines = ($lines | append "## Progress Notes")
+    $lines = ($lines | append "")
+    $lines = ($lines | append $todo_list.notes)
+    $lines = ($lines | append "")
+  }
+
+  # Add archive footer
+  $lines = ($lines | append "---")
+  $lines = ($lines | append $"*Auto-archived on (date now | format date '%Y-%m-%d %H:%M:%S')*")
+
+  $lines | str join (char newline)
+}
+
+# Check if all items in a list are completed
+export def all-items-completed [
+  list_id: string
+] {
+  let db_path = get-db-path
+
+  # Get count of non-completed items
+  let sql = $"SELECT COUNT\(*\) as count 
+             FROM todo_item 
+             WHERE list_id = '($list_id)' 
+             AND status NOT IN \('done', 'cancelled'\);"
+
+  let result = query-sql $db_path $sql
+
+  if not $result.success {
+    return false
+  }
+
+  if ($result.data | is-empty) {
+    return false
+  }
+
+  let count = $result.data | first | get count
+
+  $count == 0
+}
+
+# Archive a todo list as a note
+export def archive-todo-list [
+  list_id: string
+] {
+  let db_path = get-db-path
+
+  # Get the list with items
+  let list_data = get-list-with-items $list_id
+
+  if not $list_data.success {
+    return {
+      success: false
+      error: $"Failed to get list data: ($list_data.error)"
+    }
+  }
+
+  # Generate archive note content
+  let note_content = generate-archive-note $list_data.list $list_data.items
+
+  # Create note
+  use utils.nu generate-id
+  let note_id = generate-id
+
+  let escaped_title = $list_data.list.name | str replace --all "'" "''"
+  let escaped_content = $note_content | str replace --all "'" "''"
+  let tags_value = if $list_data.list.tags != null and ($list_data.list.tags | is-not-empty) {
+    let tags_json = $list_data.list.tags | to json --raw
+    $"'($tags_json)'"
+  } else {
+    "NULL"
+  }
+
+  let insert_note_sql = $"INSERT INTO note \(id, title, content, tags, note_type, source_id\) 
+                         VALUES \('($note_id)', '($escaped_title)', '($escaped_content)', ($tags_value), 'archived_todo', '($list_id)'\);"
+
+  let note_result = execute-sql $db_path $insert_note_sql
+
+  if not $note_result.success {
+    return {
+      success: false
+      error: $"Failed to create archive note: ($note_result.error)"
+    }
+  }
+
+  # Update list status to archived
+  let archive_list_sql = $"UPDATE todo_list 
+                           SET status = 'archived', archived_at = datetime\('now'\) 
+                           WHERE id = '($list_id)';"
+
+  let archive_result = execute-sql $db_path $archive_list_sql
+
+  if not $archive_result.success {
+    return {
+      success: false
+      error: $"Failed to archive list: ($archive_result.error)"
+    }
+  }
+
+  {
+    success: true
+    note_id: $note_id
+    list_id: $list_id
   }
 }
