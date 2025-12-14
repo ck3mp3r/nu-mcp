@@ -23,9 +23,9 @@ export def "test update-scratchpad creates new scratchpad when none exists" [] {
 
   with-env {
     # First call: SELECT to check if scratchpad exists (returns empty list)
-    MOCK_query_db_CHECK_SCRATCHPAD: ({output: [] exit_code: 0} | to nuon)
+    MOCK_query_db_CHECK_SCRATCHPAD: ({output: [] exit_code: 0})
     # Second call: INSERT RETURNING returns the new ID
-    MOCK_query_db: ({output: [{id: 1}] exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: [{id: 1}] exit_code: 0})
   } {
     let result = update-scratchpad "## Current Work\n\nWorking on feature X"
 
@@ -45,8 +45,8 @@ export def "test update-scratchpad updates existing scratchpad" [] {
   let mock_update = ""
 
   with-env {
-    MOCK_query_db: ({output: $mock_select exit_code: 0} | to nuon)
-    MOCK_query_db_UPDATE: ({output: $mock_update exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_select exit_code: 0})
+    MOCK_query_db_UPDATE: ({output: $mock_update exit_code: 0})
   } {
     let result = update-scratchpad "## Updated Work\n\nNow working on feature Y"
 
@@ -71,10 +71,10 @@ export def "test get-scratchpad returns current scratchpad" [] {
       created_at: "2025-01-14 16:00:00"
       updated_at: "2025-01-14 17:00:00"
     }
-  ] | to nuon
+  ]
 
   with-env {
-    MOCK_query_db: ({output: $mock_data exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_data exit_code: 0})
   } {
     let result = get-scratchpad
 
@@ -91,8 +91,8 @@ export def "test get-scratchpad returns null when no scratchpad exists" [] {
   use ../storage.nu get-scratchpad
 
   with-env {
-    # Mock SELECT to return empty string (like real sqlite for no rows)
-    MOCK_query_db: ({output: "" exit_code: 0} | to nuon)
+    # Mock SELECT to return empty list (no rows)
+    MOCK_query_db: ({output: [] exit_code: 0})
   } {
     let result = get-scratchpad
 
@@ -106,13 +106,13 @@ export def "test only one scratchpad exists after multiple updates" [] {
   use ../tests/mocks.nu *
   use ../storage.nu update-scratchpad
 
-  # First call: CREATE (check returns empty string, INSERT returns ID 1)
-  let mock_check_empty = ""
-  let mock_insert = [{id: 1}] | to nuon
+  # First call: CREATE (check returns empty list, INSERT returns ID 1)
+  let mock_check_empty = []
+  let mock_insert = [{id: 1}]
 
   with-env {
-    MOCK_query_db_CHECK_SCRATCHPAD: ({output: $mock_check_empty exit_code: 0} | to nuon)
-    MOCK_query_db: ({output: $mock_insert exit_code: 0} | to nuon)
+    MOCK_query_db_CHECK_SCRATCHPAD: ({output: $mock_check_empty exit_code: 0})
+    MOCK_query_db: ({output: $mock_insert exit_code: 0})
   } {
     let result1 = update-scratchpad "First content"
     assert ($result1.success == true)
@@ -120,11 +120,11 @@ export def "test only one scratchpad exists after multiple updates" [] {
   }
 
   # Second call: UPDATE (check returns ID 1, no INSERT needed)
-  let mock_check_exists = [{id: 1}] | to nuon
+  let mock_check_exists = [{id: 1}]
 
   with-env {
-    MOCK_query_db_CHECK_SCRATCHPAD: ({output: $mock_check_exists exit_code: 0} | to nuon)
-    MOCK_query_db: ({output: "" exit_code: 0} | to nuon) # UPDATE doesn't return data
+    MOCK_query_db_CHECK_SCRATCHPAD: ({output: $mock_check_exists exit_code: 0})
+    MOCK_query_db: ({output: [] exit_code: 0}) # UPDATE doesn't return data
   } {
     let result2 = update-scratchpad "Second content"
     assert ($result2.success == true)
@@ -150,11 +150,11 @@ export def "test update-scratchpad handles content with literal newlines" [] {
 Important insights here"
 
   # Mock existing scratchpad
-  let mock_check = [{id: 1}] | to nuon
+  let mock_check = [{id: 1}]
 
   with-env {
-    MOCK_query_db_CHECK_SCRATCHPAD: ({output: $mock_check exit_code: 0} | to nuon)
-    MOCK_query_db: ({output: "" exit_code: 0} | to nuon)
+    MOCK_query_db_CHECK_SCRATCHPAD: ({output: $mock_check exit_code: 0})
+    MOCK_query_db: ({output: [] exit_code: 0})
   } {
     let result = update-scratchpad $content_with_newlines
     assert ($result.success == true)
@@ -169,7 +169,7 @@ export def "test init-database calls create-schema" [] {
   use ../storage.nu init-database
 
   with-env {
-    MOCK_query_db_CREATE: ({output: "" exit_code: 0} | to nuon)
+    MOCK_query_db_CREATE: ({output: "" exit_code: 0})
   } {
     let db_path = init-database
     assert ($db_path != null)
@@ -182,10 +182,10 @@ export def "test create-todo-list with all parameters" [] {
   use ../storage.nu create-todo-list
 
   # Mock the chained INSERT + SELECT response
-  let mock_response = [{id: 42}] | to nuon
+  let mock_response = [{id: 42}]
 
   with-env {
-    MOCK_query_db: ({output: $mock_response exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_response exit_code: 0})
   } {
     let result = create-todo-list "Test List" "A test description" ["tag1" "tag2"]
 
@@ -203,10 +203,10 @@ export def "test create-todo-list with minimal parameters" [] {
   use ../storage.nu create-todo-list
 
   # Mock the chained INSERT + SELECT response
-  let mock_response = [{id: 99}] | to nuon
+  let mock_response = [{id: 99}]
 
   with-env {
-    MOCK_query_db: ({output: $mock_response exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_response exit_code: 0})
   } {
     let result = create-todo-list "Minimal List"
 
@@ -223,9 +223,9 @@ export def "test get-active-lists returns empty list" [] {
   use ../tests/mocks.nu *
   use ../storage.nu get-active-lists
 
-  # Mock sqlite3 to return empty string (like real sqlite for no rows)
+  # Mock query db to return empty list (no rows)
   with-env {
-    MOCK_query_db: ({output: "" exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: [] exit_code: 0})
   } {
     let result = get-active-lists
 
@@ -257,10 +257,10 @@ export def "test get-active-lists returns lists" [] {
       created_at: "2025-01-14 12:01:00"
       updated_at: "2025-01-14 12:01:00"
     }
-  ] | to nuon
+  ]
 
   with-env {
-    MOCK_query_db: ({output: $mock_data exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_data exit_code: 0})
   } {
     let result = get-active-lists
 
@@ -279,10 +279,10 @@ export def "test add-todo-item with all parameters" [] {
   use ../storage.nu add-todo-item
 
   # Mock the chained INSERT + SELECT response
-  let mock_response = [{id: 55}] | to nuon
+  let mock_response = [{id: 55}]
 
   with-env {
-    MOCK_query_db: ({output: $mock_response exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_response exit_code: 0})
   } {
     let result = add-todo-item 123 "Test item" 5 "todo"
 
@@ -300,10 +300,10 @@ export def "test add-todo-item defaults to backlog" [] {
   use ../storage.nu add-todo-item
 
   # Mock the chained INSERT + SELECT response
-  let mock_response = [{id: 66}] | to nuon
+  let mock_response = [{id: 66}]
 
   with-env {
-    MOCK_query_db: ({output: $mock_response exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_response exit_code: 0})
   } {
     let result = add-todo-item 123 "Test item"
 
@@ -319,10 +319,10 @@ export def "test list-exists returns true for existing list" [] {
   use ../tests/mocks.nu *
   use ../storage.nu list-exists
 
-  let mock_data = [{id: 123}] | to nuon
+  let mock_data = [{id: 123}]
 
   with-env {
-    MOCK_query_db: ({output: $mock_data exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_data exit_code: 0})
   } {
     let result = list-exists 123
 
@@ -336,7 +336,7 @@ export def "test list-exists returns false for non-existent list" [] {
   use ../storage.nu list-exists
 
   with-env {
-    MOCK_query_db: ({output: "" exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: [] exit_code: 0})
   } {
     let result = list-exists 999
 
@@ -349,10 +349,10 @@ export def "test item-exists returns true for existing item" [] {
   use ../tests/mocks.nu *
   use ../storage.nu item-exists
 
-  let mock_data = [{id: 123}] | to nuon
+  let mock_data = [{id: 123}]
 
   with-env {
-    MOCK_query_db: ({output: $mock_data exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_data exit_code: 0})
   } {
     let result = item-exists 123 123
 
@@ -366,7 +366,7 @@ export def "test item-exists returns false for non-existent item" [] {
   use ../storage.nu item-exists
 
   with-env {
-    MOCK_query_db: ({output: "" exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: [] exit_code: 0})
   } {
     let result = item-exists 123 999
 
@@ -417,10 +417,10 @@ export def "test all-items-completed returns true when all done" [] {
   use ../storage.nu all-items-completed
 
   # Mock: no non-completed items
-  let mock_data = [{count: 0}] | to nuon
+  let mock_data = [{count: 0}]
 
   with-env {
-    MOCK_query_db: ({output: $mock_data exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_data exit_code: 0})
   } {
     let result = all-items-completed 123
 
@@ -434,10 +434,10 @@ export def "test all-items-completed returns false when items pending" [] {
   use ../storage.nu all-items-completed
 
   # Mock: 2 non-completed items
-  let mock_data = [{count: 2}] | to nuon
+  let mock_data = [{count: 2}]
 
   with-env {
-    MOCK_query_db: ({output: $mock_data exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_data exit_code: 0})
   } {
     let result = all-items-completed 123
 
@@ -451,10 +451,10 @@ export def "test create-note with all parameters" [] {
   use ../storage.nu create-note
 
   # Mock the chained INSERT + SELECT response
-  let mock_response = [{id: 77}] | to nuon
+  let mock_response = [{id: 77}]
 
   with-env {
-    MOCK_query_db: ({output: $mock_response exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_response exit_code: 0})
   } {
     let result = create-note "Architecture Decision" "We decided to use Rust for the backend" ["architecture" "backend"]
 
@@ -471,10 +471,10 @@ export def "test create-note with minimal parameters" [] {
   use ../storage.nu create-note
 
   # Mock the chained INSERT + SELECT response
-  let mock_response = [{id: 88}] | to nuon
+  let mock_response = [{id: 88}]
 
   with-env {
-    MOCK_query_db: ({output: $mock_response exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_response exit_code: 0})
   } {
     let result = create-note "Quick Note" "Just a quick thought"
 
@@ -491,7 +491,7 @@ export def "test get-notes returns empty list" [] {
   use ../storage.nu get-notes
 
   with-env {
-    MOCK_query_db: ({output: "" exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: [] exit_code: 0})
   } {
     let result = get-notes
 
@@ -517,10 +517,10 @@ export def "test get-notes filters by note_type" [] {
       created_at: "2025-01-14 16:30:00"
       updated_at: "2025-01-14 16:30:00"
     }
-  ] | to nuon
+  ]
 
   with-env {
-    MOCK_query_db: ({output: $mock_data exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_data exit_code: 0})
   } {
     let result = get-notes [] "manual"
 
@@ -557,10 +557,10 @@ export def "test get-notes excludes scratchpad by default" [] {
       created_at: "2025-01-14 16:00:00"
       updated_at: "2025-01-14 16:00:00"
     }
-  ] | to nuon
+  ]
 
   with-env {
-    MOCK_query_db: ({output: $mock_data exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_data exit_code: 0})
   } {
     # Call without specifying note_type
     let result = get-notes
@@ -589,10 +589,10 @@ export def "test get-notes includes scratchpad when explicitly requested" [] {
       created_at: "2025-01-14 16:30:00"
       updated_at: "2025-01-14 17:00:00"
     }
-  ] | to nuon
+  ]
 
   with-env {
-    MOCK_query_db: ({output: $mock_data exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_data exit_code: 0})
   } {
     # Explicitly request scratchpad
     let result = get-notes [] "scratchpad"
@@ -619,10 +619,10 @@ export def "test get-note-by-id finds note" [] {
       created_at: "2025-01-14 16:30:00"
       updated_at: "2025-01-14 16:30:00"
     }
-  ] | to nuon
+  ]
 
   with-env {
-    MOCK_query_db: ({output: $mock_data exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_data exit_code: 0})
   } {
     let result = get-note-by-id 123
 
@@ -639,7 +639,7 @@ export def "test get-note-by-id returns error for non-existent" [] {
   use ../storage.nu get-note-by-id
 
   with-env {
-    MOCK_query_db: ({output: "" exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: [] exit_code: 0})
   } {
     let result = get-note-by-id 999
 
@@ -675,10 +675,10 @@ export def "test search-notes basic query returns results" [] {
       created_at: "2025-01-14 17:00:00"
       rank: -0.3
     }
-  ] | to nuon
+  ]
 
   with-env {
-    MOCK_query_db: ({output: $mock_data exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_data exit_code: 0})
   } {
     let result = search-notes "database"
 
@@ -708,10 +708,10 @@ export def "test search-notes respects limit parameter" [] {
       created_at: "2025-01-14 16:30:00"
       rank: -0.5
     }
-  ] | to nuon
+  ]
 
   with-env {
-    MOCK_query_db: ({output: $mock_data exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_data exit_code: 0})
   } {
     let result = search-notes "database" --limit 1
 
@@ -746,10 +746,10 @@ export def "test search-notes filters by tags" [] {
       created_at: "2025-01-14 17:00:00"
       rank: -0.3
     }
-  ] | to nuon
+  ]
 
   with-env {
-    MOCK_query_db: ({output: $mock_data exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_data exit_code: 0})
   } {
     # Search with tag filter - should only return notes with "architecture" tag
     let result = search-notes "database" --tags ["architecture"]
@@ -767,7 +767,7 @@ export def "test search-notes returns empty list when no matches" [] {
   use ../storage.nu search-notes
 
   with-env {
-    MOCK_query_db: ({output: "" exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: [] exit_code: 0})
   } {
     let result = search-notes "nonexistent"
 
@@ -792,10 +792,10 @@ export def "test search-notes with boolean AND query" [] {
       created_at: "2025-01-14 16:30:00"
       rank: -0.5
     }
-  ] | to nuon
+  ]
 
   with-env {
-    MOCK_query_db: ({output: $mock_data exit_code: 0} | to nuon)
+    MOCK_query_db: ({output: $mock_data exit_code: 0})
   } {
     # FTS5 boolean query
     let result = search-notes "database AND api"

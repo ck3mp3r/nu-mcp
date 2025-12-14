@@ -1,12 +1,18 @@
 # Mock wrapper functions for external commands used in c5t
 # These check for MOCK_* environment variables for testing
 
-# Mock run-query-db wrapper - returns output or simulates database operations
-export def run-query-db [db_path: string sql: string params: list = []] {
-  # Check for SQL-specific mocks first (for multiple calls with different responses)
+# Mock query db command - intercepts the built-in query db
+export def "query db" [
+  sql: string
+  --params (-p): list = []
+] {
+  # Pattern match on SQL to determine which mock to use
+  # Check for specific SQL patterns first, then fall back to generic
+
+  # Scratchpad check query
   if ($sql | str contains "SELECT id FROM note WHERE note_type = 'scratchpad'") {
     if "MOCK_query_db_CHECK_SCRATCHPAD" in $env {
-      let mock_data = $env | get MOCK_query_db_CHECK_SCRATCHPAD | from nuon
+      let mock_data = $env | get MOCK_query_db_CHECK_SCRATCHPAD
       if $mock_data.exit_code != 0 {
         error make {msg: $"SQLite error: ($mock_data.error)"}
       }
@@ -14,18 +20,17 @@ export def run-query-db [db_path: string sql: string params: list = []] {
     }
   }
 
-  # Mock for empty items list scenario
+  # Empty items list scenario
   if ($sql | str contains "FROM todo_item") {
     if "MOCK_query_db_EMPTY_ITEMS" in $env {
-      # Return empty list (query db returns structured data, not strings)
       return []
     }
   }
 
-  # Mock for todo list query
+  # Todo list queries
   if ($sql | str contains "FROM todo_list") {
     if "MOCK_query_db_TODO_LIST" in $env {
-      let mock_data = $env | get MOCK_query_db_TODO_LIST | from nuon
+      let mock_data = $env | get MOCK_query_db_TODO_LIST
       if $mock_data.exit_code != 0 {
         error make {msg: $"SQLite error: ($mock_data.error)"}
       }
@@ -33,16 +38,28 @@ export def run-query-db [db_path: string sql: string params: list = []] {
     }
   }
 
-  # Check for generic mock
+  # UPDATE queries (return empty list)
+  if ($sql | str contains "UPDATE") {
+    if "MOCK_query_db_UPDATE" in $env {
+      let mock_data = $env | get MOCK_query_db_UPDATE
+      if $mock_data.exit_code != 0 {
+        error make {msg: $"SQLite error: ($mock_data.error)"}
+      }
+      return $mock_data.output
+    }
+    return []
+  }
+
+  # Generic mock for any other query
   if "MOCK_query_db" in $env {
-    let mock_data = $env | get MOCK_query_db | from nuon
+    let mock_data = $env | get MOCK_query_db
     if $mock_data.exit_code != 0 {
       error make {msg: $"SQLite error: ($mock_data.error)"}
     }
     return $mock_data.output
   }
 
-  # Default: success with empty list (for INSERT/UPDATE/DELETE)
+  # Default: empty list for INSERT/UPDATE/DELETE without RETURNING
   []
 }
 

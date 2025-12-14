@@ -1,7 +1,8 @@
 # SQLite database operations for c5t tool
 
 # Wrapper for query db - can be mocked in tests
-def run-query-db [db_path: string sql: string params: list = []] {
+# Exported so tests can override it
+export def run-query-db [db_path: string sql: string params: list = []] {
   open $db_path | query db $sql -p $params
 }
 

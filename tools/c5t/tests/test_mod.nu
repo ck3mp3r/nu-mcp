@@ -172,11 +172,22 @@ export def "test c5t_list_items handles empty list" [] {
   let test_script = '
 source tools/c5t/tests/mocks.nu
 
-# Mock todo_list query - returns one list
-$env.MOCK_sqlite3_TODO_LIST = "{\"exit_code\": 0, \"output\": \"[{\\\"id\\\":1,\\\"name\\\":\\\"Test List\\\",\\\"description\\\":\\\"\\\",\\\"notes\\\":\\\"\\\",\\\"tags\\\":\\\"\\\",\\\"created_at\\\":\\\"2025-01-01\\\",\\\"updated_at\\\":\\\"2025-01-01\\\"}]\"}"
+# First query: get the list (FROM todo_list)
+$env.MOCK_query_db_TODO_LIST = ({
+  output: [{
+    id: 1
+    name: "Test List"
+    description: null
+    notes: null
+    tags: null
+    created_at: "2025-01-01 12:00:00"
+    updated_at: "2025-01-01 12:00:00"
+  }]
+  exit_code: 0
+})
 
-# Mock todo_item query - returns EMPTY STRING (like real sqlite!)
-$env.MOCK_sqlite3_EMPTY_ITEMS = true
+# Second query: get items (FROM todo_item) - returns empty
+$env.MOCK_query_db_EMPTY_ITEMS = true
 
 source tools/c5t/mod.nu
 main call-tool "c5t_list_items" "{\"list_id\": 1}"
@@ -185,5 +196,5 @@ main call-tool "c5t_list_items" "{\"list_id\": 1}"
   let output = nu -c $test_script
 
   # Should not crash, should return a message about no items
-  assert ($output | str contains "No items")
+  assert ($output | str contains "No items in this list")
 }
