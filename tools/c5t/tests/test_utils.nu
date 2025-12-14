@@ -268,3 +268,27 @@ export def "test validate-item-update-input rejects missing item_id" [] {
   assert (not $result.valid)
   assert ($result.error | str contains "item_id")
 }
+
+# Test auto-update-scratchpad generates and updates scratchpad
+export def "test auto-update-scratchpad generates and updates scratchpad" [] {
+  use ../utils.nu auto-update-scratchpad
+  use mocks.nu *
+
+  with-env {
+    # Mock all database queries to return empty lists
+    MOCK_query_db: {output: [] exit_code: 0}
+    MOCK_query_db_CHECK_SCRATCHPAD: {output: [{id: 1}] exit_code: 0}
+    MOCK_query_db_UPDATE: {output: [] exit_code: 0}
+    # Mock git
+    MOCK_git_rev_parse___git_dir: ({exit_code: 0 output: ".git"} | to json)
+    MOCK_git_branch___show_current: ({exit_code: 0 output: "main"} | to json)
+    MOCK_git_status___porcelain: ({exit_code: 0 output: ""} | to json)
+    MOCK_git_log__3___oneline___no_decorate: ({exit_code: 0 output: ""} | to json)
+  } {
+    # Call auto-update-scratchpad
+    let result = auto-update-scratchpad
+
+    # Should return true on success
+    assert ($result == true)
+  }
+}

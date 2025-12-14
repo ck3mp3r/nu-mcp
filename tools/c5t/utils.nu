@@ -8,13 +8,27 @@ export def auto-update-scratchpad [] {
   use storage.nu *
 
   # Fetch data needed for template
-  let lists = get-active-lists-with-counts
-  let in_progress = get-in-progress-items
-  let completed = get-recently-completed-items
-  let high_priority = get-high-priority-items
+  let lists_result = get-active-lists-with-counts
+  let in_progress_result = get-all-in-progress-items
+  let completed_result = get-recently-completed-items
+  let high_priority_result = get-high-priority-next-steps
+
+  # Check for errors
+  if not $lists_result.success {
+    return false
+  }
+  if not $in_progress_result.success {
+    return false
+  }
+  if not $completed_result.success {
+    return false
+  }
+  if not $high_priority_result.success {
+    return false
+  }
 
   # Generate fresh scratchpad content
-  let content = generate-scratchpad-template $lists $in_progress $completed $high_priority
+  let content = generate-scratchpad-template $lists_result.lists $in_progress_result.items $completed_result.items $high_priority_result.items
 
   # Update scratchpad
   let result = update-scratchpad $content
