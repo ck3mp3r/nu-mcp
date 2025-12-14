@@ -15,7 +15,7 @@ def "main list-tools" [] {
   [
     {
       name: "create_list"
-      description: "Create a new todo list to track work items and progress. **Capabilities**: Supports 6 statuses (backlog→todo→in_progress→review→done→cancelled), priorities 1-5, auto-archive when all items complete. Multiple lists enable parallel tracking of different workstreams."
+      description: "Create a new todo list to track work items. Supports statuses (backlog→todo→in_progress→review→done→cancelled), priorities 1-5, auto-archive when all items complete."
       input_schema: {
         type: "object"
         properties: {
@@ -52,7 +52,7 @@ def "main list-tools" [] {
     }
     {
       name: "add_item"
-      description: "Add a todo item to an existing list. **Status workflow**: backlog (initial planning) → todo (ready to work) → in_progress (actively working) → review (awaiting review) → done (completed) or cancelled. Items default to 'backlog' status. **Priorities**: 1-5 where 5=critical/urgent, 1=low priority."
+      description: "Add a todo item to a list. Defaults to 'backlog' status. Workflow: backlog→todo→in_progress→review→done→cancelled. Priority 1-5 where 5=critical."
       input_schema: {
         type: "object"
         properties: {
@@ -81,7 +81,7 @@ def "main list-tools" [] {
     }
     {
       name: "update_item_status"
-      description: "Update the status of a todo item through the workflow: backlog→todo→in_progress→review→done/cancelled. **Auto-timestamps**: started_at set when moving to 'in_progress', completed_at set when moving to 'done'/'cancelled'. **Auto-archive**: When ALL items in a list are done/cancelled, the entire list auto-archives to a markdown note for posterity."
+      description: "Update item status (backlog→todo→in_progress→review→done→cancelled). Auto-sets started_at/completed_at timestamps. Auto-archives list when all items done/cancelled."
       input_schema: {
         type: "object"
         properties: {
@@ -128,7 +128,7 @@ def "main list-tools" [] {
     }
     {
       name: "complete_item"
-      description: "Mark a todo item as complete (shorthand for setting status to 'done'). Sets completed_at timestamp automatically. **Auto-archive**: When this completes the LAST remaining item in a list, the entire list auto-archives to a markdown note (accessible via list_notes with note_type='archived_todo'), preserving full history."
+      description: "Mark item as complete (status='done'). Sets completed_at timestamp. Auto-archives list when this completes the last item."
       input_schema: {
         type: "object"
         properties: {
@@ -258,7 +258,7 @@ def "main list-tools" [] {
     }
     {
       name: "search"
-      description: "Search notes using full-text search with SQLite FTS5 syntax. **Query examples**: 'database' (simple term), 'api AND database' (both required), 'error OR bug' (either), 'NOT deprecated' (exclude), '\"exact phrase\"' (exact match), 'auth*' (prefix - finds auth, authentication, authorize), 'database AND NOT mysql' (complex). Searches title and content fields, ranked by relevance."
+      description: "Search notes using FTS5 syntax. Examples: 'term', 'term1 AND term2', 'term1 OR term2', 'NOT term', '\"exact phrase\"', 'prefix*'. Searches title and content."
       input_schema: {
         type: "object"
         properties: {
@@ -283,7 +283,7 @@ def "main list-tools" [] {
     }
     {
       name: "update_scratchpad"
-      description: "Update or create the scratchpad note for maintaining session context. Only one scratchpad exists - it will be created if it doesn't exist, or updated if it does. **Best Practice**: Update scratchpad at session milestones (every 3-5 todo changes, after completing major tasks, before context-heavy work). **Workflow**: Session start → get_scratchpad (review context), During work → update_scratchpad (capture progress/decisions), Session end → update_scratchpad (save state)."
+      description: "Update or create the scratchpad note for session context. Only one scratchpad exists. Best practice: Update at session milestones (every 3-5 changes, after major tasks). Use get_scratchpad at session start to review context."
       input_schema: {
         type: "object"
         properties: {
@@ -297,7 +297,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_scratchpad"
-      description: "**CONTEXT LOST? START HERE!** Retrieve the current scratchpad note containing session context, active work, and recent progress. This is THE context recovery tool - use it at session start or whenever you need to understand current state. Returns the scratchpad note with markdown content, or null if no scratchpad exists yet. **Workflow**: Lost context → get_scratchpad → review state → continue work."
+      description: "CONTEXT LOST? START HERE. Retrieve scratchpad with session context, active work, and recent progress. Use at session start or for context recovery. Returns markdown note or null if none exists."
       input_schema: {
         type: "object"
         properties: {}
@@ -305,7 +305,7 @@ def "main list-tools" [] {
     }
     {
       name: "generate_scratchpad_draft"
-      description: "Generate a scratchpad draft with auto-populated facts (active lists, in-progress items, recently completed items, high-priority next steps). LLM should review, add context/learnings/decisions, then call update_scratchpad."
+      description: "Generate scratchpad draft with auto-populated facts (active lists, in-progress, completed, priorities). Review, add context/decisions, then call update_scratchpad."
       input_schema: {
         type: "object"
         properties: {}
@@ -313,7 +313,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_summary"
-      description: "Get comprehensive summary/overview for quick status at-a-glance. Returns markdown-formatted summary with: overall stats (active lists, total items by status), active lists with counts, in-progress items, high-priority next steps (P4-P5), recently completed items, and scratchpad status. **Use at session start** to see what's active, or **for context recovery** to get oriented. Complements get_scratchpad (detailed context) with high-level facts."
+      description: "Get comprehensive overview: stats, active lists, in-progress items, high-priority items (P4-P5), recently completed, scratchpad status. Use at session start or for context recovery. Returns markdown summary."
       input_schema: {
         type: "object"
         properties: {}
