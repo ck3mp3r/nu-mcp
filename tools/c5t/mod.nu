@@ -231,7 +231,7 @@ def "main list-tools" [] {
           }
           note_type: {
             type: "string"
-            description: "Filter by note type (optional)"
+            description: "Filter by note type: 'manual' (user-created notes), 'archived_todo' (completed todo lists), 'scratchpad' (session context) (optional)"
             enum: ["manual" "archived_todo" "scratchpad"]
           }
           limit: {
@@ -250,7 +250,7 @@ def "main list-tools" [] {
         properties: {
           note_id: {
             type: "integer"
-            description: "ID of the note to retrieve"
+            description: "ID of the note to retrieve (from list_notes or search results)"
           }
         }
         required: ["note_id"]
