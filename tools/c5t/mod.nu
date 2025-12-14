@@ -15,7 +15,7 @@ def "main list-tools" [] {
   [
     {
       name: "c5t_create_list"
-      description: "Create a new todo list to track work items and progress"
+      description: "Create a new todo list to track work items and progress. **Capabilities**: Supports 6 statuses (backlog→todo→in_progress→review→done→cancelled), priorities 1-5, auto-archive when all items complete. Multiple lists enable parallel tracking of different workstreams."
       input_schema: {
         type: "object"
         properties: {
@@ -52,7 +52,7 @@ def "main list-tools" [] {
     }
     {
       name: "c5t_add_item"
-      description: "Add a todo item to an existing list"
+      description: "Add a todo item to an existing list. **Status workflow**: backlog (initial planning) → todo (ready to work) → in_progress (actively working) → review (awaiting review) → done (completed) or cancelled. Items default to 'backlog' status. **Priorities**: 1-5 where 5=critical/urgent, 1=low priority."
       input_schema: {
         type: "object"
         properties: {
@@ -81,7 +81,7 @@ def "main list-tools" [] {
     }
     {
       name: "c5t_update_item_status"
-      description: "Update the status of a todo item (automatically manages started_at and completed_at timestamps)"
+      description: "Update the status of a todo item through the workflow: backlog→todo→in_progress→review→done/cancelled. **Auto-timestamps**: started_at set when moving to 'in_progress', completed_at set when moving to 'done'/'cancelled'. **Auto-archive**: When ALL items in a list are done/cancelled, the entire list auto-archives to a markdown note for posterity."
       input_schema: {
         type: "object"
         properties: {
@@ -128,7 +128,7 @@ def "main list-tools" [] {
     }
     {
       name: "c5t_complete_item"
-      description: "Mark a todo item as complete (shorthand for setting status to 'done')"
+      description: "Mark a todo item as complete (shorthand for setting status to 'done'). Sets completed_at timestamp automatically. **Auto-archive**: When this completes the LAST remaining item in a list, the entire list auto-archives to a markdown note (accessible via c5t_list_notes with note_type='archived_todo'), preserving full history."
       input_schema: {
         type: "object"
         properties: {
