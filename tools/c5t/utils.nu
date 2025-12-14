@@ -7,8 +7,14 @@
 export def auto-update-scratchpad [] {
   use storage.nu *
 
+  # Fetch data needed for template
+  let lists = get-active-lists-with-counts
+  let in_progress = get-in-progress-items
+  let completed = get-recently-completed-items
+  let high_priority = get-high-priority-items
+
   # Generate fresh scratchpad content
-  let content = generate-scratchpad-template
+  let content = generate-scratchpad-template $lists $in_progress $completed $high_priority
 
   # Update scratchpad
   let result = update-scratchpad $content
