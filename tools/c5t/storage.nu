@@ -86,7 +86,13 @@ def execute-sql [db_path: string sql: string] {
 
 def query-sql [db_path: string sql: string] {
   try {
-    let result = sqlite3 -json $db_path $sql | from json
+    let output = sqlite3 -json $db_path $sql
+    # Handle empty result (sqlite returns empty string for no rows)
+    let result = if ($output | is-empty) {
+      []
+    } else {
+      $output | from json
+    }
     {success: true data: $result}
   } catch {|err|
     {success: false error: $err.msg}
@@ -881,8 +887,8 @@ export def search-notes [
 
   # Parse tags for each note
   let parsed = $result.data | each {|note|
-    $note | upsert tags (parse-tags ($note | get tags))
-  }
+      $note | upsert tags (parse-tags ($note | get tags))
+    }
 
   # Filter by tags if specified (client-side filtering)
   let filtered = if ($tags | is-not-empty) {
