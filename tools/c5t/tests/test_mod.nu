@@ -120,3 +120,49 @@ main call-tool 'c5t_create_list' '{\"name\": \"\"}'
   # Should return error message about empty name
   assert ($output | str contains "cannot be empty")
 }
+
+# Test schema types match function signatures for ID parameters
+export def "test schema types match function signatures" [] {
+  let test_script = "
+source tools/c5t/mod.nu
+main list-tools
+"
+
+  let output = nu -c $test_script
+  let tools = $output | from json
+
+  # Check c5t_add_item has integer list_id
+  let add_item = $tools | where name == "c5t_add_item" | first
+  assert ($add_item.input_schema.properties.list_id.type == "integer")
+
+  # Check c5t_update_item_status has integer list_id and item_id
+  let update_status = $tools | where name == "c5t_update_item_status" | first
+  assert ($update_status.input_schema.properties.list_id.type == "integer")
+  assert ($update_status.input_schema.properties.item_id.type == "integer")
+
+  # Check c5t_update_item_priority has integer list_id and item_id
+  let update_priority = $tools | where name == "c5t_update_item_priority" | first
+  assert ($update_priority.input_schema.properties.list_id.type == "integer")
+  assert ($update_priority.input_schema.properties.item_id.type == "integer")
+
+  # Check c5t_complete_item has integer list_id and item_id
+  let complete_item = $tools | where name == "c5t_complete_item" | first
+  assert ($complete_item.input_schema.properties.list_id.type == "integer")
+  assert ($complete_item.input_schema.properties.item_id.type == "integer")
+
+  # Check c5t_list_items has integer list_id
+  let list_items = $tools | where name == "c5t_list_items" | first
+  assert ($list_items.input_schema.properties.list_id.type == "integer")
+
+  # Check c5t_list_active_items has integer list_id
+  let list_active_items = $tools | where name == "c5t_list_active_items" | first
+  assert ($list_active_items.input_schema.properties.list_id.type == "integer")
+
+  # Check c5t_update_notes has integer list_id
+  let update_notes = $tools | where name == "c5t_update_notes" | first
+  assert ($update_notes.input_schema.properties.list_id.type == "integer")
+
+  # Check c5t_get_note has integer note_id
+  let get_note = $tools | where name == "c5t_get_note" | first
+  assert ($get_note.input_schema.properties.note_id.type == "integer")
+}

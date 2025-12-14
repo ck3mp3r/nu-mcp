@@ -57,7 +57,7 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "string"
+            type: "integer"
             description: "ID of the todo list to add the item to"
           }
           content: {
@@ -86,11 +86,11 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "string"
+            type: "integer"
             description: "ID of the todo list containing the item"
           }
           item_id: {
-            type: "string"
+            type: "integer"
             description: "ID of the item to update"
           }
           status: {
@@ -109,11 +109,11 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "string"
+            type: "integer"
             description: "ID of the todo list containing the item"
           }
           item_id: {
-            type: "string"
+            type: "integer"
             description: "ID of the item to update"
           }
           priority: {
@@ -133,11 +133,11 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "string"
+            type: "integer"
             description: "ID of the todo list containing the item"
           }
           item_id: {
-            type: "string"
+            type: "integer"
             description: "ID of the item to complete"
           }
         }
@@ -151,7 +151,7 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "string"
+            type: "integer"
             description: "ID of the todo list"
           }
           status: {
@@ -170,7 +170,7 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "string"
+            type: "integer"
             description: "ID of the todo list"
           }
         }
@@ -184,7 +184,7 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "string"
+            type: "integer"
             description: "ID of the todo list to update"
           }
           notes: {
@@ -249,7 +249,7 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           note_id: {
-            type: "string"
+            type: "integer"
             description: "ID of the note to retrieve"
           }
         }
