@@ -258,13 +258,13 @@ def "main list-tools" [] {
     }
     {
       name: "c5t_search"
-      description: "Search notes using full-text search. Supports FTS5 query syntax: simple terms, boolean operators (AND, OR, NOT), phrases (\"exact match\"), and prefix matching (term*)"
+      description: "Search notes using full-text search with SQLite FTS5 syntax. **Query examples**: 'database' (simple term), 'api AND database' (both required), 'error OR bug' (either), 'NOT deprecated' (exclude), '\"exact phrase\"' (exact match), 'auth*' (prefix - finds auth, authentication, authorize), 'database AND NOT mysql' (complex). Searches title and content fields, ranked by relevance."
       input_schema: {
         type: "object"
         properties: {
           query: {
             type: "string"
-            description: "Search query. Examples: 'database', 'api AND database', '\"error handling\"', 'auth*'"
+            description: "FTS5 search query. Simple: 'keyword'. Boolean: 'term1 AND term2', 'term1 OR term2'. Exclude: 'NOT term'. Phrase: '\"exact phrase\"'. Prefix: 'term*'. Combine: 'api AND (error OR bug) NOT deprecated'"
           }
           tags: {
             type: "array"
