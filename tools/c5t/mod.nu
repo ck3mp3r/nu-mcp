@@ -14,7 +14,7 @@ def "main list-tools" [] {
 
   [
     {
-      name: "c5t_create_list"
+      name: "create_list"
       description: "Create a new todo list to track work items and progress. **Capabilities**: Supports 6 statuses (backlog→todo→in_progress→review→done→cancelled), priorities 1-5, auto-archive when all items complete. Multiple lists enable parallel tracking of different workstreams."
       input_schema: {
         type: "object"
@@ -37,7 +37,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_list_active"
+      name: "list_active"
       description: "List all active todo lists, optionally filtered by tags"
       input_schema: {
         type: "object"
@@ -51,7 +51,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_add_item"
+      name: "add_item"
       description: "Add a todo item to an existing list. **Status workflow**: backlog (initial planning) → todo (ready to work) → in_progress (actively working) → review (awaiting review) → done (completed) or cancelled. Items default to 'backlog' status. **Priorities**: 1-5 where 5=critical/urgent, 1=low priority."
       input_schema: {
         type: "object"
@@ -80,7 +80,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_update_item_status"
+      name: "update_item_status"
       description: "Update the status of a todo item through the workflow: backlog→todo→in_progress→review→done/cancelled. **Auto-timestamps**: started_at set when moving to 'in_progress', completed_at set when moving to 'done'/'cancelled'. **Auto-archive**: When ALL items in a list are done/cancelled, the entire list auto-archives to a markdown note for posterity."
       input_schema: {
         type: "object"
@@ -103,7 +103,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_update_item_priority"
+      name: "update_item_priority"
       description: "Update the priority of a todo item"
       input_schema: {
         type: "object"
@@ -127,8 +127,8 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_complete_item"
-      description: "Mark a todo item as complete (shorthand for setting status to 'done'). Sets completed_at timestamp automatically. **Auto-archive**: When this completes the LAST remaining item in a list, the entire list auto-archives to a markdown note (accessible via c5t_list_notes with note_type='archived_todo'), preserving full history."
+      name: "complete_item"
+      description: "Mark a todo item as complete (shorthand for setting status to 'done'). Sets completed_at timestamp automatically. **Auto-archive**: When this completes the LAST remaining item in a list, the entire list auto-archives to a markdown note (accessible via list_notes with note_type='archived_todo'), preserving full history."
       input_schema: {
         type: "object"
         properties: {
@@ -145,7 +145,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_list_items"
+      name: "list_items"
       description: "List all items in a todo list, optionally filtered by status"
       input_schema: {
         type: "object"
@@ -164,7 +164,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_list_active_items"
+      name: "list_active_items"
       description: "List active items in a todo list (excludes 'done' and 'cancelled')"
       input_schema: {
         type: "object"
@@ -178,7 +178,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_update_notes"
+      name: "update_notes"
       description: "Update the progress notes on a todo list (supports markdown)"
       input_schema: {
         type: "object"
@@ -196,7 +196,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_create_note"
+      name: "create_note"
       description: "Create a standalone note with markdown content"
       input_schema: {
         type: "object"
@@ -219,7 +219,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_list_notes"
+      name: "list_notes"
       description: "List notes with optional filtering by tags, type, and limit"
       input_schema: {
         type: "object"
@@ -243,7 +243,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_get_note"
+      name: "get_note"
       description: "Get a specific note by ID"
       input_schema: {
         type: "object"
@@ -257,7 +257,7 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_search"
+      name: "search"
       description: "Search notes using full-text search with SQLite FTS5 syntax. **Query examples**: 'database' (simple term), 'api AND database' (both required), 'error OR bug' (either), 'NOT deprecated' (exclude), '\"exact phrase\"' (exact match), 'auth*' (prefix - finds auth, authentication, authorize), 'database AND NOT mysql' (complex). Searches title and content fields, ranked by relevance."
       input_schema: {
         type: "object"
@@ -282,21 +282,21 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_update_scratchpad"
+      name: "update_scratchpad"
       description: "Update or create the scratchpad note for maintaining session context. Only one scratchpad exists - it will be created if it doesn't exist, or updated if it does. **Best Practice**: Update scratchpad at session milestones (every 3-5 todo changes, after completing major tasks, before context-heavy work). **Workflow**: Session start → get_scratchpad (review context), During work → update_scratchpad (capture progress/decisions), Session end → update_scratchpad (save state)."
       input_schema: {
         type: "object"
         properties: {
           content: {
             type: "string"
-            description: "Markdown content for the scratchpad. Typically includes: active work summary, in-progress items, recent accomplishments, key decisions/learnings, next steps, and current timestamp. Use c5t_generate_scratchpad_draft to auto-generate a starting template."
+            description: "Markdown content for the scratchpad. Typically includes: active work summary, in-progress items, recent accomplishments, key decisions/learnings, next steps, and current timestamp. Use generate_scratchpad_draft to auto-generate a starting template."
           }
         }
         required: ["content"]
       }
     }
     {
-      name: "c5t_get_scratchpad"
+      name: "get_scratchpad"
       description: "**CONTEXT LOST? START HERE!** Retrieve the current scratchpad note containing session context, active work, and recent progress. This is THE context recovery tool - use it at session start or whenever you need to understand current state. Returns the scratchpad note with markdown content, or null if no scratchpad exists yet. **Workflow**: Lost context → get_scratchpad → review state → continue work."
       input_schema: {
         type: "object"
@@ -304,16 +304,16 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_generate_scratchpad_draft"
-      description: "Generate a scratchpad draft with auto-populated facts (active lists, in-progress items, recently completed items, high-priority next steps). LLM should review, add context/learnings/decisions, then call c5t_update_scratchpad."
+      name: "generate_scratchpad_draft"
+      description: "Generate a scratchpad draft with auto-populated facts (active lists, in-progress items, recently completed items, high-priority next steps). LLM should review, add context/learnings/decisions, then call update_scratchpad."
       input_schema: {
         type: "object"
         properties: {}
       }
     }
     {
-      name: "c5t_get_summary"
-      description: "Get comprehensive summary/overview for quick status at-a-glance. Returns markdown-formatted summary with: overall stats (active lists, total items by status), active lists with counts, in-progress items, high-priority next steps (P4-P5), recently completed items, and scratchpad status. **Use at session start** to see what's active, or **for context recovery** to get oriented. Complements c5t_get_scratchpad (detailed context) with high-level facts."
+      name: "get_summary"
+      description: "Get comprehensive summary/overview for quick status at-a-glance. Returns markdown-formatted summary with: overall stats (active lists, total items by status), active lists with counts, in-progress items, high-priority next steps (P4-P5), recently completed items, and scratchpad status. **Use at session start** to see what's active, or **for context recovery** to get oriented. Complements get_scratchpad (detailed context) with high-level facts."
       input_schema: {
         type: "object"
         properties: {}
@@ -333,7 +333,7 @@ def "main call-tool" [
   }
 
   match $tool_name {
-    "c5t_create_list" => {
+    "create_list" => {
       let validation = validate-list-input $parsed_args
       if not $validation.valid {
         return $validation.error
@@ -352,7 +352,7 @@ def "main call-tool" [
       format-list-created $result
     }
 
-    "c5t_list_active" => {
+    "list_active" => {
       let tag_filter = if "tags" in $parsed_args { $parsed_args.tags } else { null }
 
       let result = get-active-lists $tag_filter
@@ -364,7 +364,7 @@ def "main call-tool" [
       format-active-lists $result.lists
     }
 
-    "c5t_add_item" => {
+    "add_item" => {
       let validation = validate-item-input $parsed_args
       if not $validation.valid {
         return $validation.error
@@ -405,7 +405,7 @@ def "main call-tool" [
       format-item-created $result
     }
 
-    "c5t_update_item_status" => {
+    "update_item_status" => {
       let validation = validate-item-update-input $parsed_args
       if not $validation.valid {
         return $validation.error
@@ -443,7 +443,7 @@ def "main call-tool" [
       }
     }
 
-    "c5t_update_item_priority" => {
+    "update_item_priority" => {
       let validation = validate-item-update-input $parsed_args
       if not $validation.valid {
         return $validation.error
@@ -477,7 +477,7 @@ def "main call-tool" [
       format-item-updated "priority" $item_id $priority
     }
 
-    "c5t_complete_item" => {
+    "complete_item" => {
       let validation = validate-item-update-input $parsed_args
       if not $validation.valid {
         return $validation.error
@@ -504,7 +504,7 @@ def "main call-tool" [
       }
     }
 
-    "c5t_list_items" => {
+    "list_items" => {
       if "list_id" not-in $parsed_args {
         return "Error: Missing required field: 'list_id'"
       }
@@ -529,7 +529,7 @@ def "main call-tool" [
       format-items-list $result.list $result.items
     }
 
-    "c5t_list_active_items" => {
+    "list_active_items" => {
       if "list_id" not-in $parsed_args {
         return "Error: Missing required field: 'list_id'"
       }
@@ -545,7 +545,7 @@ def "main call-tool" [
       format-items-list $result.list $result.items
     }
 
-    "c5t_update_notes" => {
+    "update_notes" => {
       if "list_id" not-in $parsed_args {
         return "Error: Missing required field: 'list_id'"
       }
@@ -571,7 +571,7 @@ def "main call-tool" [
       format-notes-updated $list_id
     }
 
-    "c5t_create_note" => {
+    "create_note" => {
       let validation = validate-note-input $parsed_args
       if not $validation.valid {
         return $validation.error
@@ -590,7 +590,7 @@ def "main call-tool" [
       format-note-created-manual $result
     }
 
-    "c5t_list_notes" => {
+    "list_notes" => {
       let tag_filter = if "tags" in $parsed_args { $parsed_args.tags } else { null }
       let note_type = if "note_type" in $parsed_args { $parsed_args.note_type } else { null }
       let limit = if "limit" in $parsed_args { $parsed_args.limit } else { null }
@@ -604,7 +604,7 @@ def "main call-tool" [
       format-notes-list-detailed $result.notes
     }
 
-    "c5t_get_note" => {
+    "get_note" => {
       if "note_id" not-in $parsed_args {
         return "Error: Missing required field: 'note_id'"
       }
@@ -620,7 +620,7 @@ def "main call-tool" [
       format-note-detail $result.note
     }
 
-    "c5t_search" => {
+    "search" => {
       if "query" not-in $parsed_args {
         return "Error: Missing required field: 'query'"
       }
@@ -638,7 +638,7 @@ def "main call-tool" [
       format-search-results $result.notes
     }
 
-    "c5t_update_scratchpad" => {
+    "update_scratchpad" => {
       if "content" not-in $parsed_args {
         return "Error: Missing required field: 'content'"
       }
@@ -657,7 +657,7 @@ Content preview:($content | lines | first 3 | str join (char newline))
 ..."
     }
 
-    "c5t_get_scratchpad" => {
+    "get_scratchpad" => {
       let result = get-scratchpad
 
       if not $result.success {
@@ -665,13 +665,13 @@ Content preview:($content | lines | first 3 | str join (char newline))
       }
 
       if $result.scratchpad == null {
-        return "📝 No scratchpad exists yet. Create one with c5t_update_scratchpad."
+        return "📝 No scratchpad exists yet. Create one with update_scratchpad."
       }
 
       format-note-detail $result.scratchpad
     }
 
-    "c5t_generate_scratchpad_draft" => {
+    "generate_scratchpad_draft" => {
       # Get all the data we need
       let lists_result = get-active-lists-with-counts
       let in_progress_result = get-all-in-progress-items
@@ -696,12 +696,12 @@ Content preview:($content | lines | first 3 | str join (char newline))
 
       $"📝 Scratchpad Draft Generated
 
-Review the draft below, add your context/learnings/decisions in the marked sections, then call c5t_update_scratchpad with the enhanced content.
+Review the draft below, add your context/learnings/decisions in the marked sections, then call update_scratchpad with the enhanced content.
 
 ---($draft)"
     }
 
-    "c5t_get_summary" => {
+    "get_summary" => {
       let result = get-summary
 
       if not $result.success {

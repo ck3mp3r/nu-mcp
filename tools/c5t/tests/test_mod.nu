@@ -60,8 +60,8 @@ main call-tool 'test_tool' {param: \"value\"}
   assert ($output.stderr | str contains "Unknown tool")
 }
 
-# Test list-tools includes c5t_create_list
-export def "test list-tools includes c5t_create_list" [] {
+# Test list-tools includes create_list
+export def "test list-tools includes create_list" [] {
   let test_script = "
 source tools/c5t/mod.nu
 main list-tools
@@ -70,15 +70,15 @@ main list-tools
   let output = nu -c $test_script
   let tools = $output | from json
 
-  # Should have c5t_create_list tool
-  let create_list_tool = $tools | where name == "c5t_create_list" | first
-  assert ($create_list_tool.name == "c5t_create_list")
+  # Should have create_list tool
+  let create_list_tool = $tools | where name == "create_list" | first
+  assert ($create_list_tool.name == "create_list")
   assert ($create_list_tool.description != null)
   assert ($create_list_tool.input_schema != null)
 }
 
-# Test list-tools includes c5t_list_active
-export def "test list-tools includes c5t_list_active" [] {
+# Test list-tools includes list_active
+export def "test list-tools includes list_active" [] {
   let test_script = "
 source tools/c5t/mod.nu
 main list-tools
@@ -87,18 +87,18 @@ main list-tools
   let output = nu -c $test_script
   let tools = $output | from json
 
-  # Should have c5t_list_active tool
-  let list_active_tool = $tools | where name == "c5t_list_active" | first
-  assert ($list_active_tool.name == "c5t_list_active")
+  # Should have list_active tool
+  let list_active_tool = $tools | where name == "list_active" | first
+  assert ($list_active_tool.name == "list_active")
   assert ($list_active_tool.description != null)
   assert ($list_active_tool.input_schema != null)
 }
 
-# Test c5t_create_list validates missing name
-export def "test c5t_create_list validates missing name" [] {
+# Test create_list validates missing name
+export def "test create_list validates missing name" [] {
   let test_script = "
 source tools/c5t/mod.nu
-main call-tool 'c5t_create_list' '{}'
+main call-tool 'create_list' '{}'
 "
 
   let output = nu -c $test_script
@@ -108,11 +108,11 @@ main call-tool 'c5t_create_list' '{}'
   assert ($output | str contains "name")
 }
 
-# Test c5t_create_list validates empty name
-export def "test c5t_create_list validates empty name" [] {
+# Test create_list validates empty name
+export def "test create_list validates empty name" [] {
   let test_script = "
 source tools/c5t/mod.nu
-main call-tool 'c5t_create_list' '{\"name\": \"\"}'
+main call-tool 'create_list' '{\"name\": \"\"}'
 "
 
   let output = nu -c $test_script
@@ -131,44 +131,44 @@ main list-tools
   let output = nu -c $test_script
   let tools = $output | from json
 
-  # Check c5t_add_item has integer list_id
-  let add_item = $tools | where name == "c5t_add_item" | first
+  # Check add_item has integer list_id
+  let add_item = $tools | where name == "add_item" | first
   assert ($add_item.input_schema.properties.list_id.type == "integer")
 
-  # Check c5t_update_item_status has integer list_id and item_id
-  let update_status = $tools | where name == "c5t_update_item_status" | first
+  # Check update_item_status has integer list_id and item_id
+  let update_status = $tools | where name == "update_item_status" | first
   assert ($update_status.input_schema.properties.list_id.type == "integer")
   assert ($update_status.input_schema.properties.item_id.type == "integer")
 
-  # Check c5t_update_item_priority has integer list_id and item_id
-  let update_priority = $tools | where name == "c5t_update_item_priority" | first
+  # Check update_item_priority has integer list_id and item_id
+  let update_priority = $tools | where name == "update_item_priority" | first
   assert ($update_priority.input_schema.properties.list_id.type == "integer")
   assert ($update_priority.input_schema.properties.item_id.type == "integer")
 
-  # Check c5t_complete_item has integer list_id and item_id
-  let complete_item = $tools | where name == "c5t_complete_item" | first
+  # Check complete_item has integer list_id and item_id
+  let complete_item = $tools | where name == "complete_item" | first
   assert ($complete_item.input_schema.properties.list_id.type == "integer")
   assert ($complete_item.input_schema.properties.item_id.type == "integer")
 
-  # Check c5t_list_items has integer list_id
-  let list_items = $tools | where name == "c5t_list_items" | first
+  # Check list_items has integer list_id
+  let list_items = $tools | where name == "list_items" | first
   assert ($list_items.input_schema.properties.list_id.type == "integer")
 
-  # Check c5t_list_active_items has integer list_id
-  let list_active_items = $tools | where name == "c5t_list_active_items" | first
+  # Check list_active_items has integer list_id
+  let list_active_items = $tools | where name == "list_active_items" | first
   assert ($list_active_items.input_schema.properties.list_id.type == "integer")
 
-  # Check c5t_update_notes has integer list_id
-  let update_notes = $tools | where name == "c5t_update_notes" | first
+  # Check update_notes has integer list_id
+  let update_notes = $tools | where name == "update_notes" | first
   assert ($update_notes.input_schema.properties.list_id.type == "integer")
 
-  # Check c5t_get_note has integer note_id
-  let get_note = $tools | where name == "c5t_get_note" | first
+  # Check get_note has integer note_id
+  let get_note = $tools | where name == "get_note" | first
   assert ($get_note.input_schema.properties.note_id.type == "integer")
 }
 
-# Test c5t_list_items handles empty list (no items)
-export def "test c5t_list_items handles empty list" [] {
+# Test list_items handles empty list (no items)
+export def "test list_items handles empty list" [] {
   let test_script = '
 source tools/c5t/tests/mocks.nu
 
@@ -190,7 +190,7 @@ $env.MOCK_query_db_TODO_LIST = ({
 $env.MOCK_query_db_EMPTY_ITEMS = true
 
 source tools/c5t/mod.nu
-main call-tool "c5t_list_items" "{\"list_id\": 1}"
+main call-tool "list_items" "{\"list_id\": 1}"
 '
 
   let output = nu -c $test_script
@@ -199,12 +199,12 @@ main call-tool "c5t_list_items" "{\"list_id\": 1}"
   assert ($output | str contains "No items in this list")
 }
 
-# Test c5t_get_summary returns formatted summary
-export def "test c5t_get_summary returns formatted summary" [] {
+# Test get_summary returns formatted summary
+export def "test get_summary returns formatted summary" [] {
   let test_script = '
 source tools/c5t/tests/mocks.nu
 source tools/c5t/mod.nu
-main call-tool "c5t_get_summary" "{}"
+main call-tool "get_summary" "{}"
 '
 
   let output = nu -c $test_script
