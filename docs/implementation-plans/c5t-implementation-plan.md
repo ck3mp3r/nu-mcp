@@ -45,6 +45,25 @@ This causes developers to re-search for files, re-explain context, and lose mome
 
 ## Database Schema
 
+### Design Philosophy: Kanban-Ready
+
+The schema supports Kanban-style workflow with multiple item statuses. The MVP will implement basic statuses (todo, in_progress, done), but the schema is designed to support full Kanban visualization in future iterations.
+
+**Todo Item Statuses:**
+- `backlog`: Planned but not prioritized (future)
+- `todo`: Ready to work on (MVP)
+- `in_progress`: Currently being worked on (MVP)
+- `review`: Awaiting review/validation (future)
+- `done`: Completed successfully (MVP)
+- `cancelled`: No longer needed (MVP)
+
+**Future Enhancements:**
+- Visual Kanban board rendering (columns view)
+- `c5t_move_item` tool to transition between statuses
+- `c5t_get_board` tool to visualize items grouped by status
+- Position/ordering within status columns
+- WIP (Work In Progress) limits per status
+
 ### Tables
 
 ```sql
@@ -66,9 +85,11 @@ CREATE TABLE IF NOT EXISTS todo_item (
     id TEXT PRIMARY KEY,
     list_id TEXT NOT NULL,
     content TEXT NOT NULL,
-    status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'completed')),
+    status TEXT DEFAULT 'todo' CHECK(status IN ('backlog', 'todo', 'in_progress', 'review', 'done', 'cancelled')),
+    position INTEGER DEFAULT 0,   -- Order within status column (for future Kanban view)
     created_at TEXT DEFAULT (datetime('now')),
-    completed_at TEXT,
+    started_at TEXT,              -- When moved to in_progress
+    completed_at TEXT,            -- When moved to done
     FOREIGN KEY (list_id) REFERENCES todo_list(id) ON DELETE CASCADE
 );
 
@@ -87,6 +108,8 @@ CREATE TABLE IF NOT EXISTS note (
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_todo_list_status ON todo_list(status);
 CREATE INDEX IF NOT EXISTS idx_todo_item_list ON todo_item(list_id);
+CREATE INDEX IF NOT EXISTS idx_todo_item_status ON todo_item(status);  -- For Kanban queries
+CREATE INDEX IF NOT EXISTS idx_todo_item_list_status ON todo_item(list_id, status);  -- Combined for filtering
 CREATE INDEX IF NOT EXISTS idx_note_type ON note(note_type);
 
 -- Full-text search
@@ -200,28 +223,37 @@ nu tools/c5t/mod.nu call-tool c5t_list_active '{}'
 ---
 
 ### Milestone 3: Todo Items Management
-**Goal**: Add and complete todo items
+**Goal**: Add and manage todo items with status transitions
 
-**Tools to Implement**:
-- `c5t_add_item` - Add item to list
-- `c5t_complete_item` - Mark item complete
+**Tools to Implement** (MVP):
+- `c5t_add_item` - Add item to list (defaults to 'todo' status)
+- `c5t_update_item_status` - Change item status (todo → in_progress → done)
+- `c5t_complete_item` - Shortcut to mark item as 'done'
 
 **Functions** (storage.nu, kebab-case):
-- `add-todo-item [list_id, content]`
-- `complete-todo-item [list_id, item_id]`
-- `get-todo-list [list_id]`
-- `get-pending-items [list_id]`
-- `all-items-completed [list_id]` - Check if list is done
+- `add-todo-item [list_id, content, status?]` - Status defaults to 'todo'
+- `update-item-status [list_id, item_id, new_status]` - Update status with validation
+- `complete-todo-item [list_id, item_id]` - Set status to 'done', set completed_at
+- `get-todo-list [list_id]` - Get list with items grouped by status
+- `get-items-by-status [list_id, status]` - Filter items by status
+- `all-items-completed [list_id]` - Check if all items are 'done'
 
 **Validation**:
 ```bash
-# Add item
+# Add item (defaults to 'todo' status)
 nu tools/c5t/mod.nu call-tool c5t_add_item '{
   "list_id": "...",
   "content": "Create database schema"
 }'
 
-# Complete item
+# Update item status
+nu tools/c5t/mod.nu call-tool c5t_update_item_status '{
+  "list_id": "...",
+  "item_id": "...",
+  "status": "in_progress"
+}'
+
+# Complete item (shortcut for status='done')
 nu tools/c5t/mod.nu call-tool c5t_complete_item '{
   "list_id": "...",
   "item_id": "..."
@@ -229,11 +261,13 @@ nu tools/c5t/mod.nu call-tool c5t_complete_item '{
 ```
 
 **Acceptance Criteria**:
-- [ ] Can add items to existing list
-- [ ] Can mark items complete
-- [ ] Completed_at timestamp set on completion
-- [ ] Status changes from 'pending' to 'completed'
-- [ ] List shows items with status
+- [ ] Can add items to existing list (default status: 'todo')
+- [ ] Can update item status (todo → in_progress → done)
+- [ ] Can mark items complete with shortcut
+- [ ] completed_at timestamp set when status becomes 'done'
+- [ ] started_at timestamp set when status becomes 'in_progress'
+- [ ] List shows items grouped/filtered by status
+- [ ] Only valid status transitions allowed
 
 ---
 
@@ -546,14 +580,40 @@ nu tools/c5t/mod.nu call-tool c5t_get_scratchpad '{}'
 ```nushell
 {
     name: "c5t_add_item"
-    description: "Add a todo item to a list"
+    description: "Add a todo item to a list (defaults to 'todo' status)"
     input_schema: {
         type: "object"
         properties: {
             list_id: { type: "string", description: "Todo list ID" }
             content: { type: "string", description: "Item description" }
+            status: { 
+                type: "string", 
+                enum: ["backlog", "todo", "in_progress", "review", "done", "cancelled"],
+                description: "Initial status (default: 'todo')" 
+            }
         }
         required: ["list_id", "content"]
+    }
+}
+```
+
+**c5t_update_item_status**:
+```nushell
+{
+    name: "c5t_update_item_status"
+    description: "Update todo item status (e.g., todo → in_progress → done)"
+    input_schema: {
+        type: "object"
+        properties: {
+            list_id: { type: "string", description: "Todo list ID" }
+            item_id: { type: "string", description: "Item ID" }
+            status: {
+                type: "string",
+                enum: ["backlog", "todo", "in_progress", "review", "done", "cancelled"],
+                description: "New status for the item"
+            }
+        }
+        required: ["list_id", "item_id", "status"]
     }
 }
 ```
@@ -562,7 +622,7 @@ nu tools/c5t/mod.nu call-tool c5t_get_scratchpad '{}'
 ```nushell
 {
     name: "c5t_complete_item"
-    description: "Mark item complete. Auto-archives list if all items done."
+    description: "Mark item as done (shortcut for status='done'). Auto-archives list if all items done."
     input_schema: {
         type: "object"
         properties: {
@@ -825,14 +885,31 @@ nu tools/c5t/mod.nu call-tool c5t_get_scratchpad '{}'
 
 ## Future Enhancements (Post-MVP)
 
+### Kanban Visualization
+- `c5t_get_board` - Visualize items as Kanban board with columns
+- `c5t_move_item` - Move items between status columns
+- ASCII/Unicode board rendering for CLI display
+- WIP limits per status column
+- Drag-and-drop position ordering within columns
+- Swimlanes (group by tag or priority)
+
+### Data Management
 - Export to JSON (with markdown content)
 - Import from JSON exports
-- Links between notes (Obsidian-style)
+- Backup and restore functionality
+
+### Note Enhancements
+- Links between notes (Obsidian-style `[[note-title]]`)
 - Backlinks (what references this note?)
 - Note templates
+- Attachments/file references
+
+### Workflow
 - Batch operations (archive multiple lists)
-- Statistics (completion rates, etc.)
+- Statistics (completion rates, velocity, etc.)
 - Integration with TodoWrite tool
+- Recurring tasks
+- Due dates and reminders
 
 ## References
 
