@@ -8,10 +8,10 @@ export def auto-update-scratchpad [] {
   use storage.nu *
 
   # Generate fresh scratchpad content
-  let content = generate-scratchpad-content
+  let content = generate-scratchpad-template
 
-  # Update or create scratchpad
-  let result = upsert-scratchpad $content
+  # Update scratchpad
+  let result = update-scratchpad $content
 
   # Return success silently
   $result.success
