@@ -1,13 +1,19 @@
 #!/usr/bin/env nu
 
 # Test runner for c5t tool
-# Auto-discovers test files and test functions
+# Must be run from project root directory
 
 def main [] {
   print "Running c5t tests...\n"
 
+  # Verify we're in the project root
+  if not ("tools/c5t/mod.nu" | path exists) {
+    print "Error: Must run from project root directory"
+    exit 1
+  }
+
   # Discover all test files
-  let test_files = glob tests/test_*.nu
+  let test_files = glob tools/c5t/tests/test_*.nu
 
   let results = (
     $test_files | each {|test_file|

@@ -34,18 +34,18 @@ export def "date now" [] {
 }
 
 # Mock random int - returns a fixed number for testing
-export def "random int" [...args] {
-  # Accept either two integers or a range
-  let range_str = if ($args | length) == 2 {
-    $"($args.0)..($args.1)"
-  } else {
-    # It's a range, convert to string
-    $args.0 | into string
-  }
+export def "random int" [range: range] {
+  # Check for mock environment variable
+  # Try multiple possible formats since nushell represents ranges differently
+  let mock_candidates = [
+    $"MOCK_random_int_($range)"
+    $"MOCK_random_int_1000..9999" # Common case
+    "MOCK_random_int" # Generic fallback
+  ]
 
-  let mock_var = $"MOCK_random_int_($range_str)"
+  let mock_var = $mock_candidates | where {|var| $var in $env } | first
 
-  if $mock_var in $env {
+  if $mock_var != null {
     let mock_data = $env | get $mock_var | from json
     $mock_data.output
   } else {
