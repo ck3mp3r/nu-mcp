@@ -166,3 +166,97 @@ export def "test validate-note-input rejects empty content" [] {
   assert (not $result.valid)
   assert ($result.error | str contains "empty")
 }
+
+# Test validate-status accepts valid statuses
+export def "test validate-status accepts all valid statuses" [] {
+  use ../utils.nu validate-status
+
+  let valid_statuses = ["backlog" "todo" "in_progress" "review" "done" "cancelled"]
+
+  for status in $valid_statuses {
+    let result = validate-status $status
+    assert $result.valid
+  }
+}
+
+# Test validate-status rejects invalid status
+export def "test validate-status rejects invalid status" [] {
+  use ../utils.nu validate-status
+
+  let result = validate-status "invalid_status"
+
+  assert (not $result.valid)
+  assert ($result.error | str contains "Invalid status")
+}
+
+# Test validate-priority accepts 1-5
+export def "test validate-priority accepts 1 through 5" [] {
+  use ../utils.nu validate-priority
+
+  for priority in 1..5 {
+    let result = validate-priority $priority
+    assert $result.valid
+  }
+}
+
+# Test validate-priority rejects 0
+export def "test validate-priority rejects 0" [] {
+  use ../utils.nu validate-priority
+
+  let result = validate-priority 0
+
+  assert (not $result.valid)
+  assert ($result.error | str contains "Invalid priority")
+}
+
+# Test validate-priority rejects 6
+export def "test validate-priority rejects 6" [] {
+  use ../utils.nu validate-priority
+
+  let result = validate-priority 6
+
+  assert (not $result.valid)
+  assert ($result.error | str contains "Invalid priority")
+}
+
+# Test validate-priority rejects negative
+export def "test validate-priority rejects negative" [] {
+  use ../utils.nu validate-priority
+
+  let result = validate-priority -1
+
+  assert (not $result.valid)
+  assert ($result.error | str contains "Invalid priority")
+}
+
+# Test validate-item-update-input accepts valid input
+export def "test validate-item-update-input accepts valid input" [] {
+  use ../utils.nu validate-item-update-input
+
+  let args = {list_id: "123" item_id: "456"}
+  let result = validate-item-update-input $args
+
+  assert $result.valid
+}
+
+# Test validate-item-update-input rejects missing list_id
+export def "test validate-item-update-input rejects missing list_id" [] {
+  use ../utils.nu validate-item-update-input
+
+  let args = {item_id: "456"}
+  let result = validate-item-update-input $args
+
+  assert (not $result.valid)
+  assert ($result.error | str contains "list_id")
+}
+
+# Test validate-item-update-input rejects missing item_id
+export def "test validate-item-update-input rejects missing item_id" [] {
+  use ../utils.nu validate-item-update-input
+
+  let args = {list_id: "123"}
+  let result = validate-item-update-input $args
+
+  assert (not $result.valid)
+  assert ($result.error | str contains "item_id")
+}

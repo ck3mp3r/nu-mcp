@@ -133,3 +133,99 @@ export def "test get-active-lists returns lists" [] {
     assert ($result.lists.1.tags == [])
   }
 }
+
+# Test add-todo-item with all parameters
+export def "test add-todo-item with all parameters" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu add-todo-item
+
+  with-env {
+    MOCK_random_int: ({output: 7890} | to json)
+    MOCK_date_now: ({output: "2025-12-14T16:00:00Z"} | to json)
+  } {
+    let result = add-todo-item "list-123" "Test item" 5 "todo"
+
+    assert ($result.success == true)
+    assert ($result.content == "Test item")
+    assert ($result.status == "todo")
+    assert ($result.priority == 5)
+    assert ($result.id != null)
+  }
+}
+
+# Test add-todo-item with minimal parameters (backlog default)
+export def "test add-todo-item defaults to backlog" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu add-todo-item
+
+  with-env {
+    MOCK_random_int: ({output: 1111} | to json)
+    MOCK_date_now: ({output: "2025-12-14T16:00:00Z"} | to json)
+  } {
+    let result = add-todo-item "list-123" "Test item"
+
+    assert ($result.success == true)
+    assert ($result.status == "backlog")
+    assert ($result.priority == null)
+  }
+}
+
+# Test list-exists returns true when list exists
+export def "test list-exists returns true for existing list" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu list-exists
+
+  let mock_data = [{id: "list-123"}] | to json
+
+  with-env {
+    MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
+  } {
+    let result = list-exists "list-123"
+
+    assert $result
+  }
+}
+
+# Test list-exists returns false when list does not exist
+export def "test list-exists returns false for non-existent list" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu list-exists
+
+  with-env {
+    MOCK_sqlite3: ({output: "[]" exit_code: 0} | to json)
+  } {
+    let result = list-exists "non-existent"
+
+    assert (not $result)
+  }
+}
+
+# Test item-exists returns true when item exists
+export def "test item-exists returns true for existing item" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu item-exists
+
+  let mock_data = [{id: "item-123"}] | to json
+
+  with-env {
+    MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
+  } {
+    let result = item-exists "list-123" "item-123"
+
+    assert $result
+  }
+}
+
+# Test item-exists returns false when item does not exist
+export def "test item-exists returns false for non-existent item" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu item-exists
+
+  with-env {
+    MOCK_sqlite3: ({output: "[]" exit_code: 0} | to json)
+  } {
+    let result = item-exists "list-123" "non-existent"
+
+    assert (not $result)
+  }
+}

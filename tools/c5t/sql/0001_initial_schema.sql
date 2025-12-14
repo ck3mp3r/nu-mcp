@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS todo_item (
     id TEXT PRIMARY KEY,
     list_id TEXT NOT NULL,
     content TEXT NOT NULL,
-    status TEXT DEFAULT 'todo' CHECK(status IN ('backlog', 'todo', 'in_progress', 'review', 'done', 'cancelled')),
+    status TEXT DEFAULT 'backlog' CHECK(status IN ('backlog', 'todo', 'in_progress', 'review', 'done', 'cancelled')),
+    priority INTEGER CHECK(priority BETWEEN 1 AND 5 OR priority IS NULL),
     position INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now')),
     started_at TEXT,
@@ -50,6 +51,8 @@ CREATE INDEX IF NOT EXISTS idx_todo_list_status ON todo_list(status);
 CREATE INDEX IF NOT EXISTS idx_todo_item_list ON todo_item(list_id);
 CREATE INDEX IF NOT EXISTS idx_todo_item_status ON todo_item(status);
 CREATE INDEX IF NOT EXISTS idx_todo_item_list_status ON todo_item(list_id, status);
+CREATE INDEX IF NOT EXISTS idx_todo_item_priority ON todo_item(priority);
+CREATE INDEX IF NOT EXISTS idx_todo_item_list_priority ON todo_item(list_id, priority);
 CREATE INDEX IF NOT EXISTS idx_note_type ON note(note_type);
 
 -- Full-text search virtual table for notes

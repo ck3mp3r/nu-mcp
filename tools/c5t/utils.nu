@@ -84,3 +84,48 @@ export def validate-note-input [args: record] {
 
   {valid: true}
 }
+
+# Validate item status
+export def validate-status [status: string] {
+  let valid_statuses = ["backlog" "todo" "in_progress" "review" "done" "cancelled"]
+
+  if $status in $valid_statuses {
+    {valid: true}
+  } else {
+    {
+      valid: false
+      error: $"Invalid status: '($status)'. Must be one of: ($valid_statuses | str join ', ')"
+    }
+  }
+}
+
+# Validate item priority
+export def validate-priority [priority: int] {
+  if $priority >= 1 and $priority <= 5 {
+    {valid: true}
+  } else {
+    {
+      valid: false
+      error: $"Invalid priority: ($priority). Must be between 1 and 5"
+    }
+  }
+}
+
+# Validate item update input
+export def validate-item-update-input [args: record] {
+  if "list_id" not-in $args {
+    return {
+      valid: false
+      error: "Missing required field: 'list_id'"
+    }
+  }
+
+  if "item_id" not-in $args {
+    return {
+      valid: false
+      error: "Missing required field: 'item_id'"
+    }
+  }
+
+  {valid: true}
+}

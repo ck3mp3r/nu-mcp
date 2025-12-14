@@ -67,7 +67,9 @@ def create-schema [db_path: string] {
     let version = get-migration-version $migration
 
     if not (migration-applied $db_path $version) {
-      sqlite3 $db_path $".read ($migration)"
+      # Read SQL file content and pipe to sqlite3 via stdin
+      let sql_content = open $migration
+      $sql_content | sqlite3 $db_path
       record-migration $db_path $version
     }
   }
@@ -183,4 +185,268 @@ export def get-active-lists [
     lists: $parsed
     count: ($parsed | length)
   }
+}
+
+# Add a todo item to a list
+export def add-todo-item [
+  list_id: string
+  content: string
+  priority?: int
+  status?: string
+] {
+  let db_path = get-db-path
+
+  use utils.nu generate-id
+  let id = generate-id
+
+  # Default status is 'backlog'
+  let item_status = if $status != null { $status } else { "backlog" }
+
+  let escaped_content = $content | str replace --all "'" "''"
+  let priority_value = if $priority != null { $priority } else { "null" }
+
+  let sql = $"INSERT INTO todo_item \(id, list_id, content, status, priority\) 
+             VALUES \('($id)', '($list_id)', '($escaped_content)', '($item_status)', ($priority_value)\);"
+
+  let result = execute-sql $db_path $sql
+
+  if $result.success {
+    {
+      success: true
+      id: $id
+      list_id: $list_id
+      content: $content
+      status: $item_status
+      priority: $priority
+    }
+  } else {
+    {
+      success: false
+      error: $"Failed to add todo item: ($result.error)"
+    }
+  }
+}
+
+# Update item status with timestamp automation
+export def update-item-status [
+  list_id: string
+  item_id: string
+  new_status: string
+] {
+  let db_path = get-db-path
+
+  # Get current status for timestamp logic
+  let current_item = get-item $list_id $item_id
+  if not $current_item.success {
+    return $current_item
+  }
+
+  let old_status = $current_item.item.status
+
+  # Build timestamp updates based on status transition
+  mut timestamp_updates = []
+
+  # Moving to in_progress: set started_at if null
+  if $new_status == "in_progress" {
+    $timestamp_updates = ($timestamp_updates | append "started_at = COALESCE(started_at, datetime('now'))")
+  }
+
+  # Moving to done/cancelled: set completed_at
+  if $new_status in ["done" "cancelled"] {
+    $timestamp_updates = ($timestamp_updates | append "completed_at = datetime('now')")
+  }
+
+  # Moving back from done/cancelled: clear timestamps
+  if $old_status in ["done" "cancelled"] and $new_status in ["backlog" "todo"] {
+    $timestamp_updates = ($timestamp_updates | append "started_at = NULL")
+    $timestamp_updates = ($timestamp_updates | append "completed_at = NULL")
+  } else if $old_status == "in_progress" and $new_status in ["backlog" "todo"] {
+    $timestamp_updates = ($timestamp_updates | append "started_at = NULL")
+  }
+
+  # Build SQL with timestamp updates
+  let timestamp_sql = if ($timestamp_updates | is-not-empty) {
+    ", " + ($timestamp_updates | str join ", ")
+  } else {
+    ""
+  }
+
+  let sql = $"UPDATE todo_item 
+             SET status = '($new_status)'($timestamp_sql) 
+             WHERE id = '($item_id)' AND list_id = '($list_id)';"
+
+  let result = execute-sql $db_path $sql
+
+  if $result.success {
+    {success: true}
+  } else {
+    {
+      success: false
+      error: $"Failed to update item status: ($result.error)"
+    }
+  }
+}
+
+# Update item priority
+export def update-item-priority [
+  list_id: string
+  item_id: string
+  priority: int
+] {
+  let db_path = get-db-path
+
+  let priority_value = if $priority != null { $priority } else { "null" }
+
+  let sql = $"UPDATE todo_item 
+             SET priority = ($priority_value) 
+             WHERE id = '($item_id)' AND list_id = '($list_id)';"
+
+  let result = execute-sql $db_path $sql
+
+  if $result.success {
+    {success: true}
+  } else {
+    {
+      success: false
+      error: $"Failed to update item priority: ($result.error)"
+    }
+  }
+}
+
+# Get a list with its items
+export def get-list-with-items [
+  list_id: string
+  status_filter?: string
+] {
+  let db_path = get-db-path
+
+  # Get the list
+  let list_sql = $"SELECT id, name, description, tags, created_at, updated_at 
+                   FROM todo_list 
+                   WHERE id = '($list_id)';"
+
+  let list_result = query-sql $db_path $list_sql
+
+  if not $list_result.success {
+    return {
+      success: false
+      error: $"Failed to get list: ($list_result.error)"
+    }
+  }
+
+  if ($list_result.data | is-empty) {
+    return {
+      success: false
+      error: $"List not found: ($list_id)"
+    }
+  }
+
+  let list = $list_result.data | first | upsert tags (parse-tags ($list_result.data | first | get tags))
+
+  # Get items with optional status filter
+  let items_sql = if $status_filter != null and $status_filter == "active" {
+    # Active filter: exclude done and cancelled
+    $"SELECT id, list_id, content, status, priority, position, created_at, started_at, completed_at 
+      FROM todo_item 
+      WHERE list_id = '($list_id)' AND status NOT IN \('done', 'cancelled'\) 
+      ORDER BY priority DESC NULLS LAST, created_at ASC;"
+  } else if $status_filter != null {
+    # Specific status filter
+    $"SELECT id, list_id, content, status, priority, position, created_at, started_at, completed_at 
+      FROM todo_item 
+      WHERE list_id = '($list_id)' AND status = '($status_filter)' 
+      ORDER BY priority DESC NULLS LAST, created_at ASC;"
+  } else {
+    # No filter: get all items
+    $"SELECT id, list_id, content, status, priority, position, created_at, started_at, completed_at 
+      FROM todo_item 
+      WHERE list_id = '($list_id)' 
+      ORDER BY 
+        CASE status 
+          WHEN 'backlog' THEN 1 
+          WHEN 'todo' THEN 2 
+          WHEN 'in_progress' THEN 3 
+          WHEN 'review' THEN 4 
+          WHEN 'done' THEN 5 
+          WHEN 'cancelled' THEN 6 
+        END,
+        priority DESC NULLS LAST, 
+        created_at ASC;"
+  }
+
+  let items_result = query-sql $db_path $items_sql
+
+  if not $items_result.success {
+    return {
+      success: false
+      error: $"Failed to get items: ($items_result.error)"
+    }
+  }
+
+  {
+    success: true
+    list: $list
+    items: $items_result.data
+    count: ($items_result.data | length)
+  }
+}
+
+# Get a single item
+export def get-item [
+  list_id: string
+  item_id: string
+] {
+  let db_path = get-db-path
+
+  let sql = $"SELECT id, list_id, content, status, priority, position, created_at, started_at, completed_at 
+             FROM todo_item 
+             WHERE id = '($item_id)' AND list_id = '($list_id)';"
+
+  let result = query-sql $db_path $sql
+
+  if not $result.success {
+    return {
+      success: false
+      error: $"Failed to get item: ($result.error)"
+    }
+  }
+
+  if ($result.data | is-empty) {
+    return {
+      success: false
+      error: $"Item not found: ($item_id)"
+    }
+  }
+
+  {
+    success: true
+    item: ($result.data | first)
+  }
+}
+
+# Check if a list exists
+export def list-exists [
+  list_id: string
+] {
+  let db_path = get-db-path
+
+  let sql = $"SELECT id FROM todo_list WHERE id = '($list_id)';"
+
+  let result = query-sql $db_path $sql
+
+  $result.success and (not ($result.data | is-empty))
+}
+
+# Check if an item exists
+export def item-exists [
+  list_id: string
+  item_id: string
+] {
+  let db_path = get-db-path
+
+  let sql = $"SELECT id FROM todo_item WHERE id = '($item_id)' AND list_id = '($list_id)';"
+
+  let result = query-sql $db_path $sql
+
+  $result.success and (not ($result.data | is-empty))
 }

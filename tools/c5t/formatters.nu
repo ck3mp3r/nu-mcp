@@ -125,3 +125,101 @@ export def format-search-results [notes: list] {
 
   ["Search Results:" ...$items] | str join (char newline)
 }
+
+# Format item creation response
+export def format-item-created [result: record] {
+  let priority_str = if $result.priority != null {
+    $" | Priority: ($result.priority)"
+  } else {
+    ""
+  }
+
+  [
+    $"✓ Todo item added"
+    $"  ID: ($result.id)"
+    $"  Content: ($result.content)"
+    $"  Status: ($result.status)($priority_str)"
+  ] | str join (char newline)
+}
+
+# Format item update response
+export def format-item-updated [field: string item_id: string value: any] {
+  [
+    $"✓ Item ($field) updated"
+    $"  ID: ($item_id)"
+    $"  New ($field): ($value)"
+  ] | str join (char newline)
+}
+
+# Format item completion response
+export def format-item-completed [item_id: string] {
+  [
+    $"✓ Item marked as complete"
+    $"  ID: ($item_id)"
+  ] | str join (char newline)
+}
+
+# Format list with items
+export def format-items-list [list: record items: list] {
+  if ($items | is-empty) {
+    return [
+      $"Todo List: ($list.name)"
+      $"  ID: ($list.id)"
+      ""
+      "No items in this list."
+    ] | str join (char newline)
+  }
+
+  # Group items by status
+  let grouped = $items | group-by status
+
+  # Status order and emoji mapping
+  let status_order = [
+    {status: "backlog" emoji: "📋" label: "Backlog"}
+    {status: "todo" emoji: "📝" label: "To Do"}
+    {status: "in_progress" emoji: "🔄" label: "In Progress"}
+    {status: "review" emoji: "👀" label: "Review"}
+    {status: "done" emoji: "✅" label: "Done"}
+    {status: "cancelled" emoji: "❌" label: "Cancelled"}
+  ]
+
+  mut output_lines = [
+    $"Todo List: ($list.name)"
+    $"  ID: ($list.id)"
+    ""
+  ]
+
+  # Add each status group
+  for status_info in $status_order {
+    let status = $status_info.status
+    if $status in $grouped {
+      let status_items = $grouped | get $status
+      let count = $status_items | length
+
+      $output_lines = ($output_lines | append $"($status_info.emoji) ($status_info.label) \(($count)\):")
+
+      for item in $status_items {
+        let priority_str = if $item.priority != null {
+          $" [P($item.priority)]"
+        } else {
+          ""
+        }
+
+        let time_info = if $item.status == "done" and $item.completed_at != null {
+          $" - completed ($item.completed_at)"
+        } else if $item.status == "in_progress" and $item.started_at != null {
+          $" - started ($item.started_at)"
+        } else {
+          ""
+        }
+
+        $output_lines = ($output_lines | append $"  • ($item.content)($priority_str)($time_info)")
+        $output_lines = ($output_lines | append $"    ID: ($item.id)")
+      }
+
+      $output_lines = ($output_lines | append "")
+    }
+  }
+
+  $output_lines | str join (char newline)
+}
