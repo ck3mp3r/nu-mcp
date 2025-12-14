@@ -196,7 +196,7 @@ main call-tool "list_items" "{\"list_id\": 1}"
   let output = nu -c $test_script
 
   # Should not crash, should return a message about no items
-  assert ($output | str contains "No items in this list")
+  assert ($output | str contains "No items")
 }
 
 # Test get_summary returns formatted summary

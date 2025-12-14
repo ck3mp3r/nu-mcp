@@ -526,7 +526,7 @@ def "main call-tool" [
         return $result.error
       }
 
-      format-items-list $result.list $result.items
+      format-items-table $result.list $result.items
     }
 
     "list_active_items" => {
@@ -542,7 +542,7 @@ def "main call-tool" [
         return $result.error
       }
 
-      format-items-list $result.list $result.items
+      format-items-table $result.list $result.items
     }
 
     "update_notes" => {
