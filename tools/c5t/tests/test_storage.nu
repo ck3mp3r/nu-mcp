@@ -21,8 +21,8 @@ export def "test update-scratchpad creates new scratchpad when none exists" [] {
   use ../tests/mocks.nu *
   use ../storage.nu update-scratchpad
 
-  # First call: SELECT to check if scratchpad exists (returns empty)
-  let mock_check = "[]"
+  # First call: SELECT to check if scratchpad exists (returns empty string)
+  let mock_check = ""
   # Second call: INSERT + SELECT returns the new ID
   let mock_insert = [{id: 1}] | to json
 
@@ -93,8 +93,8 @@ export def "test get-scratchpad returns null when no scratchpad exists" [] {
   use ../tests/mocks.nu *
   use ../storage.nu get-scratchpad
 
-  # Mock SELECT to return empty
-  let mock_data = "[]"
+  # Mock SELECT to return empty string (like real sqlite for no rows)
+  let mock_data = ""
 
   with-env {
     MOCK_sqlite3: ({output: $mock_data exit_code: 0} | to json)
@@ -111,8 +111,8 @@ export def "test only one scratchpad exists after multiple updates" [] {
   use ../tests/mocks.nu *
   use ../storage.nu update-scratchpad
 
-  # First call: CREATE (check returns empty, INSERT returns ID 1)
-  let mock_check_empty = "[]"
+  # First call: CREATE (check returns empty string, INSERT returns ID 1)
+  let mock_check_empty = ""
   let mock_insert = [{id: 1}] | to json
 
   with-env {
