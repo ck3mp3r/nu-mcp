@@ -366,20 +366,28 @@ def "main list-tools" [] {
     }
     {
       name: "import_data"
-      description: "Import c5t data from JSON backup. Use merge=true to add to existing data, merge=false to replace all."
+      description: "Import c5t data from JSON backup file. Use merge=true to add to existing data, merge=false to replace all. Use list_backups to see available files."
       input_schema: {
         type: "object"
         properties: {
-          data: {
-            type: "object"
-            description: "JSON data from export_data containing lists, items, and notes"
+          filename: {
+            type: "string"
+            description: "Backup filename in .c5t/ directory (e.g., 'backup-20251215-120000.json')"
           }
           merge: {
             type: "boolean"
             description: "If true, merge with existing data; if false (default), replace all data"
           }
         }
-        required: ["data"]
+        required: ["filename"]
+      }
+    }
+    {
+      name: "list_backups"
+      description: "SHOW TO USER. List available backup files in .c5t/ directory."
+      input_schema: {
+        type: "object"
+        properties: {}
       }
     }
     {
@@ -967,12 +975,29 @@ def "main call-tool" [
     }
 
     "import_data" => {
-      if "data" not-in $parsed_args {
-        return "Error: Missing required field: 'data'"
+      if "filename" not-in $parsed_args {
+        return "Error: Missing required field: 'filename'"
       }
 
-      let data = $parsed_args.data
+      let filename = $parsed_args.filename
       let merge = if "merge" in $parsed_args { $parsed_args.merge } else { false }
+
+      # Build filepath
+      let filepath = $".c5t/($filename)"
+
+      # Check if file exists
+      if not ($filepath | path exists) {
+        return $"Error: Backup file not found: ($filepath)
+
+Use list_backups to see available backup files."
+      }
+
+      # Read and parse the backup file
+      let data = try {
+        open $filepath
+      } catch {
+        return $"Error: Failed to read backup file: ($filepath)"
+      }
 
       let result = if $merge {
         import-data $data --merge
@@ -984,10 +1009,40 @@ def "main call-tool" [
         return $result.error
       }
 
-      $"✓ Data imported successfully
+      $"✓ Data imported from ($filepath)
   Lists: ($result.imported.lists)
   Items: ($result.imported.items)
   Notes: ($result.imported.notes)"
+    }
+
+    "list_backups" => {
+      let backup_dir = ".c5t"
+
+      if not ($backup_dir | path exists) {
+        return "No backup directory found. Run export_data first to create a backup."
+      }
+
+      let backups = glob $"($backup_dir)/*.json" | sort -r
+
+      if ($backups | is-empty) {
+        return "No backup files found in .c5t/"
+      }
+
+      let backup_info = $backups | each {|file|
+          let stat = ls $file | first
+          {
+            filename: ($file | path basename)
+            size: $stat.size
+            modified: $stat.modified
+          }
+        }
+
+      let lines = ["Available backups:" ""]
+      let file_lines = $backup_info | each {|b|
+          $"  ($b.filename) \(($b.size), ($b.modified)\)"
+        }
+
+      [...$lines ...$file_lines "" "Use import_data with filename to restore."] | str join (char newline)
     }
 
     "list_items" => {

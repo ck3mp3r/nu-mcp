@@ -158,7 +158,8 @@ Last updated: [timestamp]
 
 ### Data Management
 - `c5t_export_data` - Export all data to `.c5t/backup-{timestamp}.json`
-- `c5t_import_data` - Import data from JSON backup (merge or replace)
+- `c5t_list_backups` - List available backup files
+- `c5t_import_data` - Import data from backup file (merge or replace)
 
 ## Auto-Archive
 
