@@ -793,3 +793,377 @@ export def "test get-summary returns expected structure" [] {
   assert ("todo_total" in $result.summary.stats)
   assert ("in_progress_total" in $result.summary.stats)
 }
+
+# --- Delete Item Tests (CRUD) ---
+
+# Test delete-item removes item from list
+export def "test delete-item removes item successfully" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu delete-item
+
+  # Mock: item exists (first query returns row), then DELETE succeeds
+  with-env {
+    MOCK_query_db: ({output: [{id: 42}] exit_code: 0})
+  } {
+    let result = delete-item 1 42
+
+    assert ($result.success == true)
+  }
+}
+
+# Test delete-item returns error for non-existent item
+export def "test delete-item returns error for non-existent item" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu delete-item
+
+  # Mock: item doesn't exist (empty result from item-exists check)
+  with-env {
+    MOCK_query_db: ({output: [] exit_code: 0})
+  } {
+    let result = delete-item 1 999
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "not found")
+  }
+}
+
+# --- Delete List Tests (CRUD) ---
+
+# Test delete-list removes empty list
+export def "test delete-list removes empty list" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu delete-list
+
+  # Mock: list exists (returns row from TODO_LIST), has no items (count=0), DELETE succeeds
+  # The generic MOCK_query_db handles the count query returning 0
+  with-env {
+    MOCK_query_db: ({output: [{count: 0}] exit_code: 0})
+    MOCK_query_db_TODO_LIST: ({output: [{id: 1}] exit_code: 0})
+  } {
+    let result = delete-list 1 false
+
+    assert ($result.success == true)
+  }
+}
+
+# Test delete-list with force removes list and items
+export def "test delete-list with force removes list and items" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu delete-list
+
+  # Mock: list exists, force delete succeeds (no count check needed)
+  with-env {
+    MOCK_query_db: ({output: [] exit_code: 0})
+    MOCK_query_db_TODO_LIST: ({output: [{id: 1}] exit_code: 0})
+  } {
+    let result = delete-list 1 true
+
+    assert ($result.success == true)
+  }
+}
+
+# Test delete-list without force fails if list has items
+export def "test delete-list without force fails if list has items" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu delete-list
+
+  # Mock: list exists, but has 3 items (count query returns 3)
+  with-env {
+    MOCK_query_db: ({output: [{count: 3}] exit_code: 0})
+    MOCK_query_db_TODO_LIST: ({output: [{id: 1}] exit_code: 0})
+  } {
+    let result = delete-list 1 false
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "has items")
+  }
+}
+
+# --- Delete Note Tests (CRUD) ---
+
+# Test delete-note removes note
+export def "test delete-note removes note successfully" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu delete-note
+
+  # Mock: note exists (SELECT returns row), DELETE succeeds
+  with-env {
+    MOCK_query_db: ({output: [{id: 42}] exit_code: 0})
+  } {
+    let result = delete-note 42
+
+    assert ($result.success == true)
+  }
+}
+
+# Test delete-note returns error for non-existent note
+export def "test delete-note returns error for non-existent note" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu delete-note
+
+  # Mock: note doesn't exist (empty result)
+  with-env {
+    MOCK_query_db: ({output: [] exit_code: 0})
+  } {
+    let result = delete-note 999
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "not found")
+  }
+}
+
+# --- Edit Item Tests (CRUD) ---
+
+# Test edit-item updates content
+export def "test edit-item updates content successfully" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu edit-item
+
+  # Mock: item exists (returns row), UPDATE succeeds
+  with-env {
+    MOCK_query_db: ({output: [{id: 42}] exit_code: 0})
+  } {
+    let result = edit-item 1 42 "Updated content"
+
+    assert ($result.success == true)
+  }
+}
+
+# Test edit-item returns error for non-existent item
+export def "test edit-item returns error for non-existent item" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu edit-item
+
+  # Mock: item doesn't exist (empty result from item-exists check)
+  with-env {
+    MOCK_query_db: ({output: [] exit_code: 0})
+  } {
+    let result = edit-item 1 999 "New content"
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "not found")
+  }
+}
+
+# Test edit-item rejects empty content
+export def "test edit-item rejects empty content" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu edit-item
+
+  let result = edit-item 1 42 ""
+
+  assert ($result.success == false)
+  assert ($result.error | str contains "cannot be empty")
+}
+
+# --- Rename List Tests (CRUD) ---
+
+# Test rename-list updates name
+export def "test rename-list updates name successfully" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu rename-list
+
+  # Mock: list exists (returns row), UPDATE succeeds
+  with-env {
+    MOCK_query_db: ({output: [] exit_code: 0})
+    MOCK_query_db_TODO_LIST: ({output: [{id: 1}] exit_code: 0})
+  } {
+    let result = rename-list 1 "New Name"
+
+    assert ($result.success == true)
+  }
+}
+
+# Test rename-list updates name and description
+export def "test rename-list updates name and description" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu rename-list
+
+  with-env {
+    MOCK_query_db: ({output: [] exit_code: 0})
+    MOCK_query_db_TODO_LIST: ({output: [{id: 1}] exit_code: 0})
+  } {
+    let result = rename-list 1 "New Name" "New description"
+
+    assert ($result.success == true)
+  }
+}
+
+# Test rename-list returns error for non-existent list
+export def "test rename-list returns error for non-existent list" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu rename-list
+
+  # Mock: list doesn't exist (empty result)
+  with-env {
+    MOCK_query_db_TODO_LIST: ({output: [] exit_code: 0})
+  } {
+    let result = rename-list 999 "New Name"
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "not found")
+  }
+}
+
+# Test rename-list rejects empty name
+export def "test rename-list rejects empty name" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu rename-list
+
+  let result = rename-list 1 ""
+
+  assert ($result.success == false)
+  assert ($result.error | str contains "cannot be empty")
+}
+
+# --- Bulk Add Items Tests ---
+
+# Test bulk-add-items adds multiple items
+export def "test bulk-add-items adds multiple items" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu bulk-add-items
+
+  # Mock: list exists, all inserts succeed
+  with-env {
+    MOCK_query_db: ({output: [{id: 1}] exit_code: 0})
+    MOCK_query_db_TODO_LIST: ({output: [{id: 1}] exit_code: 0})
+  } {
+    let items = [
+      {content: "Item 1"}
+      {content: "Item 2" priority: 1}
+      {content: "Item 3" status: "todo"}
+    ]
+    let result = bulk-add-items 1 $items
+
+    assert ($result.success == true)
+    assert ($result.count == 3)
+  }
+}
+
+# Test bulk-add-items returns error for non-existent list
+export def "test bulk-add-items returns error for non-existent list" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu bulk-add-items
+
+  with-env {
+    MOCK_query_db_TODO_LIST: ({output: [] exit_code: 0})
+  } {
+    let items = [{content: "Item 1"}]
+    let result = bulk-add-items 999 $items
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "not found")
+  }
+}
+
+# Test bulk-add-items rejects empty items list
+export def "test bulk-add-items rejects empty items list" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu bulk-add-items
+
+  let result = bulk-add-items 1 []
+
+  assert ($result.success == false)
+  assert ($result.error | str contains "empty")
+}
+
+# --- Move Item Tests ---
+
+# Test move-item moves item between lists
+export def "test move-item moves item between lists" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu move-item
+
+  # Mock: source item exists, target list exists, update succeeds
+  with-env {
+    MOCK_query_db: ({output: [{id: 42}] exit_code: 0})
+    MOCK_query_db_TODO_LIST: ({output: [{id: 2}] exit_code: 0})
+  } {
+    let result = move-item 1 42 2
+
+    assert ($result.success == true)
+  }
+}
+
+# Test move-item returns error for non-existent item
+export def "test move-item returns error for non-existent item" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu move-item
+
+  with-env {
+    MOCK_query_db: ({output: [] exit_code: 0})
+  } {
+    let result = move-item 1 999 2
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "not found")
+  }
+}
+
+# --- Export Data Tests ---
+
+# Test export-data returns all data
+export def "test export-data returns all data" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu export-data
+
+  # Mock: return lists, items, and notes
+  with-env {
+    MOCK_query_db: ({output: [] exit_code: 0})
+    MOCK_query_db_TODO_LIST: ({output: [{id: 1 name: "Test" status: "active"}] exit_code: 0})
+  } {
+    let result = export-data
+
+    assert ($result.success == true)
+    assert ("lists" in $result.data)
+    assert ("items" in $result.data)
+    assert ("notes" in $result.data)
+    assert ("exported_at" in $result.data)
+    assert ("version" in $result.data)
+  }
+}
+
+# --- Bulk Update Status Tests ---
+
+# Test bulk-update-status validates status
+export def "test bulk-update-status validates status" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu bulk-update-status
+
+  let result = bulk-update-status 1 [1 2] "invalid_status"
+
+  assert ($result.success == false)
+  assert ($result.error | str contains "Invalid status")
+}
+
+# --- Get List Tests ---
+
+# Test get-list returns list metadata
+export def "test get-list returns list metadata" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu get-list
+
+  with-env {
+    MOCK_query_db: ({output: [{id: 1 name: "Test List" description: "Test" status: "active" tags: null created_at: "2025-01-01" updated_at: "2025-01-01" archived_at: null}] exit_code: 0})
+  } {
+    let result = get-list 1
+
+    assert ($result.success == true)
+    assert ($result.list.name == "Test List")
+  }
+}
+
+# Test get-list returns error for non-existent list
+export def "test get-list returns error for non-existent list" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu get-list
+
+  with-env {
+    MOCK_query_db: ({output: [] exit_code: 0})
+  } {
+    let result = get-list 999
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "not found")
+  }
+}

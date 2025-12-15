@@ -145,6 +145,239 @@ def "main list-tools" [] {
       }
     }
     {
+      name: "delete_item"
+      description: "Remove a todo item from a list permanently."
+      input_schema: {
+        type: "object"
+        properties: {
+          list_id: {
+            type: "integer"
+            description: "ID of the todo list containing the item"
+          }
+          item_id: {
+            type: "integer"
+            description: "ID of the item to delete"
+          }
+        }
+        required: ["list_id" "item_id"]
+      }
+    }
+    {
+      name: "edit_item"
+      description: "Update the content/description of a todo item."
+      input_schema: {
+        type: "object"
+        properties: {
+          list_id: {
+            type: "integer"
+            description: "ID of the todo list containing the item"
+          }
+          item_id: {
+            type: "integer"
+            description: "ID of the item to edit"
+          }
+          content: {
+            type: "string"
+            description: "New content/description for the item"
+          }
+        }
+        required: ["list_id" "item_id" "content"]
+      }
+    }
+    {
+      name: "delete_list"
+      description: "Remove a todo list. Use force=true to delete list with items, otherwise fails if list has items."
+      input_schema: {
+        type: "object"
+        properties: {
+          list_id: {
+            type: "integer"
+            description: "ID of the todo list to delete"
+          }
+          force: {
+            type: "boolean"
+            description: "If true, delete list even if it has items (default: false)"
+          }
+        }
+        required: ["list_id"]
+      }
+    }
+    {
+      name: "delete_note"
+      description: "Remove a note permanently by ID."
+      input_schema: {
+        type: "object"
+        properties: {
+          note_id: {
+            type: "integer"
+            description: "ID of the note to delete"
+          }
+        }
+        required: ["note_id"]
+      }
+    }
+    {
+      name: "rename_list"
+      description: "Change the name and/or description of a todo list."
+      input_schema: {
+        type: "object"
+        properties: {
+          list_id: {
+            type: "integer"
+            description: "ID of the todo list to rename"
+          }
+          name: {
+            type: "string"
+            description: "New name for the list"
+          }
+          description: {
+            type: "string"
+            description: "New description for the list (optional)"
+          }
+        }
+        required: ["list_id" "name"]
+      }
+    }
+    {
+      name: "bulk_add_items"
+      description: "Add multiple todo items to a list in one call. Each item can have content (required), priority (1-5), and status."
+      input_schema: {
+        type: "object"
+        properties: {
+          list_id: {
+            type: "integer"
+            description: "ID of the todo list to add items to"
+          }
+          items: {
+            type: "array"
+            description: "Array of items to add. Each item: {content: string, priority?: 1-5, status?: string}"
+            items: {
+              type: "object"
+              properties: {
+                content: {
+                  type: "string"
+                  description: "Description of the todo item"
+                }
+                priority: {
+                  type: "integer"
+                  description: "Priority level 1-5 (optional)"
+                  minimum: 1
+                  maximum: 5
+                }
+                status: {
+                  type: "string"
+                  description: "Initial status (optional, defaults to backlog)"
+                  enum: ["backlog" "todo" "in_progress" "review"]
+                }
+              }
+              required: ["content"]
+            }
+          }
+        }
+        required: ["list_id" "items"]
+      }
+    }
+    {
+      name: "move_item"
+      description: "Move a todo item from one list to another."
+      input_schema: {
+        type: "object"
+        properties: {
+          source_list_id: {
+            type: "integer"
+            description: "ID of the list containing the item"
+          }
+          item_id: {
+            type: "integer"
+            description: "ID of the item to move"
+          }
+          target_list_id: {
+            type: "integer"
+            description: "ID of the list to move the item to"
+          }
+        }
+        required: ["source_list_id" "item_id" "target_list_id"]
+      }
+    }
+    {
+      name: "bulk_update_status"
+      description: "Update status for multiple items at once. Skips non-existent items."
+      input_schema: {
+        type: "object"
+        properties: {
+          list_id: {
+            type: "integer"
+            description: "ID of the todo list containing the items"
+          }
+          item_ids: {
+            type: "array"
+            items: {type: "integer"}
+            description: "Array of item IDs to update"
+          }
+          status: {
+            type: "string"
+            description: "New status for all items"
+            enum: ["backlog" "todo" "in_progress" "review" "done" "cancelled"]
+          }
+        }
+        required: ["list_id" "item_ids" "status"]
+      }
+    }
+    {
+      name: "get_list"
+      description: "SHOW TO USER. Get list metadata (name, description, tags, status) without items."
+      input_schema: {
+        type: "object"
+        properties: {
+          list_id: {
+            type: "integer"
+            description: "ID of the todo list"
+          }
+        }
+        required: ["list_id"]
+      }
+    }
+    {
+      name: "archive_list"
+      description: "Manually archive a list (creates archive note). Works even if items aren't all complete."
+      input_schema: {
+        type: "object"
+        properties: {
+          list_id: {
+            type: "integer"
+            description: "ID of the todo list to archive"
+          }
+        }
+        required: ["list_id"]
+      }
+    }
+    {
+      name: "export_data"
+      description: "Export all c5t data (lists, items, notes) as JSON for backup. Returns JSON string."
+      input_schema: {
+        type: "object"
+        properties: {}
+      }
+    }
+    {
+      name: "import_data"
+      description: "Import c5t data from JSON backup. Use merge=true to add to existing data, merge=false to replace all."
+      input_schema: {
+        type: "object"
+        properties: {
+          data: {
+            type: "object"
+            description: "JSON data from export_data containing lists, items, and notes"
+          }
+          merge: {
+            type: "boolean"
+            description: "If true, merge with existing data; if false (default), replace all data"
+          }
+        }
+        required: ["data"]
+      }
+    }
+    {
       name: "list_items"
       description: "SHOW TO USER. View all todos with status, priority, and timestamps. Filter by status if needed."
       input_schema: {
@@ -502,6 +735,264 @@ def "main call-tool" [
       } else {
         format-item-completed $item_id
       }
+    }
+
+    "delete_item" => {
+      let validation = validate-item-update-input $parsed_args
+      if not $validation.valid {
+        return $validation.error
+      }
+
+      let list_id = $parsed_args.list_id
+      let item_id = $parsed_args.item_id
+
+      let result = delete-item $list_id $item_id
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $"✓ Item deleted \(ID: ($item_id)\)"
+    }
+
+    "edit_item" => {
+      let validation = validate-item-update-input $parsed_args
+      if not $validation.valid {
+        return $validation.error
+      }
+
+      if "content" not-in $parsed_args {
+        return "Error: Missing required field: 'content'"
+      }
+
+      let list_id = $parsed_args.list_id
+      let item_id = $parsed_args.item_id
+      let content = $parsed_args.content
+
+      let result = edit-item $list_id $item_id $content
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $"✓ Item updated \(ID: ($item_id)\)
+  New content: ($content)"
+    }
+
+    "delete_list" => {
+      if "list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'list_id'"
+      }
+
+      let list_id = $parsed_args.list_id
+      let force = if "force" in $parsed_args { $parsed_args.force } else { false }
+
+      let result = delete-list $list_id $force
+
+      if not $result.success {
+        return $result.error
+      }
+
+      if $force {
+        $"✓ List and all items deleted \(ID: ($list_id)\)"
+      } else {
+        $"✓ List deleted \(ID: ($list_id)\)"
+      }
+    }
+
+    "delete_note" => {
+      if "note_id" not-in $parsed_args {
+        return "Error: Missing required field: 'note_id'"
+      }
+
+      let note_id = $parsed_args.note_id
+
+      let result = delete-note $note_id
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $"✓ Note deleted \(ID: ($note_id)\)"
+    }
+
+    "rename_list" => {
+      if "list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'list_id'"
+      }
+
+      if "name" not-in $parsed_args {
+        return "Error: Missing required field: 'name'"
+      }
+
+      let list_id = $parsed_args.list_id
+      let name = $parsed_args.name
+      let description = if "description" in $parsed_args { $parsed_args.description } else { null }
+
+      let result = rename-list $list_id $name $description
+
+      if not $result.success {
+        return $result.error
+      }
+
+      if $description != null {
+        $"✓ List renamed \(ID: ($list_id)\)
+  New name: ($name)
+  New description: ($description)"
+      } else {
+        $"✓ List renamed \(ID: ($list_id)\)
+  New name: ($name)"
+      }
+    }
+
+    "bulk_add_items" => {
+      if "list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'list_id'"
+      }
+
+      if "items" not-in $parsed_args {
+        return "Error: Missing required field: 'items'"
+      }
+
+      let list_id = $parsed_args.list_id
+      let items = $parsed_args.items
+
+      let result = bulk-add-items $list_id $items
+
+      if not $result.success {
+        return $result.error
+      }
+
+      let ids_str = $result.ids | str join ", "
+      $"✓ Added ($result.count) items to list ($list_id)
+  IDs: ($ids_str)"
+    }
+
+    "move_item" => {
+      if "source_list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'source_list_id'"
+      }
+
+      if "item_id" not-in $parsed_args {
+        return "Error: Missing required field: 'item_id'"
+      }
+
+      if "target_list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'target_list_id'"
+      }
+
+      let source_list_id = $parsed_args.source_list_id
+      let item_id = $parsed_args.item_id
+      let target_list_id = $parsed_args.target_list_id
+
+      let result = move-item $source_list_id $item_id $target_list_id
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $"✓ Item moved \(ID: ($item_id)\)
+  From list: ($source_list_id)
+  To list: ($target_list_id)"
+    }
+
+    "bulk_update_status" => {
+      if "list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'list_id'"
+      }
+
+      if "item_ids" not-in $parsed_args {
+        return "Error: Missing required field: 'item_ids'"
+      }
+
+      if "status" not-in $parsed_args {
+        return "Error: Missing required field: 'status'"
+      }
+
+      let list_id = $parsed_args.list_id
+      let item_ids = $parsed_args.item_ids
+      let status = $parsed_args.status
+
+      let result = bulk-update-status $list_id $item_ids $status
+
+      if not $result.success {
+        return $result.error
+      }
+
+      if $result.archived {
+        $"✓ Updated ($result.count) items to '($status)'
+  List auto-archived \(Note ID: ($result.note_id)\)"
+      } else {
+        $"✓ Updated ($result.count) items to '($status)'"
+      }
+    }
+
+    "get_list" => {
+      if "list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'list_id'"
+      }
+
+      let list_id = $parsed_args.list_id
+
+      let result = get-list $list_id
+
+      if not $result.success {
+        return $result.error
+      }
+
+      format-list-detail $result.list
+    }
+
+    "archive_list" => {
+      if "list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'list_id'"
+      }
+
+      let list_id = $parsed_args.list_id
+
+      let result = archive-list-manual $list_id
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $"✓ List archived \(ID: ($list_id)\)
+  Archive note created \(Note ID: ($result.note_id)\)"
+    }
+
+    "export_data" => {
+      let result = export-data
+
+      if not $result.success {
+        return $result.error
+      }
+
+      # Return as formatted JSON
+      $result.data | to json --indent 2
+    }
+
+    "import_data" => {
+      if "data" not-in $parsed_args {
+        return "Error: Missing required field: 'data'"
+      }
+
+      let data = $parsed_args.data
+      let merge = if "merge" in $parsed_args { $parsed_args.merge } else { false }
+
+      let result = if $merge {
+        import-data $data --merge
+      } else {
+        import-data $data
+      }
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $"✓ Data imported successfully
+  Lists: ($result.imported.lists)
+  Items: ($result.imported.items)
+  Notes: ($result.imported.notes)"
     }
 
     "list_items" => {

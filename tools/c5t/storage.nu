@@ -1237,3 +1237,610 @@ export def get-summary [] {
     }
   }
 }
+
+# Delete a todo item from a list
+export def delete-item [
+  list_id: int
+  item_id: int
+] {
+  let db_path = get-db-path
+
+  # First check if item exists
+  if not (item-exists $list_id $item_id) {
+    return {
+      success: false
+      error: $"Item not found: ($item_id)"
+    }
+  }
+
+  let sql = "DELETE FROM todo_item WHERE id = ? AND list_id = ?"
+  let params = [$item_id $list_id]
+
+  let result = execute-sql $db_path $sql $params
+
+  if $result.success {
+    {success: true}
+  } else {
+    {
+      success: false
+      error: $"Failed to delete item: ($result.error)"
+    }
+  }
+}
+
+# Delete a todo list (optionally with force to delete items too)
+export def delete-list [
+  list_id: int
+  force: bool = false
+] {
+  let db_path = get-db-path
+
+  # Check if list exists
+  if not (list-exists $list_id) {
+    return {
+      success: false
+      error: $"List not found: ($list_id)"
+    }
+  }
+
+  # If not force, check if list has items
+  if not $force {
+    let count_sql = "SELECT COUNT(*) as count FROM todo_item WHERE list_id = ?"
+    let count_result = query-sql $db_path $count_sql [$list_id]
+
+    if $count_result.success and ($count_result.data | is-not-empty) {
+      let item_count = $count_result.data | first | get count
+      if $item_count > 0 {
+        return {
+          success: false
+          error: $"List has items \(($item_count)\). Use force=true to delete list and all items."
+        }
+      }
+    }
+  }
+
+  # If force, delete all items first
+  if $force {
+    let delete_items_sql = "DELETE FROM todo_item WHERE list_id = ?"
+    let items_result = execute-sql $db_path $delete_items_sql [$list_id]
+
+    if not $items_result.success {
+      return {
+        success: false
+        error: $"Failed to delete items: ($items_result.error)"
+      }
+    }
+  }
+
+  # Delete the list
+  let sql = "DELETE FROM todo_list WHERE id = ?"
+  let params = [$list_id]
+
+  let result = execute-sql $db_path $sql $params
+
+  if $result.success {
+    {success: true}
+  } else {
+    {
+      success: false
+      error: $"Failed to delete list: ($result.error)"
+    }
+  }
+}
+
+# Delete a note by ID
+export def delete-note [
+  note_id: int
+] {
+  let db_path = get-db-path
+
+  # Check if note exists first
+  let check_sql = "SELECT id FROM note WHERE id = ?"
+  let check_result = query-sql $db_path $check_sql [$note_id]
+
+  if not $check_result.success {
+    return {
+      success: false
+      error: $"Failed to check note: ($check_result.error)"
+    }
+  }
+
+  if ($check_result.data | is-empty) {
+    return {
+      success: false
+      error: $"Note not found: ($note_id)"
+    }
+  }
+
+  let sql = "DELETE FROM note WHERE id = ?"
+  let params = [$note_id]
+
+  let result = execute-sql $db_path $sql $params
+
+  if $result.success {
+    {success: true}
+  } else {
+    {
+      success: false
+      error: $"Failed to delete note: ($result.error)"
+    }
+  }
+}
+
+# Edit item content
+export def edit-item [
+  list_id: int
+  item_id: int
+  content: string
+] {
+  # Validate content is not empty
+  if ($content | str trim | is-empty) {
+    return {
+      success: false
+      error: "Content cannot be empty"
+    }
+  }
+
+  let db_path = get-db-path
+
+  # Check if item exists
+  if not (item-exists $list_id $item_id) {
+    return {
+      success: false
+      error: $"Item not found: ($item_id)"
+    }
+  }
+
+  let sql = "UPDATE todo_item SET content = ? WHERE id = ? AND list_id = ?"
+  let params = [$content $item_id $list_id]
+
+  let result = execute-sql $db_path $sql $params
+
+  if $result.success {
+    {success: true}
+  } else {
+    {
+      success: false
+      error: $"Failed to edit item: ($result.error)"
+    }
+  }
+}
+
+# Rename a todo list (update name and optionally description)
+export def rename-list [
+  list_id: int
+  name: string
+  description?: string
+] {
+  # Validate name is not empty
+  if ($name | str trim | is-empty) {
+    return {
+      success: false
+      error: "Name cannot be empty"
+    }
+  }
+
+  let db_path = get-db-path
+
+  # Check if list exists
+  if not (list-exists $list_id) {
+    return {
+      success: false
+      error: $"List not found: ($list_id)"
+    }
+  }
+
+  # Build SQL based on whether description is provided
+  let sql = if $description != null {
+    "UPDATE todo_list SET name = ?, description = ? WHERE id = ?"
+  } else {
+    "UPDATE todo_list SET name = ? WHERE id = ?"
+  }
+
+  let params = if $description != null {
+    [$name $description $list_id]
+  } else {
+    [$name $list_id]
+  }
+
+  let result = execute-sql $db_path $sql $params
+
+  if $result.success {
+    {success: true}
+  } else {
+    {
+      success: false
+      error: $"Failed to rename list: ($result.error)"
+    }
+  }
+}
+
+# Bulk add multiple items to a list
+export def bulk-add-items [
+  list_id: int
+  items: list # List of records with content, optional priority, optional status
+] {
+  # Validate items list is not empty
+  if ($items | is-empty) {
+    return {
+      success: false
+      error: "Items list cannot be empty"
+    }
+  }
+
+  let db_path = get-db-path
+
+  # Check if list exists
+  if not (list-exists $list_id) {
+    return {
+      success: false
+      error: $"List not found: ($list_id)"
+    }
+  }
+
+  # Add each item
+  mut added_ids = []
+  for item in $items {
+    let content = $item.content
+    let priority = if "priority" in $item { $item.priority } else { null }
+    let status = if "status" in $item { $item.status } else { null }
+
+    let result = add-todo-item $list_id $content $priority $status
+
+    if not $result.success {
+      return {
+        success: false
+        error: $"Failed to add item '($content)': ($result.error)"
+        partial_ids: $added_ids
+      }
+    }
+
+    $added_ids = ($added_ids | append $result.id)
+  }
+
+  {
+    success: true
+    ids: $added_ids
+    count: ($added_ids | length)
+  }
+}
+
+# Move an item from one list to another
+export def move-item [
+  source_list_id: int
+  item_id: int
+  target_list_id: int
+] {
+  let db_path = get-db-path
+
+  # Check if item exists in source list
+  if not (item-exists $source_list_id $item_id) {
+    return {
+      success: false
+      error: $"Item not found: ($item_id) in list ($source_list_id)"
+    }
+  }
+
+  # Check if target list exists
+  if not (list-exists $target_list_id) {
+    return {
+      success: false
+      error: $"Target list not found: ($target_list_id)"
+    }
+  }
+
+  let sql = "UPDATE todo_item SET list_id = ? WHERE id = ? AND list_id = ?"
+  let params = [$target_list_id $item_id $source_list_id]
+
+  let result = execute-sql $db_path $sql $params
+
+  if $result.success {
+    {success: true}
+  } else {
+    {
+      success: false
+      error: $"Failed to move item: ($result.error)"
+    }
+  }
+}
+
+# Export all data as JSON for backup
+export def export-data [] {
+  let db_path = get-db-path
+
+  # Get all lists (including archived)
+  let lists_sql = "SELECT id, name, description, notes, tags, status, created_at, updated_at, archived_at 
+                   FROM todo_list 
+                   ORDER BY created_at"
+  let lists_result = query-sql $db_path $lists_sql
+
+  if not $lists_result.success {
+    return {
+      success: false
+      error: $"Failed to export lists: ($lists_result.error)"
+    }
+  }
+
+  # Get all items
+  let items_sql = "SELECT id, list_id, content, status, priority, position, created_at, started_at, completed_at 
+                   FROM todo_item 
+                   ORDER BY list_id, created_at"
+  let items_result = query-sql $db_path $items_sql
+
+  if not $items_result.success {
+    return {
+      success: false
+      error: $"Failed to export items: ($items_result.error)"
+    }
+  }
+
+  # Get all notes
+  let notes_sql = "SELECT id, title, content, tags, note_type, source_id, created_at, updated_at 
+                   FROM note 
+                   ORDER BY created_at"
+  let notes_result = query-sql $db_path $notes_sql
+
+  if not $notes_result.success {
+    return {
+      success: false
+      error: $"Failed to export notes: ($notes_result.error)"
+    }
+  }
+
+  {
+    success: true
+    data: {
+      version: "1.0"
+      exported_at: (date now | format date "%Y-%m-%dT%H:%M:%S")
+      lists: $lists_result.data
+      items: $items_result.data
+      notes: $notes_result.data
+    }
+  }
+}
+
+# Bulk update status for multiple items
+export def bulk-update-status [
+  list_id: int
+  item_ids: list<int>
+  new_status: string
+] {
+  # Validate status
+  let valid_statuses = ["backlog" "todo" "in_progress" "review" "done" "cancelled"]
+  if $new_status not-in $valid_statuses {
+    return {
+      success: false
+      error: $"Invalid status: '($new_status)'. Must be one of: ($valid_statuses | str join ', ')"
+    }
+  }
+
+  let db_path = get-db-path
+
+  mut updated_count = 0
+  mut archived = false
+  mut archive_note_id = null
+
+  for item_id in $item_ids {
+    # Check if item exists
+    if not (item-exists $list_id $item_id) {
+      continue # Skip non-existent items
+    }
+
+    let result = update-item-status $list_id $item_id $new_status
+    if $result.success {
+      $updated_count = $updated_count + 1
+      if $result.archived {
+        $archived = true
+        $archive_note_id = $result.note_id
+      }
+    }
+  }
+
+  {
+    success: true
+    count: $updated_count
+    archived: $archived
+    note_id: $archive_note_id
+  }
+}
+
+# Get list metadata without items
+export def get-list [
+  list_id: int
+] {
+  let db_path = get-db-path
+
+  let sql = "SELECT id, name, description, notes, tags, status, created_at, updated_at, archived_at 
+             FROM todo_list 
+             WHERE id = ?"
+  let params = [$list_id]
+
+  let result = query-sql $db_path $sql $params
+
+  if not $result.success {
+    return {
+      success: false
+      error: $"Failed to get list: ($result.error)"
+    }
+  }
+
+  if ($result.data | is-empty) {
+    return {
+      success: false
+      error: $"List not found: ($list_id)"
+    }
+  }
+
+  let list = $result.data | first | upsert tags (parse-tags ($result.data | first | get tags))
+
+  {
+    success: true
+    list: $list
+  }
+}
+
+# Manually archive a list (even if items aren't all complete)
+export def archive-list-manual [
+  list_id: int
+] {
+  let db_path = get-db-path
+
+  # Check if list exists and is active
+  let list_result = get-list $list_id
+
+  if not $list_result.success {
+    return $list_result
+  }
+
+  if $list_result.list.status == "archived" {
+    return {
+      success: false
+      error: "List is already archived"
+    }
+  }
+
+  # Use existing archive function
+  archive-todo-list $list_id
+}
+
+# Import data from JSON backup
+export def import-data [
+  data: record
+  --merge # If true, merge with existing data; if false (default), replace all
+] {
+  let db_path = get-db-path
+
+  # Validate data structure
+  if "lists" not-in $data {
+    return {
+      success: false
+      error: "Invalid data: missing 'lists' field"
+    }
+  }
+
+  if "items" not-in $data {
+    return {
+      success: false
+      error: "Invalid data: missing 'items' field"
+    }
+  }
+
+  if "notes" not-in $data {
+    return {
+      success: false
+      error: "Invalid data: missing 'notes' field"
+    }
+  }
+
+  # If not merging, clear existing data
+  if not $merge {
+    # Delete in order due to foreign keys
+    let _ = execute-sql $db_path "DELETE FROM todo_item" []
+    let _ = execute-sql $db_path "DELETE FROM todo_list" []
+    let _ = execute-sql $db_path "DELETE FROM note" []
+  }
+
+  # Track ID mappings for relational data
+  mut list_id_map = {}
+  mut imported_lists = 0
+  mut imported_items = 0
+  mut imported_notes = 0
+
+  # Import lists
+  for list in $data.lists {
+    let tags_json = if $list.tags != null { $list.tags } else { null }
+    let sql = "INSERT INTO todo_list (name, description, notes, tags, status, created_at, updated_at, archived_at) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?) 
+               RETURNING id"
+    let params = [
+      $list.name
+      ($list.description? | default null)
+      ($list.notes? | default null)
+      $tags_json
+      ($list.status? | default "active")
+      ($list.created_at? | default (date now | format date "%Y-%m-%dT%H:%M:%S"))
+      ($list.updated_at? | default (date now | format date "%Y-%m-%dT%H:%M:%S"))
+      ($list.archived_at? | default null)
+    ]
+
+    let result = query-sql $db_path $sql $params
+    if $result.success and ($result.data | is-not-empty) {
+      let new_id = $result.data | first | get id
+      $list_id_map = ($list_id_map | upsert ($list.id | into string) $new_id)
+      $imported_lists = $imported_lists + 1
+    }
+  }
+
+  # Import items
+  for item in $data.items {
+    let old_list_id = $item.list_id | into string
+    let new_list_id = if $old_list_id in $list_id_map {
+      $list_id_map | get $old_list_id
+    } else {
+      continue # Skip if list wasn't imported
+    }
+
+    let sql = "INSERT INTO todo_item (list_id, content, status, priority, position, created_at, started_at, completed_at) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    let params = [
+      $new_list_id
+      $item.content
+      ($item.status? | default "backlog")
+      ($item.priority? | default null)
+      ($item.position? | default null)
+      ($item.created_at? | default (date now | format date "%Y-%m-%dT%H:%M:%S"))
+      ($item.started_at? | default null)
+      ($item.completed_at? | default null)
+    ]
+
+    let result = execute-sql $db_path $sql $params
+    if $result.success {
+      $imported_items = $imported_items + 1
+    }
+  }
+
+  # Import notes (skip scratchpad if one already exists when merging)
+  for note in $data.notes {
+    # If merging and this is a scratchpad, skip if one exists
+    if $merge and ($note.note_type? | default "") == "scratchpad" {
+      let check_result = get-scratchpad
+      if $check_result.success and $check_result.scratchpad != null {
+        continue # Skip, already have a scratchpad
+      }
+    }
+
+    let tags_json = if $note.tags != null { $note.tags } else { null }
+    let source_id = if "source_id" in $note and $note.source_id != null {
+      let old_id = $note.source_id | into string
+      if $old_id in $list_id_map { $list_id_map | get $old_id } else { null }
+    } else {
+      null
+    }
+
+    let sql = "INSERT INTO note (title, content, tags, note_type, source_id, created_at, updated_at) 
+               VALUES (?, ?, ?, ?, ?, ?, ?)"
+    let params = [
+      $note.title
+      $note.content
+      $tags_json
+      ($note.note_type? | default "manual")
+      $source_id
+      ($note.created_at? | default (date now | format date "%Y-%m-%dT%H:%M:%S"))
+      ($note.updated_at? | default (date now | format date "%Y-%m-%dT%H:%M:%S"))
+    ]
+
+    let result = execute-sql $db_path $sql $params
+    if $result.success {
+      $imported_notes = $imported_notes + 1
+    }
+  }
+
+  {
+    success: true
+    imported: {
+      lists: $imported_lists
+      items: $imported_items
+      notes: $imported_notes
+    }
+  }
+}

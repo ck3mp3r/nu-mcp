@@ -142,22 +142,39 @@ Last updated: [timestamp]
 ### Todo Lists
 - `c5t_create_list` - Create todo list
 - `c5t_list_active` - List active lists
+- `c5t_get_list` - Get list metadata without items
+- `c5t_rename_list` - Change list name/description
+- `c5t_delete_list` - Remove a list (use force=true if has items)
+- `c5t_archive_list` - Manually archive a list
 - `c5t_add_item` - Add item to list
+- `c5t_bulk_add_items` - Add multiple items at once
 - `c5t_list_items` - View list with items grouped by status
+- `c5t_list_active_items` - View only active items
 - `c5t_update_item_status` - Change item status
+- `c5t_bulk_update_status` - Update multiple items' status at once
 - `c5t_update_item_priority` - Set priority (1-5, where 1 is highest)
+- `c5t_edit_item` - Update item content
 - `c5t_complete_item` - Mark item done
+- `c5t_delete_item` - Remove an item
+- `c5t_move_item` - Move item to another list
 - `c5t_update_notes` - Add/update progress notes on list
 
 ### Notes
 - `c5t_create_note` - Create manual note
 - `c5t_list_notes` - List notes (excludes scratchpad by default)
 - `c5t_get_note` - Get specific note by ID
+- `c5t_delete_note` - Remove a note
 - `c5t_search` - Full-text search with FTS5
 
 ### Scratchpad
 - `c5t_update_scratchpad` - Update/create scratchpad
 - `c5t_get_scratchpad` - Retrieve scratchpad
+- `c5t_generate_scratchpad_draft` - Auto-generate scratchpad template
+- `c5t_get_summary` - Quick status overview
+
+### Data Management
+- `c5t_export_data` - Export all data as JSON for backup
+- `c5t_import_data` - Import data from JSON backup (merge or replace)
 
 ## Auto-Archive
 

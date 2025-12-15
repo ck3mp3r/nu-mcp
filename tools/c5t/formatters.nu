@@ -63,6 +63,45 @@ export def format-active-lists [lists: list] {
   ] | str join (char newline)
 }
 
+# Format list metadata detail
+export def format-list-detail [list: record] {
+  let tags_str = if $list.tags != null and ($list.tags | is-not-empty) {
+    $list.tags | str join ", "
+  } else {
+    "none"
+  }
+
+  let desc_str = if $list.description != null and $list.description != "" {
+    $list.description
+  } else {
+    "none"
+  }
+
+  let notes_str = if $list.notes != null and $list.notes != "" {
+    $"\n\n**Notes:**\n($list.notes)"
+  } else {
+    ""
+  }
+
+  let archived_str = if $list.archived_at != null {
+    $"\n  Archived: ($list.archived_at)"
+  } else {
+    ""
+  }
+
+  [
+    $"# ($list.name)"
+    $"**ID:** ($list.id)"
+    $"**Status:** ($list.status)"
+    $"**Tags:** ($tags_str)"
+    $"**Description:** ($desc_str)"
+    $"**Created:** ($list.created_at)"
+    $"**Updated:** ($list.updated_at)"
+    $archived_str
+    $notes_str
+  ] | str join (char newline)
+}
+
 # Format a todo list creation response (legacy, kept for compatibility)
 export def format-todo-created [list: record] {
   [
