@@ -1,5 +1,11 @@
 # SQLite database operations for c5t tool
 
+# Wrapper for query db - can be mocked in tests
+# Exported so tests can override it
+export def run-query-db [db_path: string sql: string params: list = []] {
+  open $db_path | query db $sql -p $params
+}
+
 export def get-db-path [] {
   let db_dir = ".c5t"
 
@@ -75,24 +81,18 @@ def create-schema [db_path: string] {
   }
 }
 
-def execute-sql [db_path: string sql: string] {
+def execute-sql [db_path: string sql: string params: list = []] {
   try {
-    sqlite3 $db_path $sql
+    run-query-db $db_path $sql $params
     {success: true output: ""}
   } catch {|err|
     {success: false error: $err.msg}
   }
 }
 
-def query-sql [db_path: string sql: string] {
+def query-sql [db_path: string sql: string params: list = []] {
   try {
-    let output = sqlite3 -json $db_path $sql
-    # Handle empty result (sqlite returns empty string for no rows)
-    let result = if ($output | is-empty) {
-      []
-    } else {
-      $output | from json
-    }
+    let result = run-query-db $db_path $sql $params
     {success: true data: $result}
   } catch {|err|
     {success: false error: $err.msg}
@@ -109,30 +109,23 @@ export def create-todo-list [
   let tags_json = if $tags != null and ($tags | is-not-empty) {
     $tags | to json --raw
   } else {
-    "null"
+    null
   }
 
-  let escaped_name = $name | str replace --all "'" "''"
   let desc_value = if $description != null {
-    let escaped_desc = $description | str replace --all "'" "''"
-    $"'($escaped_desc)'"
+    $description
   } else {
-    "null"
+    null
   }
 
-  # Insert without specifying id - SQLite auto-generates INTEGER PRIMARY KEY
-  # Use RETURNING clause or chain INSERT with SELECT in same connection
-  let sql = $"INSERT INTO todo_list \(name, description, tags\) 
-             VALUES \('($escaped_name)', ($desc_value), '($tags_json)'\);
-             SELECT last_insert_rowid\(\) as id;"
+  # Use INSERT ... RETURNING with parameters
+  let sql = "INSERT INTO todo_list (name, description, tags) 
+             VALUES (?, ?, ?) 
+             RETURNING id"
 
-  # Execute INSERT and SELECT in same sqlite3 call to preserve session
-  let result = try {
-    let output = sqlite3 -json $db_path $sql | from json
-    {success: true data: $output}
-  } catch {|err|
-    {success: false error: $err.msg}
-  }
+  let params = [$name $desc_value $tags_json]
+
+  let result = query-sql $db_path $sql $params
 
   if not $result.success {
     return {
@@ -224,21 +217,16 @@ export def add-todo-item [
   # Default status is 'backlog'
   let item_status = if $status != null { $status } else { "backlog" }
 
-  let escaped_content = $content | str replace --all "'" "''"
-  let priority_value = if $priority != null { $priority } else { "null" }
+  let priority_value = if $priority != null { $priority } else { null }
 
-  # Insert without specifying id - SQLite auto-generates
-  # Chain INSERT with SELECT to get ID in same connection
-  let sql = $"INSERT INTO todo_item \(list_id, content, status, priority\) 
-             VALUES \(($list_id), '($escaped_content)', '($item_status)', ($priority_value)\);
-             SELECT last_insert_rowid\(\) as id;"
+  # Use INSERT ... RETURNING with parameters
+  let sql = "INSERT INTO todo_item (list_id, content, status, priority) 
+             VALUES (?, ?, ?, ?) 
+             RETURNING id"
 
-  let result = try {
-    let output = sqlite3 -json $db_path $sql | from json
-    {success: true data: $output}
-  } catch {|err|
-    {success: false error: $err.msg}
-  }
+  let params = [$list_id $content $item_status $priority_value]
+
+  let result = query-sql $db_path $sql $params
 
   if not $result.success {
     return {
@@ -303,7 +291,7 @@ export def update-item-status [
     $timestamp_updates = ($timestamp_updates | append "started_at = NULL")
   }
 
-  # Build SQL with timestamp updates
+  # Build SQL with timestamp updates (still need dynamic SQL here)
   let timestamp_sql = if ($timestamp_updates | is-not-empty) {
     ", " + ($timestamp_updates | str join ", ")
   } else {
@@ -311,10 +299,11 @@ export def update-item-status [
   }
 
   let sql = $"UPDATE todo_item 
-             SET status = '($new_status)'($timestamp_sql) 
-             WHERE id = '($item_id)' AND list_id = '($list_id)';"
+             SET status = ?($timestamp_sql) 
+             WHERE id = ? AND list_id = ?"
 
-  let result = execute-sql $db_path $sql
+  let params = [$new_status $item_id $list_id]
+  let result = execute-sql $db_path $sql $params
 
   if not $result.success {
     return {
@@ -341,6 +330,7 @@ export def update-item-status [
 }
 
 # Update item priority
+# DEPRECATED: Use upsert-item instead
 export def update-item-priority [
   list_id: int
   item_id: int
@@ -348,13 +338,14 @@ export def update-item-priority [
 ] {
   let db_path = get-db-path
 
-  let priority_value = if $priority != null { $priority } else { "null" }
+  let priority_value = if $priority != null { $priority } else { null }
 
-  let sql = $"UPDATE todo_item 
-             SET priority = ($priority_value) 
-             WHERE id = '($item_id)' AND list_id = '($list_id)';"
+  let sql = "UPDATE todo_item 
+             SET priority = ? 
+             WHERE id = ? AND list_id = ?"
 
-  let result = execute-sql $db_path $sql
+  let params = [$priority_value $item_id $list_id]
+  let result = execute-sql $db_path $sql $params
 
   if $result.success {
     {success: true}
@@ -511,13 +502,12 @@ export def update-todo-notes [
 ] {
   let db_path = get-db-path
 
-  let escaped_notes = $notes | str replace --all "'" "''"
+  let sql = "UPDATE todo_list 
+             SET notes = ? 
+             WHERE id = ?"
 
-  let sql = $"UPDATE todo_list 
-             SET notes = '($escaped_notes)' 
-             WHERE id = '($list_id)';"
-
-  let result = execute-sql $db_path $sql
+  let params = [$notes $list_id]
+  let result = execute-sql $db_path $sql $params
 
   if $result.success {
     {success: true}
@@ -628,28 +618,19 @@ export def archive-todo-list [
   # Generate archive note content
   let note_content = generate-archive-note $list_data.list $list_data.items
 
-  # Create note
-  let escaped_title = $list_data.list.name | str replace --all "'" "''"
-  let escaped_content = $note_content | str replace --all "'" "''"
+  # Create note with parameters
   let tags_value = if $list_data.list.tags != null and ($list_data.list.tags | is-not-empty) {
-    let tags_json = $list_data.list.tags | to json --raw
-    $"'($tags_json)'"
+    $list_data.list.tags | to json --raw
   } else {
-    "NULL"
+    null
   }
 
-  # Insert without specifying id - SQLite auto-generates
-  # Chain INSERT with SELECT to get ID in same connection
-  let insert_note_sql = $"INSERT INTO note \(title, content, tags, note_type, source_id\) 
-                         VALUES \('($escaped_title)', '($escaped_content)', ($tags_value), 'archived_todo', ($list_id)\);
-                         SELECT last_insert_rowid\(\) as id;"
+  let insert_note_sql = "INSERT INTO note (title, content, tags, note_type, source_id) 
+                         VALUES (?, ?, ?, ?, ?) 
+                         RETURNING id"
 
-  let note_result = try {
-    let output = sqlite3 -json $db_path $insert_note_sql | from json
-    {success: true data: $output}
-  } catch {|err|
-    {success: false error: $err.msg}
-  }
+  let params = [$list_data.list.name $note_content $tags_value "archived_todo" $list_id]
+  let note_result = query-sql $db_path $insert_note_sql $params
 
   if not $note_result.success {
     return {
@@ -667,12 +648,13 @@ export def archive-todo-list [
 
   let note_id = $note_result.data.0.id
 
-  # Update list status to archived
-  let archive_list_sql = $"UPDATE todo_list 
-                           SET status = 'archived', archived_at = datetime\('now'\) 
-                           WHERE id = ($list_id);"
+  # Update list status to archived with parameters
+  let archive_list_sql = "UPDATE todo_list 
+                           SET status = 'archived', archived_at = datetime('now') 
+                           WHERE id = ?"
 
-  let archive_result = execute-sql $db_path $archive_list_sql
+  let archive_params = [$list_id]
+  let archive_result = execute-sql $db_path $archive_list_sql $archive_params
 
   if not $archive_result.success {
     return {
@@ -696,28 +678,18 @@ export def create-note [
 ] {
   let db_path = get-db-path
 
-  let escaped_title = $title | str replace --all "'" "''"
-  let escaped_content = $content | str replace --all "'" "''"
-
   let tags_value = if $tags != null and ($tags | is-not-empty) {
-    let tags_json = $tags | to json --raw
-    $"'($tags_json)'"
+    $tags | to json --raw
   } else {
-    "NULL"
+    null
   }
 
-  # Insert without specifying id - SQLite auto-generates
-  # Chain INSERT with SELECT to get ID in same connection
-  let sql = $"INSERT INTO note \(title, content, tags, note_type\) 
-             VALUES \('($escaped_title)', '($escaped_content)', ($tags_value), 'manual'\);
-             SELECT last_insert_rowid\(\) as id;"
+  let sql = "INSERT INTO note (title, content, tags, note_type) 
+             VALUES (?, ?, ?, ?) 
+             RETURNING id"
 
-  let result = try {
-    let output = sqlite3 -json $db_path $sql | from json
-    {success: true data: $output}
-  } catch {|err|
-    {success: false error: $err.msg}
-  }
+  let params = [$title $content $tags_value "manual"]
+  let result = query-sql $db_path $sql $params
 
   if not $result.success {
     return {
@@ -756,9 +728,6 @@ export def get-notes [
 
   if $note_type != null {
     $where_clauses = ($where_clauses | append $"note_type = '($note_type)'")
-  } else {
-    # By default, exclude scratchpad from list
-    $where_clauses = ($where_clauses | append "note_type != 'scratchpad'")
   }
 
   let where_sql = if ($where_clauses | is-not-empty) {
@@ -817,7 +786,7 @@ export def get-notes [
 }
 
 # Get a specific note by ID
-export def get-note-by-id [
+export def get-note [
   note_id: int
 ] {
   let db_path = get-db-path
@@ -850,6 +819,104 @@ export def get-note-by-id [
   }
 }
 
+# Upsert a note - create if no note_id, update if note_id provided
+export def upsert-note [
+  note_id?: int
+  title?: string
+  content?: string
+  tags?: list
+] {
+  let db_path = get-db-path
+
+  # If note_id provided, update existing
+  if $note_id != null {
+    # Check if note exists
+    let existing = get-note $note_id
+    if not $existing.success {
+      return $existing
+    }
+
+    # Need at least one field to update
+    if $title == null and $content == null and $tags == null {
+      return {
+        success: false
+        error: "At least one of 'title', 'content', or 'tags' must be provided for update"
+      }
+    }
+
+    # Build SET clauses for fields that are provided
+    mut set_clauses = []
+    mut params = []
+
+    if $title != null {
+      $set_clauses = ($set_clauses | append "title = ?")
+      $params = ($params | append $title)
+    }
+
+    if $content != null {
+      $set_clauses = ($set_clauses | append "content = ?")
+      $params = ($params | append $content)
+    }
+
+    if $tags != null {
+      $set_clauses = ($set_clauses | append "tags = ?")
+      $params = ($params | append ($tags | to json))
+    }
+
+    # Always update updated_at
+    $set_clauses = ($set_clauses | append "updated_at = datetime('now')")
+
+    let set_sql = $set_clauses | str join ", "
+    let sql = $"UPDATE note SET ($set_sql) WHERE id = ?"
+    $params = ($params | append $note_id)
+
+    let result = execute-sql $db_path $sql $params
+
+    if not $result.success {
+      return {
+        success: false
+        error: $"Failed to update note: ($result.error)"
+      }
+    }
+
+    # Return updated note
+    let updated = get-note $note_id
+    {
+      success: true
+      created: false
+      note: $updated.note
+    }
+  } else {
+    # Create new note - require title and content
+    if $title == null or $content == null {
+      return {
+        success: false
+        error: "Both 'title' and 'content' are required when creating a new note"
+      }
+    }
+
+    # Use existing create-note function
+    let result = create-note $title $content $tags
+
+    if not $result.success {
+      return $result
+    }
+
+    {
+      success: true
+      created: true
+      id: $result.id
+      note_id: $result.id
+      title: $title
+      tags: $tags
+      note: {
+        id: $result.id
+        title: $title
+      }
+    }
+  }
+}
+
 # Search notes using FTS5 full-text search
 export def search-notes [
   query: string
@@ -858,25 +925,23 @@ export def search-notes [
 ] {
   let db_path = get-db-path
 
-  # Escape single quotes in query for SQL
-  let escaped_query = $query | str replace --all "'" "''"
-
-  # FTS5 search query with bm25 ranking
-  let sql = $"SELECT 
+  # FTS5 search query with bm25 ranking using parameters
+  let sql = "SELECT 
                note.id, 
                note.title, 
                note.content, 
                note.tags, 
                note.note_type,
                note.created_at,
-               bm25\(note_fts\) as rank
+               bm25(note_fts) as rank
              FROM note_fts
              JOIN note ON note.id = note_fts.rowid
-             WHERE note_fts MATCH '($escaped_query)'
+             WHERE note_fts MATCH ?
              ORDER BY rank
-             LIMIT ($limit);"
+             LIMIT ?"
 
-  let result = query-sql $db_path $sql
+  let params = [$query $limit]
+  let result = query-sql $db_path $sql $params
 
   if not $result.success {
     return {
@@ -908,113 +973,1128 @@ export def search-notes [
   }
 }
 
-# Update or create scratchpad note
-# Only one scratchpad note should exist - UPDATE if exists, INSERT if not
-export def update-scratchpad [
-  content: string
-] {
+# Get active lists with item counts by status for summary
+export def get-active-lists-with-counts [] {
   let db_path = get-db-path
 
-  # Check if scratchpad exists
-  let check_sql = "SELECT id FROM note WHERE note_type = 'scratchpad' LIMIT 1;"
-  let check_result = query-sql $db_path $check_sql
-
-  if not $check_result.success {
-    return {
-      success: false
-      error: $"Failed to check scratchpad: ($check_result.error)"
-    }
-  }
-
-  # Escape single quotes in content
-  let escaped_content = $content | str replace --all "'" "''"
-
-  if ($check_result.data | is-empty) {
-    # CREATE new scratchpad
-    # Chain INSERT with SELECT to get ID in same connection
-    let insert_sql = $"INSERT INTO note \(title, content, note_type\) 
-                       VALUES \('Scratchpad', '($escaped_content)', 'scratchpad'\);
-                       SELECT last_insert_rowid\(\) as id;"
-
-    let insert_result = try {
-      let output = sqlite3 -json $db_path $insert_sql | from json
-      {success: true data: $output}
-    } catch {|err|
-      {success: false error: $err.msg}
-    }
-
-    if not $insert_result.success {
-      return {
-        success: false
-        error: $"Failed to create scratchpad: ($insert_result.error)"
-      }
-    }
-
-    if ($insert_result.data | is-empty) {
-      return {
-        success: false
-        error: "Failed to retrieve scratchpad ID"
-      }
-    }
-
-    let scratchpad_id = $insert_result.data.0.id
-
-    {
-      success: true
-      scratchpad_id: $scratchpad_id
-    }
-  } else {
-    # UPDATE existing scratchpad
-    let scratchpad_id = $check_result.data | first | get id
-    let update_sql = $"UPDATE note 
-                       SET content = '($escaped_content)'
-                       WHERE id = ($scratchpad_id);"
-
-    let update_result = execute-sql $db_path $update_sql
-
-    if not $update_result.success {
-      return {
-        success: false
-        error: $"Failed to update scratchpad: ($update_result.error)"
-      }
-    }
-
-    {
-      success: true
-      scratchpad_id: $scratchpad_id
-    }
-  }
-}
-
-# Get current scratchpad note
-export def get-scratchpad [] {
-  let db_path = get-db-path
-
-  let sql = "SELECT id, title, content, tags, note_type, created_at, updated_at
-             FROM note 
-             WHERE note_type = 'scratchpad'
-             LIMIT 1;"
+  let sql = "SELECT 
+               tl.id,
+               tl.name,
+               tl.description,
+               tl.tags,
+               COUNT(CASE WHEN ti.status = 'backlog' THEN 1 END) as backlog_count,
+               COUNT(CASE WHEN ti.status = 'todo' THEN 1 END) as todo_count,
+               COUNT(CASE WHEN ti.status = 'in_progress' THEN 1 END) as in_progress_count,
+               COUNT(CASE WHEN ti.status = 'review' THEN 1 END) as review_count,
+               COUNT(CASE WHEN ti.status = 'done' THEN 1 END) as done_count,
+               COUNT(CASE WHEN ti.status = 'cancelled' THEN 1 END) as cancelled_count,
+               COUNT(ti.id) as total_count
+             FROM todo_list tl
+             LEFT JOIN todo_item ti ON tl.id = ti.list_id
+             WHERE tl.status = 'active'
+             GROUP BY tl.id
+             ORDER BY tl.created_at DESC;"
 
   let result = query-sql $db_path $sql
 
   if not $result.success {
     return {
       success: false
-      error: $"Failed to get scratchpad: ($result.error)"
+      error: $"Failed to get active lists with counts: ($result.error)"
+    }
+  }
+
+  let parsed = $result.data | each {|row|
+      $row | upsert tags (parse-tags $row.tags)
+    }
+
+  {
+    success: true
+    lists: $parsed
+    count: ($parsed | length)
+  }
+}
+
+# Get all in-progress items across all lists for summary
+export def get-all-in-progress-items [] {
+  let db_path = get-db-path
+
+  let sql = "SELECT 
+               ti.id,
+               ti.list_id,
+               ti.content,
+               ti.priority,
+               ti.started_at,
+               tl.name as list_name
+             FROM todo_item ti
+             JOIN todo_list tl ON ti.list_id = tl.id
+             WHERE ti.status = 'in_progress'
+             AND tl.status = 'active'
+             ORDER BY ti.priority DESC NULLS LAST, ti.started_at ASC;"
+
+  let result = query-sql $db_path $sql
+
+  if not $result.success {
+    return {
+      success: false
+      error: $"Failed to get in-progress items: ($result.error)"
+    }
+  }
+
+  {
+    success: true
+    items: $result.data
+    count: ($result.data | length)
+  }
+}
+
+# Get recently completed items for summary
+export def get-recently-completed-items [] {
+  let db_path = get-db-path
+
+  let sql = "SELECT 
+               ti.id,
+               ti.list_id,
+               ti.content,
+               ti.status,
+               ti.priority,
+               ti.completed_at,
+               tl.name as list_name
+             FROM todo_item ti
+             JOIN todo_list tl ON ti.list_id = tl.id
+             WHERE ti.status IN ('done', 'cancelled')
+             AND tl.status = 'active'
+             AND ti.completed_at IS NOT NULL
+             ORDER BY ti.completed_at DESC
+             LIMIT 20;"
+
+  let result = query-sql $db_path $sql
+
+  if not $result.success {
+    return {
+      success: false
+      error: $"Failed to get recently completed items: ($result.error)"
+    }
+  }
+
+  {
+    success: true
+    items: $result.data
+    count: ($result.data | length)
+  }
+}
+
+# Get high-priority pending items for summary
+export def get-high-priority-next-steps [] {
+  let db_path = get-db-path
+
+  let sql = "SELECT 
+               ti.id,
+               ti.list_id,
+               ti.content,
+               ti.status,
+               ti.priority,
+               tl.name as list_name
+             FROM todo_item ti
+             JOIN todo_list tl ON ti.list_id = tl.id
+             WHERE ti.status IN ('backlog', 'todo')
+             AND tl.status = 'active'
+             AND ti.priority >= 4
+             ORDER BY ti.priority DESC, ti.created_at ASC
+             LIMIT 10;"
+
+  let result = query-sql $db_path $sql
+
+  if not $result.success {
+    return {
+      success: false
+      error: $"Failed to get high-priority items: ($result.error)"
+    }
+  }
+
+  {
+    success: true
+    items: $result.data
+    count: ($result.data | length)
+  }
+}
+
+# Get comprehensive summary/overview for quick status at-a-glance
+export def get-summary [] {
+  let db_path = get-db-path
+
+  # Get overall stats across all active lists
+  let stats_sql = "SELECT 
+                     COUNT(DISTINCT tl.id) as active_lists,
+                     COUNT(CASE WHEN ti.status = 'backlog' THEN 1 END) as backlog_total,
+                     COUNT(CASE WHEN ti.status = 'todo' THEN 1 END) as todo_total,
+                     COUNT(CASE WHEN ti.status = 'in_progress' THEN 1 END) as in_progress_total,
+                     COUNT(CASE WHEN ti.status = 'review' THEN 1 END) as review_total,
+                     COUNT(CASE WHEN ti.status = 'done' THEN 1 END) as done_total,
+                     COUNT(CASE WHEN ti.status = 'cancelled' THEN 1 END) as cancelled_total,
+                     COUNT(ti.id) as total_items
+                   FROM todo_list tl
+                   LEFT JOIN todo_item ti ON tl.id = ti.list_id
+                   WHERE tl.status = 'active';"
+
+  let stats_result = query-sql $db_path $stats_sql
+
+  if not $stats_result.success {
+    return {
+      success: false
+      error: $"Failed to get summary stats: ($stats_result.error)"
+    }
+  }
+
+  # Handle empty database - return zeros
+  let stats = if ($stats_result.data | is-empty) {
+    {
+      active_lists: 0
+      backlog_total: 0
+      todo_total: 0
+      in_progress_total: 0
+      review_total: 0
+      done_total: 0
+      cancelled_total: 0
+      total_items: 0
+    }
+  } else {
+    $stats_result.data | first
+  }
+
+  # Get active lists with counts
+  let lists_result = get-active-lists-with-counts
+
+  if not $lists_result.success {
+    return {
+      success: false
+      error: $"Failed to get active lists: ($lists_result.error)"
+    }
+  }
+
+  # Get in-progress items
+  let in_progress_result = get-all-in-progress-items
+
+  if not $in_progress_result.success {
+    return {
+      success: false
+      error: $"Failed to get in-progress items: ($in_progress_result.error)"
+    }
+  }
+
+  # Get high-priority next steps
+  let priority_result = get-high-priority-next-steps
+
+  if not $priority_result.success {
+    return {
+      success: false
+      error: $"Failed to get high-priority items: ($priority_result.error)"
+    }
+  }
+
+  # Get recently completed items
+  let completed_result = get-recently-completed-items
+
+  if not $completed_result.success {
+    return {
+      success: false
+      error: $"Failed to get completed items: ($completed_result.error)"
+    }
+  }
+
+  {
+    success: true
+    summary: {
+      stats: $stats
+      active_lists: $lists_result.lists
+      in_progress: $in_progress_result.items
+      high_priority: $priority_result.items
+      recently_completed: $completed_result.items
+    }
+  }
+}
+
+# Delete a todo item from a list
+export def delete-item [
+  list_id: int
+  item_id: int
+] {
+  let db_path = get-db-path
+
+  # First check if item exists
+  if not (item-exists $list_id $item_id) {
+    return {
+      success: false
+      error: $"Item not found: ($item_id)"
+    }
+  }
+
+  let sql = "DELETE FROM todo_item WHERE id = ? AND list_id = ?"
+  let params = [$item_id $list_id]
+
+  let result = execute-sql $db_path $sql $params
+
+  if $result.success {
+    {success: true}
+  } else {
+    {
+      success: false
+      error: $"Failed to delete item: ($result.error)"
+    }
+  }
+}
+
+# Delete a todo list (optionally with force to delete items too)
+export def delete-list [
+  list_id: int
+  force: bool = false
+] {
+  let db_path = get-db-path
+
+  # Check if list exists
+  if not (list-exists $list_id) {
+    return {
+      success: false
+      error: $"List not found: ($list_id)"
+    }
+  }
+
+  # If not force, check if list has items
+  if not $force {
+    let count_sql = "SELECT COUNT(*) as count FROM todo_item WHERE list_id = ?"
+    let count_result = query-sql $db_path $count_sql [$list_id]
+
+    if $count_result.success and ($count_result.data | is-not-empty) {
+      let item_count = $count_result.data | first | get count
+      if $item_count > 0 {
+        return {
+          success: false
+          error: $"List has items \(($item_count)\). Use force=true to delete list and all items."
+        }
+      }
+    }
+  }
+
+  # If force, delete all items first
+  if $force {
+    let delete_items_sql = "DELETE FROM todo_item WHERE list_id = ?"
+    let items_result = execute-sql $db_path $delete_items_sql [$list_id]
+
+    if not $items_result.success {
+      return {
+        success: false
+        error: $"Failed to delete items: ($items_result.error)"
+      }
+    }
+  }
+
+  # Delete the list
+  let sql = "DELETE FROM todo_list WHERE id = ?"
+  let params = [$list_id]
+
+  let result = execute-sql $db_path $sql $params
+
+  if $result.success {
+    {success: true}
+  } else {
+    {
+      success: false
+      error: $"Failed to delete list: ($result.error)"
+    }
+  }
+}
+
+# Delete a note by ID
+export def delete-note [
+  note_id: int
+] {
+  let db_path = get-db-path
+
+  # Check if note exists first
+  let check_sql = "SELECT id FROM note WHERE id = ?"
+  let check_result = query-sql $db_path $check_sql [$note_id]
+
+  if not $check_result.success {
+    return {
+      success: false
+      error: $"Failed to check note: ($check_result.error)"
+    }
+  }
+
+  if ($check_result.data | is-empty) {
+    return {
+      success: false
+      error: $"Note not found: ($note_id)"
+    }
+  }
+
+  let sql = "DELETE FROM note WHERE id = ?"
+  let params = [$note_id]
+
+  let result = execute-sql $db_path $sql $params
+
+  if $result.success {
+    {success: true}
+  } else {
+    {
+      success: false
+      error: $"Failed to delete note: ($result.error)"
+    }
+  }
+}
+
+# Edit item content
+# DEPRECATED: Use upsert-item instead
+export def edit-item [
+  list_id: int
+  item_id: int
+  content: string
+] {
+  # Validate content is not empty
+  if ($content | str trim | is-empty) {
+    return {
+      success: false
+      error: "Content cannot be empty"
+    }
+  }
+
+  let db_path = get-db-path
+
+  # Check if item exists
+  if not (item-exists $list_id $item_id) {
+    return {
+      success: false
+      error: $"Item not found: ($item_id)"
+    }
+  }
+
+  let sql = "UPDATE todo_item SET content = ? WHERE id = ? AND list_id = ?"
+  let params = [$content $item_id $list_id]
+
+  let result = execute-sql $db_path $sql $params
+
+  if $result.success {
+    {success: true}
+  } else {
+    {
+      success: false
+      error: $"Failed to edit item: ($result.error)"
+    }
+  }
+}
+
+# Upsert a todo item - create if no item_id, update if item_id provided
+export def upsert-item [
+  list_id: int
+  item_id?: int
+  content?: string
+  priority?: int
+  status?: string
+] {
+  let db_path = get-db-path
+
+  # Check if list exists
+  if not (list-exists $list_id) {
+    return {
+      success: false
+      error: $"List not found: ($list_id)"
+    }
+  }
+
+  # If item_id provided, update existing
+  if $item_id != null {
+    # Check if item exists
+    if not (item-exists $list_id $item_id) {
+      return {
+        success: false
+        error: $"Item not found: ($item_id)"
+      }
+    }
+
+    # Need at least one field to update
+    if $content == null and $priority == null and $status == null {
+      return {
+        success: false
+        error: "At least one of 'content', 'priority', or 'status' must be provided for update"
+      }
+    }
+
+    # Validate content if provided
+    if $content != null and ($content | str trim | is-empty) {
+      return {
+        success: false
+        error: "Content cannot be empty"
+      }
+    }
+
+    # Build SET clauses for fields that are provided
+    mut set_clauses = []
+    mut params = []
+
+    if $content != null {
+      $set_clauses = ($set_clauses | append "content = ?")
+      $params = ($params | append $content)
+    }
+
+    if $priority != null {
+      $set_clauses = ($set_clauses | append "priority = ?")
+      $params = ($params | append $priority)
+    }
+
+    if $status != null {
+      $set_clauses = ($set_clauses | append "status = ?")
+      $params = ($params | append $status)
+
+      # Handle timestamp updates for status changes
+      if $status == "in_progress" {
+        $set_clauses = ($set_clauses | append "started_at = COALESCE(started_at, datetime('now'))")
+      }
+      if $status in ["done" "cancelled"] {
+        $set_clauses = ($set_clauses | append "completed_at = datetime('now')")
+      }
+    }
+
+    let set_sql = $set_clauses | str join ", "
+    let sql = $"UPDATE todo_item SET ($set_sql) WHERE id = ? AND list_id = ?"
+    $params = ($params | append $item_id)
+    $params = ($params | append $list_id)
+
+    let result = execute-sql $db_path $sql $params
+
+    if not $result.success {
+      return {
+        success: false
+        error: $"Failed to update item: ($result.error)"
+      }
+    }
+
+    # Check if all items are now completed and auto-archive if so
+    if $status != null and $status in ["done" "cancelled"] {
+      if (all-items-completed $list_id) {
+        let archive_result = archive-todo-list $list_id
+        if $archive_result.success {
+          return {
+            success: true
+            created: false
+            archived: true
+            note_id: $archive_result.note_id
+          }
+        }
+      }
+    }
+
+    # Return updated item
+    let updated = get-item $list_id $item_id
+    {
+      success: true
+      created: false
+      archived: false
+      item: $updated.item
+    }
+  } else {
+    # Create new item - require content
+    if $content == null {
+      return {
+        success: false
+        error: "'content' is required when creating a new item"
+      }
+    }
+
+    # Validate content is not empty
+    if ($content | str trim | is-empty) {
+      return {
+        success: false
+        error: "Content cannot be empty"
+      }
+    }
+
+    # Use existing add-todo-item function
+    let result = add-todo-item $list_id $content $priority $status
+
+    if not $result.success {
+      return $result
+    }
+
+    {
+      success: true
+      created: true
+      archived: false
+      id: $result.id
+      item_id: $result.id
+      list_id: $list_id
+      content: $content
+      priority: $priority
+      status: ($status | default "backlog")
+      item: {
+        id: $result.id
+        list_id: $list_id
+        content: $content
+        priority: $priority
+        status: ($status | default "backlog")
+      }
+    }
+  }
+}
+
+# Rename a todo list (update name and optionally description)
+# DEPRECATED: Use upsert-list instead
+export def rename-list [
+  list_id: int
+  name: string
+  description?: string
+] {
+  # Validate name is not empty
+  if ($name | str trim | is-empty) {
+    return {
+      success: false
+      error: "Name cannot be empty"
+    }
+  }
+
+  let db_path = get-db-path
+
+  # Check if list exists
+  if not (list-exists $list_id) {
+    return {
+      success: false
+      error: $"List not found: ($list_id)"
+    }
+  }
+
+  # Build SQL based on whether description is provided
+  let sql = if $description != null {
+    "UPDATE todo_list SET name = ?, description = ? WHERE id = ?"
+  } else {
+    "UPDATE todo_list SET name = ? WHERE id = ?"
+  }
+
+  let params = if $description != null {
+    [$name $description $list_id]
+  } else {
+    [$name $list_id]
+  }
+
+  let result = execute-sql $db_path $sql $params
+
+  if $result.success {
+    {success: true}
+  } else {
+    {
+      success: false
+      error: $"Failed to rename list: ($result.error)"
+    }
+  }
+}
+
+# Upsert a todo list - create if no list_id, update if list_id provided
+export def upsert-list [
+  list_id?: int
+  name?: string
+  description?: string
+  tags?: list
+  notes?: string
+] {
+  let db_path = get-db-path
+
+  # If list_id provided, update existing
+  if $list_id != null {
+    # Check if list exists
+    if not (list-exists $list_id) {
+      return {
+        success: false
+        error: $"List not found: ($list_id)"
+      }
+    }
+
+    # Need at least one field to update
+    if $name == null and $description == null and $tags == null and $notes == null {
+      return {
+        success: false
+        error: "At least one of 'name', 'description', 'tags', or 'notes' must be provided for update"
+      }
+    }
+
+    # Validate name if provided
+    if $name != null and ($name | str trim | is-empty) {
+      return {
+        success: false
+        error: "Name cannot be empty"
+      }
+    }
+
+    # Build SET clauses for fields that are provided
+    mut set_clauses = []
+    mut params = []
+
+    if $name != null {
+      $set_clauses = ($set_clauses | append "name = ?")
+      $params = ($params | append $name)
+    }
+
+    if $description != null {
+      $set_clauses = ($set_clauses | append "description = ?")
+      $params = ($params | append $description)
+    }
+
+    if $tags != null {
+      $set_clauses = ($set_clauses | append "tags = ?")
+      $params = ($params | append ($tags | to json))
+    }
+
+    if $notes != null {
+      $set_clauses = ($set_clauses | append "notes = ?")
+      $params = ($params | append $notes)
+    }
+
+    # Always update updated_at
+    $set_clauses = ($set_clauses | append "updated_at = datetime('now')")
+
+    let set_sql = $set_clauses | str join ", "
+    let sql = $"UPDATE todo_list SET ($set_sql) WHERE id = ?"
+    $params = ($params | append $list_id)
+
+    let result = execute-sql $db_path $sql $params
+
+    if not $result.success {
+      return {
+        success: false
+        error: $"Failed to update list: ($result.error)"
+      }
+    }
+
+    # Return updated list
+    let updated = get-list $list_id
+    {
+      success: true
+      created: false
+      list: $updated.list
+    }
+  } else {
+    # Create new list - require name
+    if $name == null {
+      return {
+        success: false
+        error: "'name' is required when creating a new list"
+      }
+    }
+
+    # Validate name is not empty
+    if ($name | str trim | is-empty) {
+      return {
+        success: false
+        error: "Name cannot be empty"
+      }
+    }
+
+    # Use existing create-todo-list function
+    let result = create-todo-list $name $description $tags
+
+    if not $result.success {
+      return $result
+    }
+
+    # If notes provided, update the newly created list with notes
+    if $notes != null {
+      let _ = update-todo-notes $result.id $notes
+    }
+
+    {
+      success: true
+      created: true
+      id: $result.id
+      list_id: $result.id
+      name: $name
+      description: $description
+      tags: $tags
+      notes: $notes
+      list: {
+        id: $result.id
+        name: $name
+        description: $description
+        tags: $tags
+        notes: $notes
+      }
+    }
+  }
+}
+
+# Bulk add multiple items to a list
+# DEPRECATED: Prefer using upsert-item in real-time for better progress tracking
+export def bulk-add-items [
+  list_id: int
+  items: list # List of records with content, optional priority, optional status
+] {
+  # Validate items list is not empty
+  if ($items | is-empty) {
+    return {
+      success: false
+      error: "Items list cannot be empty"
+    }
+  }
+
+  let db_path = get-db-path
+
+  # Check if list exists
+  if not (list-exists $list_id) {
+    return {
+      success: false
+      error: $"List not found: ($list_id)"
+    }
+  }
+
+  # Add each item
+  mut added_ids = []
+  for item in $items {
+    let content = $item.content
+    let priority = if "priority" in $item { $item.priority } else { null }
+    let status = if "status" in $item { $item.status } else { null }
+
+    let result = add-todo-item $list_id $content $priority $status
+
+    if not $result.success {
+      return {
+        success: false
+        error: $"Failed to add item '($content)': ($result.error)"
+        partial_ids: $added_ids
+      }
+    }
+
+    $added_ids = ($added_ids | append $result.id)
+  }
+
+  {
+    success: true
+    ids: $added_ids
+    count: ($added_ids | length)
+  }
+}
+
+# Move an item from one list to another
+export def move-item [
+  source_list_id: int
+  item_id: int
+  target_list_id: int
+] {
+  let db_path = get-db-path
+
+  # Check if item exists in source list
+  if not (item-exists $source_list_id $item_id) {
+    return {
+      success: false
+      error: $"Item not found: ($item_id) in list ($source_list_id)"
+    }
+  }
+
+  # Check if target list exists
+  if not (list-exists $target_list_id) {
+    return {
+      success: false
+      error: $"Target list not found: ($target_list_id)"
+    }
+  }
+
+  let sql = "UPDATE todo_item SET list_id = ? WHERE id = ? AND list_id = ?"
+  let params = [$target_list_id $item_id $source_list_id]
+
+  let result = execute-sql $db_path $sql $params
+
+  if $result.success {
+    {success: true}
+  } else {
+    {
+      success: false
+      error: $"Failed to move item: ($result.error)"
+    }
+  }
+}
+
+# Export all data as JSON for backup
+export def export-data [] {
+  let db_path = get-db-path
+
+  # Get all lists (including archived)
+  let lists_sql = "SELECT id, name, description, notes, tags, status, created_at, updated_at, archived_at 
+                   FROM todo_list 
+                   ORDER BY created_at"
+  let lists_result = query-sql $db_path $lists_sql
+
+  if not $lists_result.success {
+    return {
+      success: false
+      error: $"Failed to export lists: ($lists_result.error)"
+    }
+  }
+
+  # Get all items
+  let items_sql = "SELECT id, list_id, content, status, priority, position, created_at, started_at, completed_at 
+                   FROM todo_item 
+                   ORDER BY list_id, created_at"
+  let items_result = query-sql $db_path $items_sql
+
+  if not $items_result.success {
+    return {
+      success: false
+      error: $"Failed to export items: ($items_result.error)"
+    }
+  }
+
+  # Get all notes
+  let notes_sql = "SELECT id, title, content, tags, note_type, source_id, created_at, updated_at 
+                   FROM note 
+                   ORDER BY created_at"
+  let notes_result = query-sql $db_path $notes_sql
+
+  if not $notes_result.success {
+    return {
+      success: false
+      error: $"Failed to export notes: ($notes_result.error)"
+    }
+  }
+
+  {
+    success: true
+    data: {
+      version: "1.0"
+      exported_at: (date now | format date "%Y-%m-%dT%H:%M:%S")
+      lists: $lists_result.data
+      items: $items_result.data
+      notes: $notes_result.data
+    }
+  }
+}
+
+# Bulk update status for multiple items
+# DEPRECATED: Prefer using upsert-item in real-time for better progress tracking
+export def bulk-update-status [
+  list_id: int
+  item_ids: list<int>
+  new_status: string
+] {
+  # Validate status
+  let valid_statuses = ["backlog" "todo" "in_progress" "review" "done" "cancelled"]
+  if $new_status not-in $valid_statuses {
+    return {
+      success: false
+      error: $"Invalid status: '($new_status)'. Must be one of: ($valid_statuses | str join ', ')"
+    }
+  }
+
+  let db_path = get-db-path
+
+  mut updated_count = 0
+  mut archived = false
+  mut archive_note_id = null
+
+  for item_id in $item_ids {
+    # Check if item exists
+    if not (item-exists $list_id $item_id) {
+      continue # Skip non-existent items
+    }
+
+    let result = update-item-status $list_id $item_id $new_status
+    if $result.success {
+      $updated_count = $updated_count + 1
+      if $result.archived {
+        $archived = true
+        $archive_note_id = $result.note_id
+      }
+    }
+  }
+
+  {
+    success: true
+    count: $updated_count
+    archived: $archived
+    note_id: $archive_note_id
+  }
+}
+
+# Get list metadata without items
+export def get-list [
+  list_id: int
+] {
+  let db_path = get-db-path
+
+  let sql = "SELECT id, name, description, notes, tags, status, created_at, updated_at, archived_at 
+             FROM todo_list 
+             WHERE id = ?"
+  let params = [$list_id]
+
+  let result = query-sql $db_path $sql $params
+
+  if not $result.success {
+    return {
+      success: false
+      error: $"Failed to get list: ($result.error)"
     }
   }
 
   if ($result.data | is-empty) {
     return {
-      success: true
-      scratchpad: null
+      success: false
+      error: $"List not found: ($list_id)"
     }
   }
 
-  let scratchpad = $result.data | first | upsert tags (parse-tags ($result.data | first | get tags))
+  let list = $result.data | first | upsert tags (parse-tags ($result.data | first | get tags))
 
   {
     success: true
-    scratchpad: $scratchpad
+    list: $list
+  }
+}
+
+# Manually archive a list (even if items aren't all complete)
+export def archive-list-manual [
+  list_id: int
+] {
+  let db_path = get-db-path
+
+  # Check if list exists and is active
+  let list_result = get-list $list_id
+
+  if not $list_result.success {
+    return $list_result
+  }
+
+  if $list_result.list.status == "archived" {
+    return {
+      success: false
+      error: "List is already archived"
+    }
+  }
+
+  # Use existing archive function
+  archive-todo-list $list_id
+}
+
+# Import data from JSON backup (full restore - clears existing data)
+export def import-data [
+  data: record
+] {
+  let db_path = get-db-path
+
+  # Validate data structure
+  if "lists" not-in $data {
+    return {
+      success: false
+      error: "Invalid data: missing 'lists' field"
+    }
+  }
+
+  if "items" not-in $data {
+    return {
+      success: false
+      error: "Invalid data: missing 'items' field"
+    }
+  }
+
+  if "notes" not-in $data {
+    return {
+      success: false
+      error: "Invalid data: missing 'notes' field"
+    }
+  }
+
+  # Clear existing data (full restore)
+  # Delete in order due to foreign keys
+  let _ = execute-sql $db_path "DELETE FROM todo_item" []
+  let _ = execute-sql $db_path "DELETE FROM todo_list" []
+  let _ = execute-sql $db_path "DELETE FROM note" []
+
+  # Track ID mappings for relational data
+  mut list_id_map = {}
+  mut imported_lists = 0
+  mut imported_items = 0
+  mut imported_notes = 0
+
+  # Import lists
+  for list in $data.lists {
+    let tags_json = if $list.tags != null { $list.tags } else { null }
+    let sql = "INSERT INTO todo_list (name, description, notes, tags, status, created_at, updated_at, archived_at) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?) 
+               RETURNING id"
+    let params = [
+      $list.name
+      ($list.description? | default null)
+      ($list.notes? | default null)
+      $tags_json
+      ($list.status? | default "active")
+      ($list.created_at? | default (date now | format date "%Y-%m-%dT%H:%M:%S"))
+      ($list.updated_at? | default (date now | format date "%Y-%m-%dT%H:%M:%S"))
+      ($list.archived_at? | default null)
+    ]
+
+    let result = query-sql $db_path $sql $params
+    if $result.success and ($result.data | is-not-empty) {
+      let new_id = $result.data | first | get id
+      $list_id_map = ($list_id_map | upsert ($list.id | into string) $new_id)
+      $imported_lists = $imported_lists + 1
+    }
+  }
+
+  # Import items
+  for item in $data.items {
+    let old_list_id = $item.list_id | into string
+    let new_list_id = if $old_list_id in $list_id_map {
+      $list_id_map | get $old_list_id
+    } else {
+      continue # Skip if list wasn't imported
+    }
+
+    let sql = "INSERT INTO todo_item (list_id, content, status, priority, position, created_at, started_at, completed_at) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    let params = [
+      $new_list_id
+      $item.content
+      ($item.status? | default "backlog")
+      ($item.priority? | default null)
+      ($item.position? | default null)
+      ($item.created_at? | default (date now | format date "%Y-%m-%dT%H:%M:%S"))
+      ($item.started_at? | default null)
+      ($item.completed_at? | default null)
+    ]
+
+    let result = execute-sql $db_path $sql $params
+    if $result.success {
+      $imported_items = $imported_items + 1
+    }
+  }
+
+  # Import notes
+  for note in $data.notes {
+    let tags_json = if $note.tags != null { $note.tags } else { null }
+    let source_id = if "source_id" in $note and $note.source_id != null {
+      let old_id = $note.source_id | into string
+      if $old_id in $list_id_map { $list_id_map | get $old_id } else { null }
+    } else {
+      null
+    }
+
+    let sql = "INSERT INTO note (title, content, tags, note_type, source_id, created_at, updated_at) 
+               VALUES (?, ?, ?, ?, ?, ?, ?)"
+    let params = [
+      $note.title
+      $note.content
+      $tags_json
+      ($note.note_type? | default "manual")
+      $source_id
+      ($note.created_at? | default (date now | format date "%Y-%m-%dT%H:%M:%S"))
+      ($note.updated_at? | default (date now | format date "%Y-%m-%dT%H:%M:%S"))
+    ]
+
+    let result = execute-sql $db_path $sql $params
+    if $result.success {
+      $imported_notes = $imported_notes + 1
+    }
+  }
+
+  {
+    success: true
+    imported: {
+      lists: $imported_lists
+      items: $imported_items
+      notes: $imported_notes
+    }
   }
 }

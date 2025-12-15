@@ -14,14 +14,18 @@ def "main list-tools" [] {
 
   [
     {
-      name: "c5t_create_list"
-      description: "Create a new todo list to track work items and progress"
+      name: "upsert_list"
+      description: "Create or update a todo list. Omit list_id to create new, provide list_id to update. Supports name, description, tags, and progress notes."
       input_schema: {
         type: "object"
         properties: {
+          list_id: {
+            type: "integer"
+            description: "ID of list to update (omit to create new)"
+          }
           name: {
             type: "string"
-            description: "Name of the todo list (e.g., 'Feature Implementation', 'Bug Fixes')"
+            description: "Name of the todo list (required for new lists)"
           }
           description: {
             type: "string"
@@ -30,15 +34,18 @@ def "main list-tools" [] {
           tags: {
             type: "array"
             items: {type: "string"}
-            description: "Tags to organize the list (e.g., ['backend', 'urgent']) (optional)"
+            description: "Tags to organize the list (optional)"
+          }
+          notes: {
+            type: "string"
+            description: "Progress notes, decisions, or context for this list (markdown supported)"
           }
         }
-        required: ["name"]
       }
     }
     {
-      name: "c5t_list_active"
-      description: "List all active todo lists, optionally filtered by tags"
+      name: "list_active"
+      description: "SHOW TO USER. See all your active work at a glance."
       input_schema: {
         type: "object"
         properties: {
@@ -51,84 +58,42 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_add_item"
-      description: "Add a todo item to an existing list"
+      name: "upsert_item"
+      description: "Create or update a todo item. Omit item_id to create new, provide item_id to update. Can set content, priority, status in one call. Auto-timestamps on status changes."
       input_schema: {
         type: "object"
         properties: {
           list_id: {
             type: "integer"
-            description: "ID of the todo list to add the item to"
+            description: "ID of the todo list"
+          }
+          item_id: {
+            type: "integer"
+            description: "ID of item to update (omit to create new)"
           }
           content: {
             type: "string"
-            description: "Description of the todo item"
+            description: "Description of the todo item (required for new items)"
           }
           priority: {
             type: "integer"
-            description: "Priority level (1-5, where 5 is highest priority) (optional)"
+            description: "Priority level (1-5, where 1 is highest priority) (optional)"
             minimum: 1
             maximum: 5
           }
           status: {
             type: "string"
-            description: "Initial status (defaults to 'backlog')"
+            description: "Status (defaults to 'backlog' for new items)"
             enum: ["backlog" "todo" "in_progress" "review" "done" "cancelled"]
           }
         }
-        required: ["list_id" "content"]
+        required: ["list_id"]
       }
     }
+
     {
-      name: "c5t_update_item_status"
-      description: "Update the status of a todo item (automatically manages started_at and completed_at timestamps)"
-      input_schema: {
-        type: "object"
-        properties: {
-          list_id: {
-            type: "integer"
-            description: "ID of the todo list containing the item"
-          }
-          item_id: {
-            type: "integer"
-            description: "ID of the item to update"
-          }
-          status: {
-            type: "string"
-            description: "New status for the item"
-            enum: ["backlog" "todo" "in_progress" "review" "done" "cancelled"]
-          }
-        }
-        required: ["list_id" "item_id" "status"]
-      }
-    }
-    {
-      name: "c5t_update_item_priority"
-      description: "Update the priority of a todo item"
-      input_schema: {
-        type: "object"
-        properties: {
-          list_id: {
-            type: "integer"
-            description: "ID of the todo list containing the item"
-          }
-          item_id: {
-            type: "integer"
-            description: "ID of the item to update"
-          }
-          priority: {
-            type: "integer"
-            description: "New priority level (1-5, where 5 is highest)"
-            minimum: 1
-            maximum: 5
-          }
-        }
-        required: ["list_id" "item_id" "priority"]
-      }
-    }
-    {
-      name: "c5t_complete_item"
-      description: "Mark a todo item as complete (shorthand for setting status to 'done')"
+      name: "complete_item"
+      description: "Mark item as complete (status='done'). Sets completed_at timestamp. Auto-archives list when this completes the last item."
       input_schema: {
         type: "object"
         properties: {
@@ -145,8 +110,146 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_list_items"
-      description: "List all items in a todo list, optionally filtered by status"
+      name: "delete_item"
+      description: "Remove a todo item from a list permanently."
+      input_schema: {
+        type: "object"
+        properties: {
+          list_id: {
+            type: "integer"
+            description: "ID of the todo list containing the item"
+          }
+          item_id: {
+            type: "integer"
+            description: "ID of the item to delete"
+          }
+        }
+        required: ["list_id" "item_id"]
+      }
+    }
+
+    {
+      name: "delete_list"
+      description: "Remove a todo list. Use force=true to delete list with items, otherwise fails if list has items."
+      input_schema: {
+        type: "object"
+        properties: {
+          list_id: {
+            type: "integer"
+            description: "ID of the todo list to delete"
+          }
+          force: {
+            type: "boolean"
+            description: "If true, delete list even if it has items (default: false)"
+          }
+        }
+        required: ["list_id"]
+      }
+    }
+    {
+      name: "delete_note"
+      description: "Remove a note permanently by ID."
+      input_schema: {
+        type: "object"
+        properties: {
+          note_id: {
+            type: "integer"
+            description: "ID of the note to delete"
+          }
+        }
+        required: ["note_id"]
+      }
+    }
+
+    {
+      name: "move_item"
+      description: "Move a todo item from one list to another."
+      input_schema: {
+        type: "object"
+        properties: {
+          source_list_id: {
+            type: "integer"
+            description: "ID of the list containing the item"
+          }
+          item_id: {
+            type: "integer"
+            description: "ID of the item to move"
+          }
+          target_list_id: {
+            type: "integer"
+            description: "ID of the list to move the item to"
+          }
+        }
+        required: ["source_list_id" "item_id" "target_list_id"]
+      }
+    }
+
+    {
+      name: "get_list"
+      description: "SHOW TO USER. Get list metadata (name, description, tags, status) without items."
+      input_schema: {
+        type: "object"
+        properties: {
+          list_id: {
+            type: "integer"
+            description: "ID of the todo list"
+          }
+        }
+        required: ["list_id"]
+      }
+    }
+    {
+      name: "archive_list"
+      description: "Manually archive a list (creates archive note). Works even if items aren't all complete."
+      input_schema: {
+        type: "object"
+        properties: {
+          list_id: {
+            type: "integer"
+            description: "ID of the todo list to archive"
+          }
+        }
+        required: ["list_id"]
+      }
+    }
+    {
+      name: "export_data"
+      description: "Export all c5t data (lists, items, notes) as JSON backup file. Saves to .c5t/backup-{timestamp}.json by default."
+      input_schema: {
+        type: "object"
+        properties: {
+          filename: {
+            type: "string"
+            description: "Custom backup filename (optional, defaults to backup-{timestamp}.json)"
+          }
+        }
+      }
+    }
+    {
+      name: "import_data"
+      description: "Import c5t data from JSON backup file. Replaces all existing data. Use list_backups to see available files."
+      input_schema: {
+        type: "object"
+        properties: {
+          filename: {
+            type: "string"
+            description: "Backup filename in .c5t/ directory (e.g., 'backup-20251215-120000.json')"
+          }
+        }
+        required: ["filename"]
+      }
+    }
+    {
+      name: "list_backups"
+      description: "SHOW TO USER. List available backup files in .c5t/ directory."
+      input_schema: {
+        type: "object"
+        properties: {}
+      }
+    }
+    {
+      name: "list_items"
+      description: "SHOW TO USER. View all todos with status, priority, and timestamps. Filter by status if needed."
       input_schema: {
         type: "object"
         properties: {
@@ -164,8 +267,8 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_list_active_items"
-      description: "List active items in a todo list (excludes 'done' and 'cancelled')"
+      name: "list_active_items"
+      description: "SHOW TO USER. See what's left to do (excludes completed/cancelled)."
       input_schema: {
         type: "object"
         properties: {
@@ -177,37 +280,24 @@ def "main list-tools" [] {
         required: ["list_id"]
       }
     }
+
     {
-      name: "c5t_update_notes"
-      description: "Update the progress notes on a todo list (supports markdown)"
+      name: "upsert_note"
+      description: "Create or update a note. Provide note_id to update existing, omit to create new. Tip: Use tag 'session' for context across compactions."
       input_schema: {
         type: "object"
         properties: {
-          list_id: {
+          note_id: {
             type: "integer"
-            description: "ID of the todo list to update"
+            description: "ID of note to update (omit to create new)"
           }
-          notes: {
-            type: "string"
-            description: "Markdown-formatted progress notes (can be empty to clear notes)"
-          }
-        }
-        required: ["list_id" "notes"]
-      }
-    }
-    {
-      name: "c5t_create_note"
-      description: "Create a standalone note with markdown content"
-      input_schema: {
-        type: "object"
-        properties: {
           title: {
             type: "string"
-            description: "Title of the note"
+            description: "Title of the note (required for new notes)"
           }
           content: {
             type: "string"
-            description: "Markdown-formatted content of the note"
+            description: "Markdown-formatted content (required for new notes)"
           }
           tags: {
             type: "array"
@@ -215,12 +305,11 @@ def "main list-tools" [] {
             description: "Tags to organize the note (optional)"
           }
         }
-        required: ["title" "content"]
       }
     }
     {
-      name: "c5t_list_notes"
-      description: "List notes with optional filtering by tags, type, and limit"
+      name: "list_notes"
+      description: "SHOW TO USER. Browse all saved notes and archived work. Filter by tags or type. Lost context? Look for notes tagged 'session'."
       input_schema: {
         type: "object"
         properties: {
@@ -231,8 +320,8 @@ def "main list-tools" [] {
           }
           note_type: {
             type: "string"
-            description: "Filter by note type (optional)"
-            enum: ["manual" "archived_todo" "scratchpad"]
+            description: "Filter by note type: 'manual' (user-created notes), 'archived_todo' (completed todo lists) (optional)"
+            enum: ["manual" "archived_todo"]
           }
           limit: {
             type: "integer"
@@ -243,28 +332,28 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_get_note"
-      description: "Get a specific note by ID"
+      name: "get_note"
+      description: "SHOW TO USER. Retrieve a saved note or archived list."
       input_schema: {
         type: "object"
         properties: {
           note_id: {
             type: "integer"
-            description: "ID of the note to retrieve"
+            description: "ID of the note to retrieve (from list_notes or search results)"
           }
         }
         required: ["note_id"]
       }
     }
     {
-      name: "c5t_search"
-      description: "Search notes using full-text search. Supports FTS5 query syntax: simple terms, boolean operators (AND, OR, NOT), phrases (\"exact match\"), and prefix matching (term*)"
+      name: "search"
+      description: "SHOW TO USER. Find past work instantly. Searches all notes and archived todos with boolean operators (AND, OR, NOT)."
       input_schema: {
         type: "object"
         properties: {
           query: {
             type: "string"
-            description: "Search query. Examples: 'database', 'api AND database', '\"error handling\"', 'auth*'"
+            description: "FTS5 search query. Simple: 'keyword'. Boolean: 'term1 AND term2', 'term1 OR term2'. Exclude: 'NOT term'. Phrase: '\"exact phrase\"'. Prefix: 'term*'. Combine: 'api AND (error OR bug) NOT deprecated'"
           }
           tags: {
             type: "array"
@@ -282,22 +371,8 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "c5t_update_scratchpad"
-      description: "Update or create the scratchpad note. Only one scratchpad exists - it will be created if it doesn't exist, or updated if it does. Use this to maintain an auto-updating context summary."
-      input_schema: {
-        type: "object"
-        properties: {
-          content: {
-            type: "string"
-            description: "Markdown content for the scratchpad. Typically includes active todos, recent notes, files being worked on, and current timestamp."
-          }
-        }
-        required: ["content"]
-      }
-    }
-    {
-      name: "c5t_get_scratchpad"
-      description: "Retrieve the current scratchpad note. Returns null if no scratchpad exists yet."
+      name: "get_summary"
+      description: "SHOW TO USER. Quick status overview: active lists, in-progress items, priorities. Perfect for session start. For detailed context, check notes tagged 'session'."
       input_schema: {
         type: "object"
         properties: {}
@@ -317,26 +392,29 @@ def "main call-tool" [
   }
 
   match $tool_name {
-    "c5t_create_list" => {
-      let validation = validate-list-input $parsed_args
-      if not $validation.valid {
-        return $validation.error
-      }
-
-      let name = $parsed_args.name
+    "upsert_list" => {
+      let list_id = if "list_id" in $parsed_args { $parsed_args.list_id } else { null }
+      let name = if "name" in $parsed_args { $parsed_args.name } else { null }
       let description = if "description" in $parsed_args { $parsed_args.description } else { null }
       let tags = if "tags" in $parsed_args { $parsed_args.tags } else { null }
+      let notes = if "notes" in $parsed_args { $parsed_args.notes } else { null }
 
-      let result = create-todo-list $name $description $tags
+      let result = upsert-list $list_id $name $description $tags $notes
 
       if not $result.success {
         return $result.error
       }
 
-      format-list-created $result
+      if $result.created {
+        format-list-created $result
+      } else {
+        $"✓ List updated
+  ID: ($result.list.id)
+  Name: ($result.list.name)"
+      }
     }
 
-    "c5t_list_active" => {
+    "list_active" => {
       let tag_filter = if "tags" in $parsed_args { $parsed_args.tags } else { null }
 
       let result = get-active-lists $tag_filter
@@ -348,14 +426,14 @@ def "main call-tool" [
       format-active-lists $result.lists
     }
 
-    "c5t_add_item" => {
-      let validation = validate-item-input $parsed_args
-      if not $validation.valid {
-        return $validation.error
+    "upsert_item" => {
+      if "list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'list_id'"
       }
 
       let list_id = $parsed_args.list_id
-      let content = $parsed_args.content
+      let item_id = if "item_id" in $parsed_args { $parsed_args.item_id } else { null }
+      let content = if "content" in $parsed_args { $parsed_args.content } else { null }
       let priority = if "priority" in $parsed_args { $parsed_args.priority } else { null }
       let status = if "status" in $parsed_args { $parsed_args.status } else { null }
 
@@ -375,93 +453,24 @@ def "main call-tool" [
         }
       }
 
-      # Check if list exists
-      if not (list-exists $list_id) {
-        return $"Error: List not found: ($list_id)"
-      }
-
-      let result = add-todo-item $list_id $content $priority $status
+      let result = upsert-item $list_id $item_id $content $priority $status
 
       if not $result.success {
         return $result.error
       }
 
-      format-item-created $result
-    }
-
-    "c5t_update_item_status" => {
-      let validation = validate-item-update-input $parsed_args
-      if not $validation.valid {
-        return $validation.error
-      }
-
-      if "status" not-in $parsed_args {
-        return "Error: Missing required field: 'status'"
-      }
-
-      let list_id = $parsed_args.list_id
-      let item_id = $parsed_args.item_id
-      let status = $parsed_args.status
-
-      # Validate status
-      let status_validation = validate-status $status
-      if not $status_validation.valid {
-        return $status_validation.error
-      }
-
-      # Check if item exists
-      if not (item-exists $list_id $item_id) {
-        return $"Error: Item not found: ($item_id)"
-      }
-
-      let result = update-item-status $list_id $item_id $status
-
-      if not $result.success {
-        return $result.error
-      }
-
-      if $result.archived {
-        format-item-updated-with-archive "status" $item_id $status $result.note_id
+      if $result.created {
+        format-item-created $result
+      } else if $result.archived {
+        format-item-updated-with-archive "item" $result.item.id "updated" $result.note_id
       } else {
-        format-item-updated "status" $item_id $status
+        $"✓ Item updated
+  ID: ($result.item.id)
+  Content: ($result.item.content)"
       }
     }
 
-    "c5t_update_item_priority" => {
-      let validation = validate-item-update-input $parsed_args
-      if not $validation.valid {
-        return $validation.error
-      }
-
-      if "priority" not-in $parsed_args {
-        return "Error: Missing required field: 'priority'"
-      }
-
-      let list_id = $parsed_args.list_id
-      let item_id = $parsed_args.item_id
-      let priority = $parsed_args.priority
-
-      # Validate priority
-      let priority_validation = validate-priority $priority
-      if not $priority_validation.valid {
-        return $priority_validation.error
-      }
-
-      # Check if item exists
-      if not (item-exists $list_id $item_id) {
-        return $"Error: Item not found: ($item_id)"
-      }
-
-      let result = update-item-priority $list_id $item_id $priority
-
-      if not $result.success {
-        return $result.error
-      }
-
-      format-item-updated "priority" $item_id $priority
-    }
-
-    "c5t_complete_item" => {
+    "complete_item" => {
       let validation = validate-item-update-input $parsed_args
       if not $validation.valid {
         return $validation.error
@@ -488,7 +497,220 @@ def "main call-tool" [
       }
     }
 
-    "c5t_list_items" => {
+    "delete_item" => {
+      let validation = validate-item-update-input $parsed_args
+      if not $validation.valid {
+        return $validation.error
+      }
+
+      let list_id = $parsed_args.list_id
+      let item_id = $parsed_args.item_id
+
+      let result = delete-item $list_id $item_id
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $"✓ Item deleted \(ID: ($item_id)\)"
+    }
+
+    "delete_list" => {
+      if "list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'list_id'"
+      }
+
+      let list_id = $parsed_args.list_id
+      let force = if "force" in $parsed_args { $parsed_args.force } else { false }
+
+      let result = delete-list $list_id $force
+
+      if not $result.success {
+        return $result.error
+      }
+
+      if $force {
+        $"✓ List and all items deleted \(ID: ($list_id)\)"
+      } else {
+        $"✓ List deleted \(ID: ($list_id)\)"
+      }
+    }
+
+    "delete_note" => {
+      if "note_id" not-in $parsed_args {
+        return "Error: Missing required field: 'note_id'"
+      }
+
+      let note_id = $parsed_args.note_id
+
+      let result = delete-note $note_id
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $"✓ Note deleted \(ID: ($note_id)\)"
+    }
+
+    "move_item" => {
+      if "source_list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'source_list_id'"
+      }
+
+      if "item_id" not-in $parsed_args {
+        return "Error: Missing required field: 'item_id'"
+      }
+
+      if "target_list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'target_list_id'"
+      }
+
+      let source_list_id = $parsed_args.source_list_id
+      let item_id = $parsed_args.item_id
+      let target_list_id = $parsed_args.target_list_id
+
+      let result = move-item $source_list_id $item_id $target_list_id
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $"✓ Item moved \(ID: ($item_id)\)
+  From list: ($source_list_id)
+  To list: ($target_list_id)"
+    }
+
+    "get_list" => {
+      if "list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'list_id'"
+      }
+
+      let list_id = $parsed_args.list_id
+
+      let result = get-list $list_id
+
+      if not $result.success {
+        return $result.error
+      }
+
+      format-list-detail $result.list
+    }
+
+    "archive_list" => {
+      if "list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'list_id'"
+      }
+
+      let list_id = $parsed_args.list_id
+
+      let result = archive-list-manual $list_id
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $"✓ List archived \(ID: ($list_id)\)
+  Archive note created \(Note ID: ($result.note_id)\)"
+    }
+
+    "export_data" => {
+      let result = export-data
+
+      if not $result.success {
+        return $result.error
+      }
+
+      # Generate filename
+      let timestamp = date now | format date "%Y%m%d-%H%M%S"
+      let filename = if "filename" in $parsed_args and $parsed_args.filename != null {
+        $parsed_args.filename
+      } else {
+        $"backup-($timestamp).json"
+      }
+
+      # Ensure .c5t directory exists
+      let backup_dir = ".c5t"
+      if not ($backup_dir | path exists) {
+        mkdir $backup_dir
+      }
+
+      # Write backup file
+      let filepath = $"($backup_dir)/($filename)"
+      $result.data | to json --indent 2 | save -f $filepath
+
+      $"✓ Backup saved to ($filepath)
+  Lists: ($result.data.lists | length)
+  Items: ($result.data.items | length)
+  Notes: ($result.data.notes | length)"
+    }
+
+    "import_data" => {
+      if "filename" not-in $parsed_args {
+        return "Error: Missing required field: 'filename'"
+      }
+
+      let filename = $parsed_args.filename
+
+      # Build filepath
+      let filepath = $".c5t/($filename)"
+
+      # Check if file exists
+      if not ($filepath | path exists) {
+        return $"Error: Backup file not found: ($filepath)
+
+Use list_backups to see available backup files."
+      }
+
+      # Read and parse the backup file
+      let data = try {
+        open $filepath
+      } catch {
+        return $"Error: Failed to read backup file: ($filepath)"
+      }
+
+      let result = import-data $data
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $"✓ Data restored from ($filepath)
+  Lists: ($result.imported.lists)
+  Items: ($result.imported.items)
+  Notes: ($result.imported.notes)"
+    }
+
+    "list_backups" => {
+      let backup_dir = ".c5t"
+
+      if not ($backup_dir | path exists) {
+        return "No backup directory found. Run export_data first to create a backup."
+      }
+
+      let backups = glob $"($backup_dir)/*.json" | sort -r
+
+      if ($backups | is-empty) {
+        return "No backup files found in .c5t/"
+      }
+
+      let backup_info = $backups | each {|file|
+          let stat = ls $file | first
+          {
+            filename: ($file | path basename)
+            size: $stat.size
+            modified: $stat.modified
+          }
+        }
+
+      let lines = ["Available backups:" ""]
+      let file_lines = $backup_info | each {|b|
+          $"  ($b.filename) \(($b.size), ($b.modified)\)"
+        }
+
+      [...$lines ...$file_lines "" "Use import_data with filename to restore."] | str join (char newline)
+    }
+
+    "list_items" => {
       if "list_id" not-in $parsed_args {
         return "Error: Missing required field: 'list_id'"
       }
@@ -510,10 +732,10 @@ def "main call-tool" [
         return $result.error
       }
 
-      format-items-list $result.list $result.items
+      format-items-table $result.list $result.items
     }
 
-    "c5t_list_active_items" => {
+    "list_active_items" => {
       if "list_id" not-in $parsed_args {
         return "Error: Missing required field: 'list_id'"
       }
@@ -526,55 +748,31 @@ def "main call-tool" [
         return $result.error
       }
 
-      format-items-list $result.list $result.items
+      format-items-table $result.list $result.items
     }
 
-    "c5t_update_notes" => {
-      if "list_id" not-in $parsed_args {
-        return "Error: Missing required field: 'list_id'"
-      }
-
-      if "notes" not-in $parsed_args {
-        return "Error: Missing required field: 'notes'"
-      }
-
-      let list_id = $parsed_args.list_id
-      let notes = $parsed_args.notes
-
-      # Check if list exists
-      if not (list-exists $list_id) {
-        return $"Error: List not found: ($list_id)"
-      }
-
-      let result = update-todo-notes $list_id $notes
-
-      if not $result.success {
-        return $result.error
-      }
-
-      format-notes-updated $list_id
-    }
-
-    "c5t_create_note" => {
-      let validation = validate-note-input $parsed_args
-      if not $validation.valid {
-        return $validation.error
-      }
-
-      let title = $parsed_args.title
-      let content = $parsed_args.content
+    "upsert_note" => {
+      let note_id = if "note_id" in $parsed_args { $parsed_args.note_id } else { null }
+      let title = if "title" in $parsed_args { $parsed_args.title } else { null }
+      let content = if "content" in $parsed_args { $parsed_args.content } else { null }
       let tags = if "tags" in $parsed_args { $parsed_args.tags } else { null }
 
-      let result = create-note $title $content $tags
+      let result = upsert-note $note_id $title $content $tags
 
       if not $result.success {
         return $result.error
       }
 
-      format-note-created-manual $result
+      if $result.created {
+        format-note-created-manual $result
+      } else {
+        $"✓ Note updated
+  ID: ($result.note.id)
+  Title: ($result.note.title)"
+      }
     }
 
-    "c5t_list_notes" => {
+    "list_notes" => {
       let tag_filter = if "tags" in $parsed_args { $parsed_args.tags } else { null }
       let note_type = if "note_type" in $parsed_args { $parsed_args.note_type } else { null }
       let limit = if "limit" in $parsed_args { $parsed_args.limit } else { null }
@@ -588,14 +786,14 @@ def "main call-tool" [
       format-notes-list-detailed $result.notes
     }
 
-    "c5t_get_note" => {
+    "get_note" => {
       if "note_id" not-in $parsed_args {
         return "Error: Missing required field: 'note_id'"
       }
 
       let note_id = $parsed_args.note_id
 
-      let result = get-note-by-id $note_id
+      let result = get-note $note_id
 
       if not $result.success {
         return $result.error
@@ -604,7 +802,7 @@ def "main call-tool" [
       format-note-detail $result.note
     }
 
-    "c5t_search" => {
+    "search" => {
       if "query" not-in $parsed_args {
         return "Error: Missing required field: 'query'"
       }
@@ -622,37 +820,14 @@ def "main call-tool" [
       format-search-results $result.notes
     }
 
-    "c5t_update_scratchpad" => {
-      if "content" not-in $parsed_args {
-        return "Error: Missing required field: 'content'"
-      }
-
-      let content = $parsed_args.content
-
-      let result = update-scratchpad $content
+    "get_summary" => {
+      let result = get-summary
 
       if not $result.success {
         return $result.error
       }
 
-      $"✅ Scratchpad updated \(ID: ($result.scratchpad_id)\)
-
-Content preview:($content | lines | first 3 | str join (char newline))
-..."
-    }
-
-    "c5t_get_scratchpad" => {
-      let result = get-scratchpad
-
-      if not $result.success {
-        return $result.error
-      }
-
-      if $result.scratchpad == null {
-        return "📝 No scratchpad exists yet. Create one with c5t_update_scratchpad."
-      }
-
-      format-note-detail $result.scratchpad
+      format-summary $result.summary
     }
 
     _ => {

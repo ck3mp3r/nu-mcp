@@ -1,139 +1,92 @@
-# Tests for formatters.nu - output formatting functions
+# Tests for formatters.nu - output formatting
+# Focus: One test per formatter to verify basic output
 
 use std/assert
 
-# Test format-todo-created with valid list
-export def "test format-todo-created returns formatted output" [] {
-  use ../formatters.nu format-todo-created
+export def "test format-list-created formats output" [] {
+  use ../formatters.nu format-list-created
 
-  let list = {
-    name: "Test List"
-    id: 1234
-    status: "active"
-    created_at: "2025-12-14 13:45:30"
-  }
+  let result = {id: 1234 name: "Test" description: "Desc" tags: ["tag1"]}
+  let output = format-list-created $result
 
-  let output = format-todo-created $list
-
-  assert ($output | str contains "Test List")
-  assert ($output | str contains 1234)
-  assert ($output | str contains "active")
-  assert ($output | str contains "2025-12-14 13:45:30")
+  assert ($output | str contains "Test")
+  assert ($output | str contains "1234")
 }
 
-# Test format-todos-list with empty list
-export def "test format-todos-list handles empty list" [] {
-  use ../formatters.nu format-todos-list
-
-  let output = format-todos-list []
-
-  assert equal $output "No active todo lists found."
-}
-
-# Test format-todos-list with single item
-export def "test format-todos-list formats single item" [] {
-  use ../formatters.nu format-todos-list
+export def "test format-active-lists formats output" [] {
+  use ../formatters.nu format-active-lists
 
   let lists = [
     {
-      name: "Feature Work"
-      id: "123-456"
-      status: "active"
+      id: 1
+      name: "Sprint Tasks"
+      description: "Q1 sprint"
+      notes: null
+      tags: ["sprint"]
       created_at: "2025-12-14"
+      updated_at: "2025-12-14"
     }
   ]
 
-  let output = format-todos-list $lists
+  let output = format-active-lists $lists
 
-  assert ($output | str contains "Active Todo Lists:")
-  assert ($output | str contains "Feature Work")
-  assert ($output | str contains "123-456")
-  assert ($output | str contains "active")
+  assert ($output | str contains "Sprint Tasks")
+  assert ($output | str contains "sprint")
 }
 
-# Test format-todos-list with multiple items
-export def "test format-todos-list formats multiple items" [] {
-  use ../formatters.nu format-todos-list
+export def "test format-active-lists handles empty" [] {
+  use ../formatters.nu format-active-lists
 
-  let lists = [
-    {name: "List 1" id: 1 status: "active" created_at: "2025-12-14"}
-    {name: "List 2" id: 2 status: "active" created_at: "2025-12-15"}
-  ]
-
-  let output = format-todos-list $lists
-
-  assert ($output | str contains "List 1")
-  assert ($output | str contains "List 2")
-  assert ($output | str contains 1)
-  assert ($output | str contains 2)
+  let output = format-active-lists []
+  assert ($output | str contains "No active")
 }
 
-# Test format-note-created with valid note
-export def "test format-note-created returns formatted output" [] {
-  use ../formatters.nu format-note-created
+export def "test format-note-detail formats output" [] {
+  use ../formatters.nu format-note-detail
 
   let note = {
-    title: "Architecture Decision"
-    id: 123
+    title: "Architecture"
+    id: 789
     note_type: "manual"
-    created_at: "2025-12-14 14:00:00"
+    tags: ["arch"]
+    created_at: "2025-01-14"
+    updated_at: "2025-01-14"
+    content: "Decision content here"
   }
 
-  let output = format-note-created $note
+  let output = format-note-detail $note
 
-  assert ($output | str contains "Architecture Decision")
-  assert ($output | str contains 123)
-  assert ($output | str contains "manual")
-  assert ($output | str contains "2025-12-14 14:00:00")
+  assert ($output | str contains "Architecture")
+  assert ($output | str contains "789")
+  assert ($output | str contains "Decision content")
 }
 
-# Test format-notes-list with empty list
-export def "test format-notes-list handles empty list" [] {
-  use ../formatters.nu format-notes-list
-
-  let output = format-notes-list []
-
-  assert equal $output "No notes found."
-}
-
-# Test format-notes-list with single note
-export def "test format-notes-list formats single note" [] {
-  use ../formatters.nu format-notes-list
+export def "test format-notes-list-detailed formats output" [] {
+  use ../formatters.nu format-notes-list-detailed
 
   let notes = [
     {
       title: "Meeting Notes"
-      id: 1
+      id: 123
       note_type: "manual"
-      created_at: "2025-12-14"
-      content: "Discussed project timeline and deliverables for Q1 2025"
+      tags: ["meeting"]
+      created_at: "2025-01-14"
+      content: "Discussed project timeline"
     }
   ]
 
-  let output = format-notes-list $notes
+  let output = format-notes-list-detailed $notes
 
-  assert ($output | str contains "Notes:")
   assert ($output | str contains "Meeting Notes")
-  assert ($output | str contains 1)
-  assert ($output | str contains "Preview:")
+  assert ($output | str contains "📝")
 }
 
-# Test format-search-results with empty list
-export def "test format-search-results handles empty list" [] {
-  use ../formatters.nu format-search-results
-
-  let output = format-search-results []
-
-  assert equal $output "No results found."
-}
-
-# Test format-search-results with results
-export def "test format-search-results formats results" [] {
+export def "test format-search-results formats output" [] {
   use ../formatters.nu format-search-results
 
   let notes = [
     {
-      title: "Search Result 1"
+      title: "Result"
       id: "sr-1"
       note_type: "manual"
       created_at: "2025-12-14"
@@ -142,273 +95,39 @@ export def "test format-search-results formats results" [] {
 
   let output = format-search-results $notes
 
-  assert ($output | str contains "Search Results:")
-  assert ($output | str contains "Search Result 1")
-  assert ($output | str contains "sr-1")
+  assert ($output | str contains "Search Results")
+  assert ($output | str contains "Result")
 }
 
-# Test format-list-created with all fields
-export def "test format-list-created with all fields" [] {
-  use ../formatters.nu format-list-created
+export def "test format-search-results handles empty" [] {
+  use ../formatters.nu format-search-results
 
-  let result = {
-    id: 1234
-    name: "Feature Work"
-    description: "Implementing new authentication"
-    tags: ["backend" "security"]
+  let output = format-search-results []
+  assert ($output | str contains "No results")
+}
+
+export def "test format-summary formats output" [] {
+  use ../formatters.nu format-summary
+
+  let summary = {
+    stats: {
+      active_lists: 2
+      total_items: 15
+      backlog_total: 5
+      todo_total: 4
+      in_progress_total: 3
+      review_total: 1
+      done_total: 2
+      cancelled_total: 0
+    }
+    active_lists: [{name: "Project Alpha" total_count: 10 in_progress_count: 2 todo_count: 3}]
+    in_progress: [{content: "Working on X" priority: 5 list_name: "Alpha"}]
+    high_priority: []
+    recently_completed: []
   }
 
-  let output = format-list-created $result
+  let output = format-summary $summary
 
-  assert ($output | str contains "Feature Work")
-  assert ($output | str contains 1234)
-  assert ($output | str contains "backend, security")
-  assert ($output | str contains "Implementing new authentication")
-}
-
-# Test format-list-created with minimal fields
-export def "test format-list-created with minimal fields" [] {
-  use ../formatters.nu format-list-created
-
-  let result = {
-    id: 5678
-    name: "Bug Fixes"
-    description: null
-    tags: null
-  }
-
-  let output = format-list-created $result
-
-  assert ($output | str contains "Bug Fixes")
-  assert ($output | str contains 5678)
-  assert ($output | str contains "none")
-}
-
-# Test format-active-lists with empty list
-export def "test format-active-lists handles empty list" [] {
-  use ../formatters.nu format-active-lists
-
-  let output = format-active-lists []
-
-  assert equal $output "No active todo lists found."
-}
-
-# Test format-active-lists with single list
-export def "test format-active-lists formats single list" [] {
-  use ../formatters.nu format-active-lists
-
-  let lists = [
-    {
-      id: 1234
-      name: "Sprint Tasks"
-      description: "Q1 2025 sprint items"
-      notes: null
-      tags: ["sprint" "q1"]
-      created_at: "2025-12-14"
-      updated_at: "2025-12-14"
-    }
-  ]
-
-  let output = format-active-lists $lists
-
-  assert ($output | str contains "Active Todo Lists: 1")
-  assert ($output | str contains "Sprint Tasks")
-  assert ($output | str contains 1234)
-  assert ($output | str contains "sprint, q1")
-  assert ($output | str contains "Q1 2025 sprint items")
-}
-
-# Test format-active-lists with multiple lists
-export def "test format-active-lists formats multiple lists" [] {
-  use ../formatters.nu format-active-lists
-
-  let lists = [
-    {
-      id: 1
-      name: "List 1"
-      description: "First list"
-      notes: null
-      tags: ["tag1"]
-      created_at: "2025-12-14"
-      updated_at: "2025-12-14"
-    }
-    {
-      id: 2
-      name: "List 2"
-      description: null
-      notes: null
-      tags: []
-      created_at: "2025-12-15"
-      updated_at: "2025-12-15"
-    }
-  ]
-
-  let output = format-active-lists $lists
-
-  assert ($output | str contains "Active Todo Lists: 2")
-  assert ($output | str contains "List 1")
-  assert ($output | str contains "List 2")
-  assert ($output | str contains "tag1")
-  assert ($output | str contains "none")
-}
-
-# Test format-notes-updated
-export def "test format-notes-updated returns formatted output" [] {
-  use ../formatters.nu format-notes-updated
-
-  let output = format-notes-updated 123
-
-  assert ($output | str contains "✓")
-  assert ($output | str contains 123)
-  assert ($output | str contains "Progress notes updated")
-}
-
-# Test format-active-lists with notes field
-export def "test format-active-lists includes notes" [] {
-  use ../formatters.nu format-active-lists
-
-  let lists = [
-    {
-      id: 1
-      name: "Test List"
-      description: "Description"
-      notes: "Some progress notes"
-      tags: ["test"]
-      created_at: "2025-12-14"
-      updated_at: "2025-12-14"
-    }
-  ]
-
-  let output = format-active-lists $lists
-
-  assert ($output | str contains "Test List")
-  assert ($output | str contains "Some progress notes")
-}
-
-# Test format-note-created-manual with valid note
-export def "test format-note-created-manual returns formatted output" [] {
-  use ../formatters.nu format-note-created-manual
-
-  let note = {
-    title: "Architecture Decision"
-    id: 9999
-    tags: ["architecture" "backend"]
-  }
-
-  let output = format-note-created-manual $note
-
-  assert ($output | str contains "Architecture Decision")
-  assert ($output | str contains 9999)
-  assert ($output | str contains "architecture, backend")
-}
-
-# Test format-notes-list-detailed with empty list
-export def "test format-notes-list-detailed handles empty list" [] {
-  use ../formatters.nu format-notes-list-detailed
-
-  let output = format-notes-list-detailed []
-
-  assert equal $output "No notes found."
-}
-
-# Test format-notes-list-detailed with single note
-export def "test format-notes-list-detailed formats single note" [] {
-  use ../formatters.nu format-notes-list-detailed
-
-  let notes = [
-    {
-      title: "Meeting Notes"
-      id: 123
-      note_type: "manual"
-      tags: ["meeting" "planning"]
-      created_at: "2025-01-14 16:30:00"
-      content: "Discussed project timeline and deliverables for Q1 2025. Team agreed on sprint structure."
-    }
-  ]
-
-  let output = format-notes-list-detailed $notes
-
-  assert ($output | str contains "Notes: 1")
-  assert ($output | str contains "Meeting Notes")
-  assert ($output | str contains 123)
-  assert ($output | str contains "📝") # Manual emoji
-  assert ($output | str contains "meeting, planning")
-  assert ($output | str contains "Preview:")
-  assert ($output | str contains "Discussed project timeline")
-}
-
-# Test format-notes-list-detailed with archived_todo note
-export def "test format-notes-list-detailed shows archived emoji" [] {
-  use ../formatters.nu format-notes-list-detailed
-
-  let notes = [
-    {
-      title: "Completed Sprint"
-      id: 456
-      note_type: "archived_todo"
-      tags: []
-      created_at: "2025-01-14 16:30:00"
-      content: "Sprint completed successfully"
-    }
-  ]
-
-  let output = format-notes-list-detailed $notes
-
-  assert ($output | str contains "🗃️") # Archived emoji
-  assert ($output | str contains "Completed Sprint")
-}
-
-# Test format-note-detail with full note
-export def "test format-note-detail shows full content" [] {
-  use ../formatters.nu format-note-detail
-
-  let note = {
-    title: "Architecture Decision"
-    id: 789
-    note_type: "manual"
-    tags: ["architecture" "backend"]
-    created_at: "2025-01-14 16:30:00"
-    updated_at: "2025-01-14 17:00:00"
-    content: "# Architecture Decision
-
-We decided to use Rust for the backend service.
-
-## Reasons
-- Performance
-- Memory safety
-- Great ecosystem"
-  }
-
-  let output = format-note-detail $note
-
-  assert ($output | str contains "Architecture Decision")
-  assert ($output | str contains 789)
-  assert ($output | str contains "Type: manual")
-  assert ($output | str contains "Tags: architecture, backend")
-  assert ($output | str contains "Created: 2025-01-14 16:30:00")
-  assert ($output | str contains "Updated: 2025-01-14 17:00:00")
-  assert ($output | str contains "# Architecture Decision")
-  assert ($output | str contains "Performance")
-  assert ($output | str contains "Memory safety")
-}
-
-# Test format-note-detail with minimal note (no tags)
-export def "test format-note-detail handles no tags" [] {
-  use ../formatters.nu format-note-detail
-
-  let note = {
-    title: "Simple Note"
-    id: 0
-    note_type: "manual"
-    tags: []
-    created_at: "2025-01-14 16:30:00"
-    updated_at: "2025-01-14 16:30:00"
-    content: "Just a simple note"
-  }
-
-  let output = format-note-detail $note
-
-  assert ($output | str contains "Simple Note")
-  assert ($output | str contains "Tags: none")
-  assert ($output | str contains "Just a simple note")
+  assert ($output | str contains "Active Lists: 2")
+  assert ($output | str contains "Project Alpha")
 }

@@ -1,52 +1,66 @@
 # Mock wrapper functions for external commands used in c5t
 # These check for MOCK_* environment variables for testing
 
-# Mock sqlite3 command - returns output or simulates database operations
-export def --wrapped sqlite3 [...rest] {
-  # Extract SQL from arguments (usually last argument)
-  let sql = $rest | last
+# Mock query db command - intercepts the built-in query db
+export def "query db" [
+  sql: string
+  --params (-p): list = []
+] {
+  # Pattern match on SQL to determine which mock to use
+  # Check for specific SQL patterns first, then fall back to generic
 
-  # Check for SQL-specific mocks first (for multiple calls with different responses)
+  # Scratchpad check query
   if ($sql | str contains "SELECT id FROM note WHERE note_type = 'scratchpad'") {
-    if "MOCK_sqlite3_CHECK_SCRATCHPAD" in $env {
-      let mock_data = $env | get MOCK_sqlite3_CHECK_SCRATCHPAD | from json
+    if "MOCK_query_db_CHECK_SCRATCHPAD" in $env {
+      let mock_data = $env | get MOCK_query_db_CHECK_SCRATCHPAD
       if $mock_data.exit_code != 0 {
-        error make {msg: $"SQLite error: ($mock_data.output)"}
+        error make {msg: $"SQLite error: ($mock_data.error)"}
       }
       return $mock_data.output
     }
   }
 
-  # Mock for empty items list scenario
+  # Empty items list scenario
   if ($sql | str contains "FROM todo_item") {
-    if "MOCK_sqlite3_EMPTY_ITEMS" in $env {
-      # Return empty string (this is what real sqlite does for no rows!)
-      return ""
+    if "MOCK_query_db_EMPTY_ITEMS" in $env {
+      return []
     }
   }
 
-  # Mock for todo list query
+  # Todo list queries
   if ($sql | str contains "FROM todo_list") {
-    if "MOCK_sqlite3_TODO_LIST" in $env {
-      let mock_data = $env | get MOCK_sqlite3_TODO_LIST | from json
+    if "MOCK_query_db_TODO_LIST" in $env {
+      let mock_data = $env | get MOCK_query_db_TODO_LIST
       if $mock_data.exit_code != 0 {
-        error make {msg: $"SQLite error: ($mock_data.output)"}
+        error make {msg: $"SQLite error: ($mock_data.error)"}
       }
       return $mock_data.output
     }
   }
 
-  # Check for generic mock
-  if "MOCK_sqlite3" in $env {
-    let mock_data = $env | get MOCK_sqlite3 | from json
+  # UPDATE queries (return empty list)
+  if ($sql | str contains "UPDATE") {
+    if "MOCK_query_db_UPDATE" in $env {
+      let mock_data = $env | get MOCK_query_db_UPDATE
+      if $mock_data.exit_code != 0 {
+        error make {msg: $"SQLite error: ($mock_data.error)"}
+      }
+      return $mock_data.output
+    }
+    return []
+  }
+
+  # Generic mock for any other query
+  if "MOCK_query_db" in $env {
+    let mock_data = $env | get MOCK_query_db
     if $mock_data.exit_code != 0 {
-      error make {msg: $"SQLite error: ($mock_data.output)"}
+      error make {msg: $"SQLite error: ($mock_data.error)"}
     }
     return $mock_data.output
   }
 
-  # Default: success with empty output (for CREATE TABLE, etc.)
-  ""
+  # Default: empty list for INSERT/UPDATE/DELETE without RETURNING
+  []
 }
 
 # Mock date now - returns a fixed timestamp for testing
@@ -78,5 +92,22 @@ export def "random int" [range: range] {
   } else {
     # Fallback: just return a default value
     1234
+  }
+}
+
+# Mock git command for testing
+export def --wrapped git [...rest] {
+  let args = ($rest | str join "_" | str replace --all " " "_" | str replace --all "-" "_")
+  let mock_var = $"MOCK_git_($args)"
+
+  if $mock_var in $env {
+    let mock_data = ($env | get $mock_var | from json)
+    if $mock_data.exit_code != 0 {
+      error make {msg: $"Git error: ($mock_data.output)"}
+    }
+    $mock_data.output
+  } else {
+    # Fallback to real git
+    ^git ...$rest
   }
 }
