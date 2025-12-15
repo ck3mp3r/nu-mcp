@@ -374,10 +374,6 @@ def "main list-tools" [] {
             type: "string"
             description: "Backup filename in .c5t/ directory (e.g., 'backup-20251215-120000.json')"
           }
-          merge: {
-            type: "boolean"
-            description: "If true, merge with existing data; if false (default), replace all data"
-          }
         }
         required: ["filename"]
       }
@@ -980,7 +976,6 @@ def "main call-tool" [
       }
 
       let filename = $parsed_args.filename
-      let merge = if "merge" in $parsed_args { $parsed_args.merge } else { false }
 
       # Build filepath
       let filepath = $".c5t/($filename)"
@@ -999,17 +994,13 @@ Use list_backups to see available backup files."
         return $"Error: Failed to read backup file: ($filepath)"
       }
 
-      let result = if $merge {
-        import-data $data --merge
-      } else {
-        import-data $data
-      }
+      let result = import-data $data
 
       if not $result.success {
         return $result.error
       }
 
-      $"✓ Data imported from ($filepath)
+      $"✓ Data restored from ($filepath)
   Lists: ($result.imported.lists)
   Items: ($result.imported.items)
   Notes: ($result.imported.notes)"

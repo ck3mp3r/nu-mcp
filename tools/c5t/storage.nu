@@ -1580,10 +1580,9 @@ export def archive-list-manual [
   archive-todo-list $list_id
 }
 
-# Import data from JSON backup
+# Import data from JSON backup (full restore - clears existing data)
 export def import-data [
   data: record
-  --merge # If true, merge with existing data; if false (default), replace all
 ] {
   let db_path = get-db-path
 
@@ -1609,13 +1608,11 @@ export def import-data [
     }
   }
 
-  # If not merging, clear existing data
-  if not $merge {
-    # Delete in order due to foreign keys
-    let _ = execute-sql $db_path "DELETE FROM todo_item" []
-    let _ = execute-sql $db_path "DELETE FROM todo_list" []
-    let _ = execute-sql $db_path "DELETE FROM note" []
-  }
+  # Clear existing data (full restore)
+  # Delete in order due to foreign keys
+  let _ = execute-sql $db_path "DELETE FROM todo_item" []
+  let _ = execute-sql $db_path "DELETE FROM todo_list" []
+  let _ = execute-sql $db_path "DELETE FROM note" []
 
   # Track ID mappings for relational data
   mut list_id_map = {}
