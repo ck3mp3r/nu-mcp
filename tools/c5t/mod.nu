@@ -38,7 +38,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_active"
-      description: "See all your active work at a glance. Show to user."
+      description: "SHOW TO USER. See all your active work at a glance."
       input_schema: {
         type: "object"
         properties: {
@@ -146,7 +146,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_items"
-      description: "View all todos with status, priority, and timestamps. Filter by status if needed. Show to user."
+      description: "SHOW TO USER. View all todos with status, priority, and timestamps. Filter by status if needed."
       input_schema: {
         type: "object"
         properties: {
@@ -165,7 +165,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_active_items"
-      description: "See what's left to do (excludes completed/cancelled). Show to user."
+      description: "SHOW TO USER. See what's left to do (excludes completed/cancelled)."
       input_schema: {
         type: "object"
         properties: {
@@ -220,7 +220,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_notes"
-      description: "Browse all saved notes and archived work. Filter by tags or type. Show to user."
+      description: "SHOW TO USER. Browse all saved notes and archived work. Filter by tags or type."
       input_schema: {
         type: "object"
         properties: {
@@ -244,7 +244,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_note"
-      description: "Retrieve a saved note or archived list. Show to user."
+      description: "SHOW TO USER. Retrieve a saved note or archived list."
       input_schema: {
         type: "object"
         properties: {
@@ -258,7 +258,7 @@ def "main list-tools" [] {
     }
     {
       name: "search"
-      description: "Find past work instantly. Searches all notes and archived todos with boolean operators (AND, OR, NOT). Show to user."
+      description: "SHOW TO USER. Find past work instantly. Searches all notes and archived todos with boolean operators (AND, OR, NOT)."
       input_schema: {
         type: "object"
         properties: {
@@ -297,7 +297,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_scratchpad"
-      description: "CONTEXT LOST? START HERE. Retrieve session notes to restore context after compaction."
+      description: "CONTEXT LOST? START HERE. Retrieve session notes to restore context after compaction. SHOW TO USER."
       input_schema: {
         type: "object"
         properties: {}
@@ -313,7 +313,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_summary"
-      description: "Quick status overview: what's active, what's done, what's priority. Perfect for session start. Always show the full summary to the user."
+      description: "SHOW TO USER. Quick status overview: what's active, what's done, what's priority. Perfect for session start."
       input_schema: {
         type: "object"
         properties: {}
