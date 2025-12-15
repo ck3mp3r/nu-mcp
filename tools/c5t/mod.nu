@@ -283,13 +283,13 @@ def "main list-tools" [] {
     }
     {
       name: "update_scratchpad"
-      description: "Your persistent memory across sessions. Store decisions, context, learnings, and session state here. Update at milestones. After context compacts, use get_scratchpad + search to restore state."
+      description: "Save session context: current work, decisions, next steps. Update at milestones (every 3-5 changes)."
       input_schema: {
         type: "object"
         properties: {
           content: {
             type: "string"
-            description: "Markdown content: decisions made, key learnings, current focus, important context for next session. This is YOUR notes - not auto-generated."
+            description: "Markdown content: what you're working on, key decisions, next steps."
           }
         }
         required: ["content"]
@@ -297,7 +297,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_scratchpad"
-      description: "CONTEXT LOST? START HERE. Your notes from previous sessions. Combine with 'search' to query archived work history."
+      description: "CONTEXT LOST? START HERE. Retrieve session notes to restore context after compaction."
       input_schema: {
         type: "object"
         properties: {}
@@ -305,7 +305,7 @@ def "main list-tools" [] {
     }
     {
       name: "generate_scratchpad_draft"
-      description: "Generate a template with current todos, git status, etc. Use as starting point, then add your own context/decisions before saving."
+      description: "Auto-generate scratchpad template from current state. Review, enhance, then save with update_scratchpad."
       input_schema: {
         type: "object"
         properties: {}
