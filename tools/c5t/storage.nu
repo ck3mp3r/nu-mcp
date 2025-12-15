@@ -785,7 +785,7 @@ export def get-notes [
 }
 
 # Get a specific note by ID
-export def get-note-by-id [
+export def get-note [
   note_id: int
 ] {
   let db_path = get-db-path
@@ -815,6 +815,104 @@ export def get-note-by-id [
   {
     success: true
     note: $note
+  }
+}
+
+# Upsert a note - create if no note_id, update if note_id provided
+export def upsert-note [
+  note_id?: int
+  title?: string
+  content?: string
+  tags?: list
+] {
+  let db_path = get-db-path
+
+  # If note_id provided, update existing
+  if $note_id != null {
+    # Check if note exists
+    let existing = get-note $note_id
+    if not $existing.success {
+      return $existing
+    }
+
+    # Need at least one field to update
+    if $title == null and $content == null and $tags == null {
+      return {
+        success: false
+        error: "At least one of 'title', 'content', or 'tags' must be provided for update"
+      }
+    }
+
+    # Build SET clauses for fields that are provided
+    mut set_clauses = []
+    mut params = []
+
+    if $title != null {
+      $set_clauses = ($set_clauses | append "title = ?")
+      $params = ($params | append $title)
+    }
+
+    if $content != null {
+      $set_clauses = ($set_clauses | append "content = ?")
+      $params = ($params | append $content)
+    }
+
+    if $tags != null {
+      $set_clauses = ($set_clauses | append "tags = ?")
+      $params = ($params | append ($tags | to json))
+    }
+
+    # Always update updated_at
+    $set_clauses = ($set_clauses | append "updated_at = datetime('now')")
+
+    let set_sql = $set_clauses | str join ", "
+    let sql = $"UPDATE note SET ($set_sql) WHERE id = ?"
+    $params = ($params | append $note_id)
+
+    let result = execute-sql $db_path $sql $params
+
+    if not $result.success {
+      return {
+        success: false
+        error: $"Failed to update note: ($result.error)"
+      }
+    }
+
+    # Return updated note
+    let updated = get-note $note_id
+    {
+      success: true
+      created: false
+      note: $updated.note
+    }
+  } else {
+    # Create new note - require title and content
+    if $title == null or $content == null {
+      return {
+        success: false
+        error: "Both 'title' and 'content' are required when creating a new note"
+      }
+    }
+
+    # Use existing create-note function
+    let result = create-note $title $content $tags
+
+    if not $result.success {
+      return $result
+    }
+
+    {
+      success: true
+      created: true
+      id: $result.id
+      note_id: $result.id
+      title: $title
+      tags: $tags
+      note: {
+        id: $result.id
+        title: $title
+      }
+    }
   }
 }
 
@@ -1245,6 +1343,7 @@ export def delete-note [
 }
 
 # Edit item content
+# DEPRECATED: Use upsert-item instead
 export def edit-item [
   list_id: int
   item_id: int
@@ -1283,7 +1382,161 @@ export def edit-item [
   }
 }
 
+# Upsert a todo item - create if no item_id, update if item_id provided
+export def upsert-item [
+  list_id: int
+  item_id?: int
+  content?: string
+  priority?: int
+  status?: string
+] {
+  let db_path = get-db-path
+
+  # Check if list exists
+  if not (list-exists $list_id) {
+    return {
+      success: false
+      error: $"List not found: ($list_id)"
+    }
+  }
+
+  # If item_id provided, update existing
+  if $item_id != null {
+    # Check if item exists
+    if not (item-exists $list_id $item_id) {
+      return {
+        success: false
+        error: $"Item not found: ($item_id)"
+      }
+    }
+
+    # Need at least one field to update
+    if $content == null and $priority == null and $status == null {
+      return {
+        success: false
+        error: "At least one of 'content', 'priority', or 'status' must be provided for update"
+      }
+    }
+
+    # Validate content if provided
+    if $content != null and ($content | str trim | is-empty) {
+      return {
+        success: false
+        error: "Content cannot be empty"
+      }
+    }
+
+    # Build SET clauses for fields that are provided
+    mut set_clauses = []
+    mut params = []
+
+    if $content != null {
+      $set_clauses = ($set_clauses | append "content = ?")
+      $params = ($params | append $content)
+    }
+
+    if $priority != null {
+      $set_clauses = ($set_clauses | append "priority = ?")
+      $params = ($params | append $priority)
+    }
+
+    if $status != null {
+      $set_clauses = ($set_clauses | append "status = ?")
+      $params = ($params | append $status)
+
+      # Handle timestamp updates for status changes
+      if $status == "in_progress" {
+        $set_clauses = ($set_clauses | append "started_at = COALESCE(started_at, datetime('now'))")
+      }
+      if $status in ["done" "cancelled"] {
+        $set_clauses = ($set_clauses | append "completed_at = datetime('now')")
+      }
+    }
+
+    let set_sql = $set_clauses | str join ", "
+    let sql = $"UPDATE todo_item SET ($set_sql) WHERE id = ? AND list_id = ?"
+    $params = ($params | append $item_id)
+    $params = ($params | append $list_id)
+
+    let result = execute-sql $db_path $sql $params
+
+    if not $result.success {
+      return {
+        success: false
+        error: $"Failed to update item: ($result.error)"
+      }
+    }
+
+    # Check if all items are now completed and auto-archive if so
+    if $status != null and $status in ["done" "cancelled"] {
+      if (all-items-completed $list_id) {
+        let archive_result = archive-todo-list $list_id
+        if $archive_result.success {
+          return {
+            success: true
+            created: false
+            archived: true
+            note_id: $archive_result.note_id
+          }
+        }
+      }
+    }
+
+    # Return updated item
+    let updated = get-item $list_id $item_id
+    {
+      success: true
+      created: false
+      archived: false
+      item: $updated.item
+    }
+  } else {
+    # Create new item - require content
+    if $content == null {
+      return {
+        success: false
+        error: "'content' is required when creating a new item"
+      }
+    }
+
+    # Validate content is not empty
+    if ($content | str trim | is-empty) {
+      return {
+        success: false
+        error: "Content cannot be empty"
+      }
+    }
+
+    # Use existing add-todo-item function
+    let result = add-todo-item $list_id $content $priority $status
+
+    if not $result.success {
+      return $result
+    }
+
+    {
+      success: true
+      created: true
+      archived: false
+      id: $result.id
+      item_id: $result.id
+      list_id: $list_id
+      content: $content
+      priority: $priority
+      status: ($status | default "backlog")
+      item: {
+        id: $result.id
+        list_id: $list_id
+        content: $content
+        priority: $priority
+        status: ($status | default "backlog")
+      }
+    }
+  }
+}
+
 # Rename a todo list (update name and optionally description)
+# DEPRECATED: Use upsert-list instead
 export def rename-list [
   list_id: int
   name: string
@@ -1328,6 +1581,138 @@ export def rename-list [
     {
       success: false
       error: $"Failed to rename list: ($result.error)"
+    }
+  }
+}
+
+# Upsert a todo list - create if no list_id, update if list_id provided
+export def upsert-list [
+  list_id?: int
+  name?: string
+  description?: string
+  tags?: list
+  notes?: string
+] {
+  let db_path = get-db-path
+
+  # If list_id provided, update existing
+  if $list_id != null {
+    # Check if list exists
+    if not (list-exists $list_id) {
+      return {
+        success: false
+        error: $"List not found: ($list_id)"
+      }
+    }
+
+    # Need at least one field to update
+    if $name == null and $description == null and $tags == null and $notes == null {
+      return {
+        success: false
+        error: "At least one of 'name', 'description', 'tags', or 'notes' must be provided for update"
+      }
+    }
+
+    # Validate name if provided
+    if $name != null and ($name | str trim | is-empty) {
+      return {
+        success: false
+        error: "Name cannot be empty"
+      }
+    }
+
+    # Build SET clauses for fields that are provided
+    mut set_clauses = []
+    mut params = []
+
+    if $name != null {
+      $set_clauses = ($set_clauses | append "name = ?")
+      $params = ($params | append $name)
+    }
+
+    if $description != null {
+      $set_clauses = ($set_clauses | append "description = ?")
+      $params = ($params | append $description)
+    }
+
+    if $tags != null {
+      $set_clauses = ($set_clauses | append "tags = ?")
+      $params = ($params | append ($tags | to json))
+    }
+
+    if $notes != null {
+      $set_clauses = ($set_clauses | append "notes = ?")
+      $params = ($params | append $notes)
+    }
+
+    # Always update updated_at
+    $set_clauses = ($set_clauses | append "updated_at = datetime('now')")
+
+    let set_sql = $set_clauses | str join ", "
+    let sql = $"UPDATE todo_list SET ($set_sql) WHERE id = ?"
+    $params = ($params | append $list_id)
+
+    let result = execute-sql $db_path $sql $params
+
+    if not $result.success {
+      return {
+        success: false
+        error: $"Failed to update list: ($result.error)"
+      }
+    }
+
+    # Return updated list
+    let updated = get-list $list_id
+    {
+      success: true
+      created: false
+      list: $updated.list
+    }
+  } else {
+    # Create new list - require name
+    if $name == null {
+      return {
+        success: false
+        error: "'name' is required when creating a new list"
+      }
+    }
+
+    # Validate name is not empty
+    if ($name | str trim | is-empty) {
+      return {
+        success: false
+        error: "Name cannot be empty"
+      }
+    }
+
+    # Use existing create-todo-list function
+    let result = create-todo-list $name $description $tags
+
+    if not $result.success {
+      return $result
+    }
+
+    # If notes provided, update the newly created list with notes
+    if $notes != null {
+      let _ = update-todo-notes $result.id $notes
+    }
+
+    {
+      success: true
+      created: true
+      id: $result.id
+      list_id: $result.id
+      name: $name
+      description: $description
+      tags: $tags
+      notes: $notes
+      list: {
+        id: $result.id
+        name: $name
+        description: $description
+        tags: $tags
+        notes: $notes
+      }
     }
   }
 }

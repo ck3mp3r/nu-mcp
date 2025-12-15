@@ -18,13 +18,19 @@ The tool auto-initializes on first use. Database stored at `.c5t/context.db`.
 ## Todo Workflow
 
 ```bash
-# Create a list
-c5t_create_list {"name": "API Feature", "tags": ["backend", "urgent"]}
+# Create a list (upsert without list_id creates new)
+c5t_upsert_list {"name": "API Feature", "tags": ["backend", "urgent"]}
 # → ID: 1
 
-# Add items
-c5t_add_item {"list_id": 1, "content": "Research JWT", "priority": 1}
-c5t_add_item {"list_id": 1, "content": "Implement login"}
+# Update a list (upsert with list_id updates existing)
+c5t_upsert_list {"list_id": 1, "name": "API Feature v2", "description": "Updated desc"}
+
+# Add items (upsert without item_id creates new)
+c5t_upsert_item {"list_id": 1, "content": "Research JWT", "priority": 1}
+c5t_upsert_item {"list_id": 1, "content": "Implement login"}
+
+# Update item (upsert with item_id updates existing - can change content, priority, status)
+c5t_upsert_item {"list_id": 1, "item_id": 1, "content": "Research JWT libs", "status": "in_progress"}
 
 # View list with items grouped by status
 c5t_list_items {"list_id": 1}
@@ -48,14 +54,20 @@ c5t_update_notes {"list_id": 1, "notes": "## Progress\n\nCompleted research"}
 ## Notes Workflow
 
 ```bash
-# Create note
-c5t_create_note {
+# Create note (upsert without note_id creates new)
+c5t_upsert_note {
   "title": "Architecture Decision",
   "content": "We decided to use Rust for performance",
   "tags": ["architecture", "backend"]
 }
 
-# List notes (excludes scratchpad by default)
+# Update note (upsert with note_id updates existing)
+c5t_upsert_note {
+  "note_id": 1,
+  "content": "Updated: We decided to use Rust for both performance and safety"
+}
+
+# List notes
 c5t_list_notes {}
 c5t_list_notes {"tags": ["backend"]}
 c5t_list_notes {"note_type": "manual"}  # Filter by type
@@ -78,10 +90,16 @@ Instead of a dedicated scratchpad, use regular notes with the `session` tag to m
 
 ```bash
 # Create a session note to track current work
-c5t_create_note {
+c5t_upsert_note {
   "title": "Session: Auth Feature - 2025-01-15",
   "content": "## Current Work\n\n- Working on auth feature\n- Next: rate limiting",
   "tags": ["session"]
+}
+
+# Update an existing session note (provide note_id)
+c5t_upsert_note {
+  "note_id": 1,
+  "content": "## Current Work\n\n- Auth feature complete\n- Next: rate limiting"
 }
 
 # Find session notes when context is lost
@@ -127,27 +145,20 @@ Last updated: [timestamp]
 ## All Available Tools
 
 ### Todo Lists
-- `c5t_create_list` - Create todo list
+- `c5t_upsert_list` - Create or update a list (omit list_id to create, provide to update). Supports name, description, tags, and progress notes.
 - `c5t_list_active` - List active lists
 - `c5t_get_list` - Get list metadata without items
-- `c5t_rename_list` - Change list name/description
 - `c5t_delete_list` - Remove a list (use force=true if has items)
 - `c5t_archive_list` - Manually archive a list
-- `c5t_add_item` - Add item to list
-- `c5t_bulk_add_items` - Add multiple items at once
+- `c5t_upsert_item` - Create or update an item (omit item_id to create, provide to update). Can set content, priority, status.
 - `c5t_list_items` - View list with items grouped by status
 - `c5t_list_active_items` - View only active items
-- `c5t_update_item_status` - Change item status
-- `c5t_bulk_update_status` - Update multiple items' status at once
-- `c5t_update_item_priority` - Set priority (1-5, where 1 is highest)
-- `c5t_edit_item` - Update item content
-- `c5t_complete_item` - Mark item done
+- `c5t_complete_item` - Mark item done (shortcut for status='done')
 - `c5t_delete_item` - Remove an item
 - `c5t_move_item` - Move item to another list
-- `c5t_update_notes` - Add/update progress notes on list
 
 ### Notes
-- `c5t_create_note` - Create manual note (use tag 'session' for context notes)
+- `c5t_upsert_note` - Create or update a note (omit note_id to create, provide to update)
 - `c5t_list_notes` - List notes, filter by tags or type
 - `c5t_get_note` - Get specific note by ID
 - `c5t_delete_note` - Remove a note
@@ -194,31 +205,30 @@ Archived notes are searchable and appear in `c5t_list_notes` with type `archived
 
 ```bash
 # 1. Create list for feature work
-c5t_create_list {"name": "Auth Feature", "tags": ["backend"]}
+c5t_upsert_list {"name": "Auth Feature", "tags": ["backend"]}
 # → ID: 1
 
-# 2. Add tasks
-c5t_add_item {"list_id": 1, "content": "Research JWT", "priority": 1}
-c5t_add_item {"list_id": 1, "content": "Implement login", "priority": 1}
-c5t_add_item {"list_id": 1, "content": "Write tests", "priority": 2}
+# 2. Add tasks one at a time as you discover them
+c5t_upsert_item {"list_id": 1, "content": "Research JWT", "priority": 1}
+c5t_upsert_item {"list_id": 1, "content": "Implement login", "priority": 1}
+c5t_upsert_item {"list_id": 1, "content": "Write tests", "priority": 2}
 
-# 3. Track progress
-c5t_update_item_status {"list_id": 1, "item_id": 1, "status": "done"}
-c5t_update_notes {"list_id": 1, "notes": "Decided on jsonwebtoken crate"}
+# 3. Track progress - update status via upsert_item
+c5t_upsert_item {"list_id": 1, "item_id": 1, "status": "done"}
 
-# 4. Complete remaining items
+# Add progress notes to the list
+c5t_upsert_list {"list_id": 1, "notes": "Decided on jsonwebtoken crate"}
+
+# 4. Complete remaining items one by one
 c5t_complete_item {"list_id": 1, "item_id": 2}
 c5t_complete_item {"list_id": 1, "item_id": 3}
-# → Auto-archives as note
+# → Auto-archives as note when all done
 
 # 5. Create reference notes
-c5t_create_note {"title": "JWT Best Practices", "content": "...", "tags": ["security"]}
+c5t_upsert_note {"title": "JWT Best Practices", "content": "...", "tags": ["security"]}
 
 # 6. Search later
 c5t_search {"query": "jwt AND security"}
-
-# 7. Update scratchpad
-c5t_update_scratchpad {"content": "## Current Context\n\n- Auth feature complete\n- Next: rate limiting"}
 ```
 
 ## Notes

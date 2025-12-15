@@ -60,8 +60,8 @@ main call-tool 'test_tool' {param: \"value\"}
   assert ($output.stderr | str contains "Unknown tool")
 }
 
-# Test list-tools includes create_list
-export def "test list-tools includes create_list" [] {
+# Test list-tools includes upsert_list
+export def "test list-tools includes upsert_list" [] {
   let test_script = "
 source tools/c5t/mod.nu
 main list-tools
@@ -70,11 +70,11 @@ main list-tools
   let output = nu -c $test_script
   let tools = $output | from json
 
-  # Should have create_list tool
-  let create_list_tool = $tools | where name == "create_list" | first
-  assert ($create_list_tool.name == "create_list")
-  assert ($create_list_tool.description != null)
-  assert ($create_list_tool.input_schema != null)
+  # Should have upsert_list tool
+  let upsert_list_tool = $tools | where name == "upsert_list" | first
+  assert ($upsert_list_tool.name == "upsert_list")
+  assert ($upsert_list_tool.description != null)
+  assert ($upsert_list_tool.input_schema != null)
 }
 
 # Test list-tools includes list_active
@@ -94,25 +94,25 @@ main list-tools
   assert ($list_active_tool.input_schema != null)
 }
 
-# Test create_list validates missing name
-export def "test create_list validates missing name" [] {
+# Test upsert_list validates missing name for new list
+export def "test upsert_list validates missing name" [] {
   let test_script = "
 source tools/c5t/mod.nu
-main call-tool 'create_list' '{}'
+main call-tool 'upsert_list' '{}'
 "
 
   let output = nu -c $test_script
 
-  # Should return error message about missing name
-  assert ($output | str contains "Missing required field")
+  # Should return error message about missing name (required for new lists)
+  assert ($output | str contains "required")
   assert ($output | str contains "name")
 }
 
-# Test create_list validates empty name
-export def "test create_list validates empty name" [] {
+# Test upsert_list validates empty name
+export def "test upsert_list validates empty name" [] {
   let test_script = "
 source tools/c5t/mod.nu
-main call-tool 'create_list' '{\"name\": \"\"}'
+main call-tool 'upsert_list' '{\"name\": \"\"}'
 "
 
   let output = nu -c $test_script
@@ -131,19 +131,10 @@ main list-tools
   let output = nu -c $test_script
   let tools = $output | from json
 
-  # Check add_item has integer list_id
-  let add_item = $tools | where name == "add_item" | first
-  assert ($add_item.input_schema.properties.list_id.type == "integer")
-
-  # Check update_item_status has integer list_id and item_id
-  let update_status = $tools | where name == "update_item_status" | first
-  assert ($update_status.input_schema.properties.list_id.type == "integer")
-  assert ($update_status.input_schema.properties.item_id.type == "integer")
-
-  # Check update_item_priority has integer list_id and item_id
-  let update_priority = $tools | where name == "update_item_priority" | first
-  assert ($update_priority.input_schema.properties.list_id.type == "integer")
-  assert ($update_priority.input_schema.properties.item_id.type == "integer")
+  # Check upsert_item has integer list_id and item_id
+  let upsert_item = $tools | where name == "upsert_item" | first
+  assert ($upsert_item.input_schema.properties.list_id.type == "integer")
+  assert ($upsert_item.input_schema.properties.item_id.type == "integer")
 
   # Check complete_item has integer list_id and item_id
   let complete_item = $tools | where name == "complete_item" | first
@@ -158,9 +149,9 @@ main list-tools
   let list_active_items = $tools | where name == "list_active_items" | first
   assert ($list_active_items.input_schema.properties.list_id.type == "integer")
 
-  # Check update_notes has integer list_id
-  let update_notes = $tools | where name == "update_notes" | first
-  assert ($update_notes.input_schema.properties.list_id.type == "integer")
+  # Check upsert_list has integer list_id (optional)
+  let upsert_list = $tools | where name == "upsert_list" | first
+  assert ($upsert_list.input_schema.properties.list_id.type == "integer")
 
   # Check get_note has integer note_id
   let get_note = $tools | where name == "get_note" | first

@@ -420,10 +420,10 @@ export def "test get-notes returns all note types" [] {
   }
 }
 
-# Test get-note-by-id finds note
-export def "test get-note-by-id finds note" [] {
+# Test get-note finds note
+export def "test get-note finds note" [] {
   use ../tests/mocks.nu *
-  use ../storage.nu get-note-by-id
+  use ../storage.nu get-note
 
   let mock_data = [
     {
@@ -441,7 +441,7 @@ export def "test get-note-by-id finds note" [] {
   with-env {
     MOCK_query_db: ({output: $mock_data exit_code: 0})
   } {
-    let result = get-note-by-id 123
+    let result = get-note 123
 
     assert ($result.success == true)
     assert ($result.note.id == 123)
@@ -450,15 +450,15 @@ export def "test get-note-by-id finds note" [] {
   }
 }
 
-# Test get-note-by-id returns error for non-existent ID
-export def "test get-note-by-id returns error for non-existent" [] {
+# Test get-note returns error for non-existent ID
+export def "test get-note returns error for non-existent" [] {
   use ../tests/mocks.nu *
-  use ../storage.nu get-note-by-id
+  use ../storage.nu get-note
 
   with-env {
     MOCK_query_db: ({output: [] exit_code: 0})
   } {
-    let result = get-note-by-id 999
+    let result = get-note 999
 
     assert ($result.success == false)
     assert ($result.error | str contains "Note not found")

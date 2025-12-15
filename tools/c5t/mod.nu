@@ -14,14 +14,18 @@ def "main list-tools" [] {
 
   [
     {
-      name: "create_list"
-      description: "Track todos with full context: searchable history, auto-archive completed work, never lose progress across sessions. Supports 6 statuses, priorities 1-5, tags, and auto-timestamps."
+      name: "upsert_list"
+      description: "Create or update a todo list. Omit list_id to create new, provide list_id to update. Supports name, description, tags, and progress notes."
       input_schema: {
         type: "object"
         properties: {
+          list_id: {
+            type: "integer"
+            description: "ID of list to update (omit to create new)"
+          }
           name: {
             type: "string"
-            description: "Name of the todo list (e.g., 'Feature Implementation', 'Bug Fixes')"
+            description: "Name of the todo list (required for new lists)"
           }
           description: {
             type: "string"
@@ -30,10 +34,13 @@ def "main list-tools" [] {
           tags: {
             type: "array"
             items: {type: "string"}
-            description: "Tags to organize the list (e.g., ['backend', 'urgent']) (optional)"
+            description: "Tags to organize the list (optional)"
+          }
+          notes: {
+            type: "string"
+            description: "Progress notes, decisions, or context for this list (markdown supported)"
           }
         }
-        required: ["name"]
       }
     }
     {
@@ -51,18 +58,22 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "add_item"
-      description: "Add a todo with auto-timestamps. 6 statuses (backlog→todo→in_progress→review→done→cancelled), priority 1-5 (1=critical). Defaults to 'backlog'."
+      name: "upsert_item"
+      description: "Create or update a todo item. Omit item_id to create new, provide item_id to update. Can set content, priority, status in one call. Auto-timestamps on status changes."
       input_schema: {
         type: "object"
         properties: {
           list_id: {
             type: "integer"
-            description: "ID of the todo list to add the item to"
+            description: "ID of the todo list"
+          }
+          item_id: {
+            type: "integer"
+            description: "ID of item to update (omit to create new)"
           }
           content: {
             type: "string"
-            description: "Description of the todo item"
+            description: "Description of the todo item (required for new items)"
           }
           priority: {
             type: "integer"
@@ -72,60 +83,14 @@ def "main list-tools" [] {
           }
           status: {
             type: "string"
-            description: "Initial status (defaults to 'backlog')"
+            description: "Status (defaults to 'backlog' for new items)"
             enum: ["backlog" "todo" "in_progress" "review" "done" "cancelled"]
           }
         }
-        required: ["list_id" "content"]
+        required: ["list_id"]
       }
     }
-    {
-      name: "update_item_status"
-      description: "Update item status (backlog→todo→in_progress→review→done→cancelled). Auto-sets started_at/completed_at timestamps. Auto-archives list when all items done/cancelled."
-      input_schema: {
-        type: "object"
-        properties: {
-          list_id: {
-            type: "integer"
-            description: "ID of the todo list containing the item"
-          }
-          item_id: {
-            type: "integer"
-            description: "ID of the item to update"
-          }
-          status: {
-            type: "string"
-            description: "New status for the item"
-            enum: ["backlog" "todo" "in_progress" "review" "done" "cancelled"]
-          }
-        }
-        required: ["list_id" "item_id" "status"]
-      }
-    }
-    {
-      name: "update_item_priority"
-      description: "Change todo priority (1=critical, 5=low)"
-      input_schema: {
-        type: "object"
-        properties: {
-          list_id: {
-            type: "integer"
-            description: "ID of the todo list containing the item"
-          }
-          item_id: {
-            type: "integer"
-            description: "ID of the item to update"
-          }
-          priority: {
-            type: "integer"
-            description: "New priority level (1-5, where 1 is highest)"
-            minimum: 1
-            maximum: 5
-          }
-        }
-        required: ["list_id" "item_id" "priority"]
-      }
-    }
+
     {
       name: "complete_item"
       description: "Mark item as complete (status='done'). Sets completed_at timestamp. Auto-archives list when this completes the last item."
@@ -162,28 +127,7 @@ def "main list-tools" [] {
         required: ["list_id" "item_id"]
       }
     }
-    {
-      name: "edit_item"
-      description: "Update the content/description of a todo item."
-      input_schema: {
-        type: "object"
-        properties: {
-          list_id: {
-            type: "integer"
-            description: "ID of the todo list containing the item"
-          }
-          item_id: {
-            type: "integer"
-            description: "ID of the item to edit"
-          }
-          content: {
-            type: "string"
-            description: "New content/description for the item"
-          }
-        }
-        required: ["list_id" "item_id" "content"]
-      }
-    }
+
     {
       name: "delete_list"
       description: "Remove a todo list. Use force=true to delete list with items, otherwise fails if list has items."
@@ -216,67 +160,7 @@ def "main list-tools" [] {
         required: ["note_id"]
       }
     }
-    {
-      name: "rename_list"
-      description: "Change the name and/or description of a todo list."
-      input_schema: {
-        type: "object"
-        properties: {
-          list_id: {
-            type: "integer"
-            description: "ID of the todo list to rename"
-          }
-          name: {
-            type: "string"
-            description: "New name for the list"
-          }
-          description: {
-            type: "string"
-            description: "New description for the list (optional)"
-          }
-        }
-        required: ["list_id" "name"]
-      }
-    }
-    {
-      name: "bulk_add_items"
-      description: "Add multiple todo items to a list in one call. Each item can have content (required), priority (1-5), and status."
-      input_schema: {
-        type: "object"
-        properties: {
-          list_id: {
-            type: "integer"
-            description: "ID of the todo list to add items to"
-          }
-          items: {
-            type: "array"
-            description: "Array of items to add. Each item: {content: string, priority?: 1-5, status?: string}"
-            items: {
-              type: "object"
-              properties: {
-                content: {
-                  type: "string"
-                  description: "Description of the todo item"
-                }
-                priority: {
-                  type: "integer"
-                  description: "Priority level 1-5 (optional)"
-                  minimum: 1
-                  maximum: 5
-                }
-                status: {
-                  type: "string"
-                  description: "Initial status (optional, defaults to backlog)"
-                  enum: ["backlog" "todo" "in_progress" "review"]
-                }
-              }
-              required: ["content"]
-            }
-          }
-        }
-        required: ["list_id" "items"]
-      }
-    }
+
     {
       name: "move_item"
       description: "Move a todo item from one list to another."
@@ -299,30 +183,7 @@ def "main list-tools" [] {
         required: ["source_list_id" "item_id" "target_list_id"]
       }
     }
-    {
-      name: "bulk_update_status"
-      description: "Update status for multiple items at once. Skips non-existent items."
-      input_schema: {
-        type: "object"
-        properties: {
-          list_id: {
-            type: "integer"
-            description: "ID of the todo list containing the items"
-          }
-          item_ids: {
-            type: "array"
-            items: {type: "integer"}
-            description: "Array of item IDs to update"
-          }
-          status: {
-            type: "string"
-            description: "New status for all items"
-            enum: ["backlog" "todo" "in_progress" "review" "done" "cancelled"]
-          }
-        }
-        required: ["list_id" "item_ids" "status"]
-      }
-    }
+
     {
       name: "get_list"
       description: "SHOW TO USER. Get list metadata (name, description, tags, status) without items."
@@ -419,37 +280,24 @@ def "main list-tools" [] {
         required: ["list_id"]
       }
     }
+
     {
-      name: "update_notes"
-      description: "Add progress notes or decisions to a list (markdown supported)"
+      name: "upsert_note"
+      description: "Create or update a note. Provide note_id to update existing, omit to create new. Tip: Use tag 'session' for context across compactions."
       input_schema: {
         type: "object"
         properties: {
-          list_id: {
+          note_id: {
             type: "integer"
-            description: "ID of the todo list to update"
+            description: "ID of note to update (omit to create new)"
           }
-          notes: {
-            type: "string"
-            description: "Markdown-formatted progress notes (can be empty to clear notes)"
-          }
-        }
-        required: ["list_id" "notes"]
-      }
-    }
-    {
-      name: "create_note"
-      description: "Save important info or decisions as a searchable note (markdown supported). Tip: Use tag 'session' for notes that track context across conversation compactions."
-      input_schema: {
-        type: "object"
-        properties: {
           title: {
             type: "string"
-            description: "Title of the note"
+            description: "Title of the note (required for new notes)"
           }
           content: {
             type: "string"
-            description: "Markdown-formatted content of the note"
+            description: "Markdown-formatted content (required for new notes)"
           }
           tags: {
             type: "array"
@@ -457,7 +305,6 @@ def "main list-tools" [] {
             description: "Tags to organize the note (optional)"
           }
         }
-        required: ["title" "content"]
       }
     }
     {
@@ -545,23 +392,26 @@ def "main call-tool" [
   }
 
   match $tool_name {
-    "create_list" => {
-      let validation = validate-list-input $parsed_args
-      if not $validation.valid {
-        return $validation.error
-      }
-
-      let name = $parsed_args.name
+    "upsert_list" => {
+      let list_id = if "list_id" in $parsed_args { $parsed_args.list_id } else { null }
+      let name = if "name" in $parsed_args { $parsed_args.name } else { null }
       let description = if "description" in $parsed_args { $parsed_args.description } else { null }
       let tags = if "tags" in $parsed_args { $parsed_args.tags } else { null }
+      let notes = if "notes" in $parsed_args { $parsed_args.notes } else { null }
 
-      let result = create-todo-list $name $description $tags
+      let result = upsert-list $list_id $name $description $tags $notes
 
       if not $result.success {
         return $result.error
       }
 
-      format-list-created $result
+      if $result.created {
+        format-list-created $result
+      } else {
+        $"✓ List updated
+  ID: ($result.list.id)
+  Name: ($result.list.name)"
+      }
     }
 
     "list_active" => {
@@ -576,14 +426,14 @@ def "main call-tool" [
       format-active-lists $result.lists
     }
 
-    "add_item" => {
-      let validation = validate-item-input $parsed_args
-      if not $validation.valid {
-        return $validation.error
+    "upsert_item" => {
+      if "list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'list_id'"
       }
 
       let list_id = $parsed_args.list_id
-      let content = $parsed_args.content
+      let item_id = if "item_id" in $parsed_args { $parsed_args.item_id } else { null }
+      let content = if "content" in $parsed_args { $parsed_args.content } else { null }
       let priority = if "priority" in $parsed_args { $parsed_args.priority } else { null }
       let status = if "status" in $parsed_args { $parsed_args.status } else { null }
 
@@ -603,90 +453,21 @@ def "main call-tool" [
         }
       }
 
-      # Check if list exists
-      if not (list-exists $list_id) {
-        return $"Error: List not found: ($list_id)"
-      }
-
-      let result = add-todo-item $list_id $content $priority $status
+      let result = upsert-item $list_id $item_id $content $priority $status
 
       if not $result.success {
         return $result.error
       }
 
-      format-item-created $result
-    }
-
-    "update_item_status" => {
-      let validation = validate-item-update-input $parsed_args
-      if not $validation.valid {
-        return $validation.error
-      }
-
-      if "status" not-in $parsed_args {
-        return "Error: Missing required field: 'status'"
-      }
-
-      let list_id = $parsed_args.list_id
-      let item_id = $parsed_args.item_id
-      let status = $parsed_args.status
-
-      # Validate status
-      let status_validation = validate-status $status
-      if not $status_validation.valid {
-        return $status_validation.error
-      }
-
-      # Check if item exists
-      if not (item-exists $list_id $item_id) {
-        return $"Error: Item not found: ($item_id)"
-      }
-
-      let result = update-item-status $list_id $item_id $status
-
-      if not $result.success {
-        return $result.error
-      }
-
-      if $result.archived {
-        format-item-updated-with-archive "status" $item_id $status $result.note_id
+      if $result.created {
+        format-item-created $result
+      } else if $result.archived {
+        format-item-updated-with-archive "item" $result.item.id "updated" $result.note_id
       } else {
-        format-item-updated "status" $item_id $status
+        $"✓ Item updated
+  ID: ($result.item.id)
+  Content: ($result.item.content)"
       }
-    }
-
-    "update_item_priority" => {
-      let validation = validate-item-update-input $parsed_args
-      if not $validation.valid {
-        return $validation.error
-      }
-
-      if "priority" not-in $parsed_args {
-        return "Error: Missing required field: 'priority'"
-      }
-
-      let list_id = $parsed_args.list_id
-      let item_id = $parsed_args.item_id
-      let priority = $parsed_args.priority
-
-      # Validate priority
-      let priority_validation = validate-priority $priority
-      if not $priority_validation.valid {
-        return $priority_validation.error
-      }
-
-      # Check if item exists
-      if not (item-exists $list_id $item_id) {
-        return $"Error: Item not found: ($item_id)"
-      }
-
-      let result = update-item-priority $list_id $item_id $priority
-
-      if not $result.success {
-        return $result.error
-      }
-
-      format-item-updated "priority" $item_id $priority
     }
 
     "complete_item" => {
@@ -734,30 +515,6 @@ def "main call-tool" [
       $"✓ Item deleted \(ID: ($item_id)\)"
     }
 
-    "edit_item" => {
-      let validation = validate-item-update-input $parsed_args
-      if not $validation.valid {
-        return $validation.error
-      }
-
-      if "content" not-in $parsed_args {
-        return "Error: Missing required field: 'content'"
-      }
-
-      let list_id = $parsed_args.list_id
-      let item_id = $parsed_args.item_id
-      let content = $parsed_args.content
-
-      let result = edit-item $list_id $item_id $content
-
-      if not $result.success {
-        return $result.error
-      }
-
-      $"✓ Item updated \(ID: ($item_id)\)
-  New content: ($content)"
-    }
-
     "delete_list" => {
       if "list_id" not-in $parsed_args {
         return "Error: Missing required field: 'list_id'"
@@ -795,58 +552,6 @@ def "main call-tool" [
       $"✓ Note deleted \(ID: ($note_id)\)"
     }
 
-    "rename_list" => {
-      if "list_id" not-in $parsed_args {
-        return "Error: Missing required field: 'list_id'"
-      }
-
-      if "name" not-in $parsed_args {
-        return "Error: Missing required field: 'name'"
-      }
-
-      let list_id = $parsed_args.list_id
-      let name = $parsed_args.name
-      let description = if "description" in $parsed_args { $parsed_args.description } else { null }
-
-      let result = rename-list $list_id $name $description
-
-      if not $result.success {
-        return $result.error
-      }
-
-      if $description != null {
-        $"✓ List renamed \(ID: ($list_id)\)
-  New name: ($name)
-  New description: ($description)"
-      } else {
-        $"✓ List renamed \(ID: ($list_id)\)
-  New name: ($name)"
-      }
-    }
-
-    "bulk_add_items" => {
-      if "list_id" not-in $parsed_args {
-        return "Error: Missing required field: 'list_id'"
-      }
-
-      if "items" not-in $parsed_args {
-        return "Error: Missing required field: 'items'"
-      }
-
-      let list_id = $parsed_args.list_id
-      let items = $parsed_args.items
-
-      let result = bulk-add-items $list_id $items
-
-      if not $result.success {
-        return $result.error
-      }
-
-      let ids_str = $result.ids | str join ", "
-      $"✓ Added ($result.count) items to list ($list_id)
-  IDs: ($ids_str)"
-    }
-
     "move_item" => {
       if "source_list_id" not-in $parsed_args {
         return "Error: Missing required field: 'source_list_id'"
@@ -873,37 +578,6 @@ def "main call-tool" [
       $"✓ Item moved \(ID: ($item_id)\)
   From list: ($source_list_id)
   To list: ($target_list_id)"
-    }
-
-    "bulk_update_status" => {
-      if "list_id" not-in $parsed_args {
-        return "Error: Missing required field: 'list_id'"
-      }
-
-      if "item_ids" not-in $parsed_args {
-        return "Error: Missing required field: 'item_ids'"
-      }
-
-      if "status" not-in $parsed_args {
-        return "Error: Missing required field: 'status'"
-      }
-
-      let list_id = $parsed_args.list_id
-      let item_ids = $parsed_args.item_ids
-      let status = $parsed_args.status
-
-      let result = bulk-update-status $list_id $item_ids $status
-
-      if not $result.success {
-        return $result.error
-      }
-
-      if $result.archived {
-        $"✓ Updated ($result.count) items to '($status)'
-  List auto-archived \(Note ID: ($result.note_id)\)"
-      } else {
-        $"✓ Updated ($result.count) items to '($status)'"
-      }
     }
 
     "get_list" => {
@@ -1077,49 +751,25 @@ Use list_backups to see available backup files."
       format-items-table $result.list $result.items
     }
 
-    "update_notes" => {
-      if "list_id" not-in $parsed_args {
-        return "Error: Missing required field: 'list_id'"
-      }
-
-      if "notes" not-in $parsed_args {
-        return "Error: Missing required field: 'notes'"
-      }
-
-      let list_id = $parsed_args.list_id
-      let notes = $parsed_args.notes
-
-      # Check if list exists
-      if not (list-exists $list_id) {
-        return $"Error: List not found: ($list_id)"
-      }
-
-      let result = update-todo-notes $list_id $notes
-
-      if not $result.success {
-        return $result.error
-      }
-
-      format-notes-updated $list_id
-    }
-
-    "create_note" => {
-      let validation = validate-note-input $parsed_args
-      if not $validation.valid {
-        return $validation.error
-      }
-
-      let title = $parsed_args.title
-      let content = $parsed_args.content
+    "upsert_note" => {
+      let note_id = if "note_id" in $parsed_args { $parsed_args.note_id } else { null }
+      let title = if "title" in $parsed_args { $parsed_args.title } else { null }
+      let content = if "content" in $parsed_args { $parsed_args.content } else { null }
       let tags = if "tags" in $parsed_args { $parsed_args.tags } else { null }
 
-      let result = create-note $title $content $tags
+      let result = upsert-note $note_id $title $content $tags
 
       if not $result.success {
         return $result.error
       }
 
-      format-note-created-manual $result
+      if $result.created {
+        format-note-created-manual $result
+      } else {
+        $"✓ Note updated
+  ID: ($result.note.id)
+  Title: ($result.note.title)"
+      }
     }
 
     "list_notes" => {
@@ -1143,7 +793,7 @@ Use list_backups to see available backup files."
 
       let note_id = $parsed_args.note_id
 
-      let result = get-note-by-id $note_id
+      let result = get-note $note_id
 
       if not $result.success {
         return $result.error
