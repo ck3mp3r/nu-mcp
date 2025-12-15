@@ -194,9 +194,6 @@ export def format-item-updated [field: string item_id: int value: any] {
     $"✓ Item ($field) updated"
     $"  ID: ($item_id)"
     $"  New ($field): ($value)"
-    ""
-    $"💡 Tip: Update scratchpad to track this progress"
-    $"  Use: c5t_update_scratchpad with current session context"
   ] | str join (char newline)
 }
 
@@ -205,9 +202,6 @@ export def format-item-completed [item_id: int] {
   [
     $"✓ Item marked as complete"
     $"  ID: ($item_id)"
-    ""
-    $"💡 Tip: Update scratchpad to track this milestone"
-    $"  Use: c5t_update_scratchpad with completed tasks + next steps"
   ] | str join (char newline)
 }
 
@@ -401,7 +395,6 @@ export def format-notes-list-detailed [notes: list] {
       let type_emoji = match $note.note_type {
         "manual" => "📝"
         "archived_todo" => "🗃️"
-        "scratchpad" => "📋"
         _ => "📄"
       }
 
@@ -524,14 +517,9 @@ export def format-summary [summary: record] {
     $lines = ($lines | append "")
   }
 
-  # Scratchpad Status
-  $lines = ($lines | append "## Scratchpad")
-  if $summary.scratchpad.exists {
-    $lines = ($lines | append $"Last updated: ($summary.scratchpad.last_updated)")
-    $lines = ($lines | append "Use `c5t_get_scratchpad` to view current context")
-  } else {
-    $lines = ($lines | append "No scratchpad exists - create one with `c5t_update_scratchpad`")
-  }
+  # Session context tip
+  $lines = ($lines | append "---")
+  $lines = ($lines | append "💡 For detailed session context, check `c5t_list_notes {\"tags\": [\"session\"]}`")
 
   $lines | str join (char newline)
 }

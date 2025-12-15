@@ -444,7 +444,6 @@ export def "test format-summary with active work" [] {
     recently_completed: [
       {content: "Completed task" completed_at: "2025-12-14 10:00:00" list_name: "Project Alpha"}
     ]
-    scratchpad: {exists: true last_updated: "2025-12-14 12:00:00"}
   }
 
   let output = format-summary $summary
@@ -464,8 +463,8 @@ export def "test format-summary with active work" [] {
   # Should show high-priority items
   assert ($output | str contains "Critical security fix")
 
-  # Should show scratchpad status
-  assert ($output | str contains "Scratchpad")
+  # Should show session note tip
+  assert ($output | str contains "session")
 }
 
 # Test format-summary with no activity
@@ -487,7 +486,6 @@ export def "test format-summary with no activity" [] {
     in_progress: []
     high_priority: []
     recently_completed: []
-    scratchpad: {exists: false last_updated: null}
   }
 
   let output = format-summary $summary

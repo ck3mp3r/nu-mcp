@@ -9,7 +9,7 @@ c5t (Context) helps LLMs maintain state across sessions by providing:
 - **Notes**: Persistent markdown documentation
 - **Auto-Archive**: Completed todo lists become searchable notes
 - **Full-Text Search**: FTS5 search with boolean operators
-- **Scratchpad**: Single note for current context updates
+- **Session Notes**: Use tag 'session' for context that persists across conversations
 
 ## Quick Start
 
@@ -70,30 +70,28 @@ c5t_search {"query": "auth*"}  # Prefix matching
 c5t_search {"query": "api", "tags": ["backend"]}  # With tag filter
 ```
 
-**Note Types**: `manual`, `archived_todo`, `scratchpad`
+**Note Types**: `manual`, `archived_todo`
 
-## Scratchpad
+## Session Notes Pattern
 
-Single note for maintaining current context. Excluded from default note lists.
+Instead of a dedicated scratchpad, use regular notes with the `session` tag to maintain context across conversations:
 
 ```bash
-# Update scratchpad (creates if doesn't exist, updates if exists)
-c5t_update_scratchpad {
-  "content": "## Current Work\n\n- Working on auth feature\n- Next: rate limiting"
+# Create a session note to track current work
+c5t_create_note {
+  "title": "Session: Auth Feature - 2025-01-15",
+  "content": "## Current Work\n\n- Working on auth feature\n- Next: rate limiting",
+  "tags": ["session"]
 }
 
-# Retrieve scratchpad
-c5t_get_scratchpad {}
+# Find session notes when context is lost
+c5t_list_notes {"tags": ["session"]}
 
-# List scratchpad explicitly
-c5t_list_notes {"note_type": "scratchpad"}
+# Or search for session context
+c5t_search {"query": "current work", "tags": ["session"]}
 ```
 
-Only one scratchpad exists - updates replace content.
-
-### Scratchpad Template
-
-The scratchpad should capture session context for recovery. Include:
+### Session Note Template
 
 ```markdown
 # Session: [Feature/Task Name] - [Date]
@@ -103,39 +101,28 @@ The scratchpad should capture session context for recovery. Include:
 
 ## Active Todo Lists
 - List: [Name] (ID: X) - [X items: Y in progress, Z todo]
-  - In Progress: [Item descriptions]
-  - Next Up: [High priority items]
-
-## Recent Accomplishments
-- [Completed task 1]
-- [Completed task 2]
 
 ## Key Decisions & Learnings
 - [Important decision made and reasoning]
 - [Technical insight or gotcha discovered]
 
-## Blockers & Questions
-- [Current blockers or open questions]
-
 ## Next Steps
 1. [Next immediate task]
 2. [Following task]
 
-## Context Notes
+## Context
 - Branch: [branch-name]
 - Files modified: [key files]
-- Tests: [status]
 
 ---
 Last updated: [timestamp]
 ```
 
 **Best Practices:**
-- Update scratchpad every 3-5 todo changes or after major milestones
-- Use `c5t_generate_scratchpad_draft` for auto-populated starting point
-- Include git context (branch, status) for development work
-- Add reasoning behind decisions, not just facts
-- Use `c5t_get_scratchpad` at session start for context recovery
+- Create session notes at major milestones
+- Use the `session` tag consistently
+- Include reasoning behind decisions, not just facts
+- Use `c5t_list_notes {"tags": ["session"]}` at session start for context recovery
 
 ## All Available Tools
 
@@ -160,17 +147,14 @@ Last updated: [timestamp]
 - `c5t_update_notes` - Add/update progress notes on list
 
 ### Notes
-- `c5t_create_note` - Create manual note
-- `c5t_list_notes` - List notes (excludes scratchpad by default)
+- `c5t_create_note` - Create manual note (use tag 'session' for context notes)
+- `c5t_list_notes` - List notes, filter by tags or type
 - `c5t_get_note` - Get specific note by ID
 - `c5t_delete_note` - Remove a note
 - `c5t_search` - Full-text search with FTS5
 
-### Scratchpad
-- `c5t_update_scratchpad` - Update/create scratchpad
-- `c5t_get_scratchpad` - Retrieve scratchpad
-- `c5t_generate_scratchpad_draft` - Auto-generate scratchpad template
-- `c5t_get_summary` - Quick status overview
+### Summary
+- `c5t_get_summary` - Quick status overview of active work
 
 ### Data Management
 - `c5t_export_data` - Export all data as JSON for backup

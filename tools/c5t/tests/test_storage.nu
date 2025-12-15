@@ -12,156 +12,6 @@ export def "test get-db-path returns correct path" [] {
   assert ($db_path | str ends-with ".c5t/context.db")
 }
 
-# ======================================
-# Scratchpad Tests (Milestone 8)
-# ======================================
-
-# Test update-scratchpad creates new scratchpad when none exists
-export def "test update-scratchpad creates new scratchpad when none exists" [] {
-  use ../tests/mocks.nu *
-  use ../storage.nu update-scratchpad
-
-  with-env {
-    # First call: SELECT to check if scratchpad exists (returns empty list)
-    MOCK_query_db_CHECK_SCRATCHPAD: ({output: [] exit_code: 0})
-    # Second call: INSERT RETURNING returns the new ID
-    MOCK_query_db: ({output: [{id: 1}] exit_code: 0})
-  } {
-    let result = update-scratchpad "## Current Work\n\nWorking on feature X"
-
-    assert ($result.success == true)
-    assert ($result.scratchpad_id == 1)
-  }
-}
-
-# Test update-scratchpad updates existing scratchpad
-export def "test update-scratchpad updates existing scratchpad" [] {
-  use ../tests/mocks.nu *
-  use ../storage.nu update-scratchpad
-
-  # Mock SELECT to return existing scratchpad with id 42
-  let mock_select = [{id: 42}]
-  # Mock UPDATE success
-  let mock_update = ""
-
-  with-env {
-    MOCK_query_db: ({output: $mock_select exit_code: 0})
-    MOCK_query_db_UPDATE: ({output: $mock_update exit_code: 0})
-  } {
-    let result = update-scratchpad "## Updated Work\n\nNow working on feature Y"
-
-    assert ($result.success == true)
-    assert ($result.scratchpad_id == 42)
-  }
-}
-
-# Test get-scratchpad returns current scratchpad
-export def "test get-scratchpad returns current scratchpad" [] {
-  use ../tests/mocks.nu *
-  use ../storage.nu get-scratchpad
-
-  # Mock SELECT to return existing scratchpad
-  let mock_data = [
-    {
-      id: 42
-      title: "Scratchpad"
-      content: "## Current Work\n\nWorking on feature X"
-      tags: "null"
-      note_type: "scratchpad"
-      created_at: "2025-01-14 16:00:00"
-      updated_at: "2025-01-14 17:00:00"
-    }
-  ]
-
-  with-env {
-    MOCK_query_db: ({output: $mock_data exit_code: 0})
-  } {
-    let result = get-scratchpad
-
-    assert ($result.success == true)
-    assert ($result.scratchpad != null)
-    assert ($result.scratchpad.id == 42)
-    assert ($result.scratchpad.note_type == "scratchpad")
-  }
-}
-
-# Test get-scratchpad returns null when no scratchpad exists
-export def "test get-scratchpad returns null when no scratchpad exists" [] {
-  use ../tests/mocks.nu *
-  use ../storage.nu get-scratchpad
-
-  with-env {
-    # Mock SELECT to return empty list (no rows)
-    MOCK_query_db: ({output: [] exit_code: 0})
-  } {
-    let result = get-scratchpad
-
-    assert ($result.success == true)
-    assert ($result.scratchpad == null)
-  }
-}
-
-# Test only one scratchpad exists after multiple updates
-export def "test only one scratchpad exists after multiple updates" [] {
-  use ../tests/mocks.nu *
-  use ../storage.nu update-scratchpad
-
-  # First call: CREATE (check returns empty list, INSERT returns ID 1)
-  let mock_check_empty = []
-  let mock_insert = [{id: 1}]
-
-  with-env {
-    MOCK_query_db_CHECK_SCRATCHPAD: ({output: $mock_check_empty exit_code: 0})
-    MOCK_query_db: ({output: $mock_insert exit_code: 0})
-  } {
-    let result1 = update-scratchpad "First content"
-    assert ($result1.success == true)
-    assert ($result1.scratchpad_id == 1)
-  }
-
-  # Second call: UPDATE (check returns ID 1, no INSERT needed)
-  let mock_check_exists = [{id: 1}]
-
-  with-env {
-    MOCK_query_db_CHECK_SCRATCHPAD: ({output: $mock_check_exists exit_code: 0})
-    MOCK_query_db: ({output: [] exit_code: 0}) # UPDATE doesn't return data
-  } {
-    let result2 = update-scratchpad "Second content"
-    assert ($result2.success == true)
-    assert ($result2.scratchpad_id == 1) # Same ID as first call
-  }
-}
-
-# Test update-scratchpad with content containing literal newlines
-export def "test update-scratchpad handles content with literal newlines" [] {
-  use ../tests/mocks.nu *
-  use ../storage.nu update-scratchpad
-
-  # Content with literal newlines (like from markdown)
-  let content_with_newlines = "# Session Context
-
-## Active Work
-
-- Task 1
-- Task 2
-
-## Key Learnings
-
-Important insights here"
-
-  # Mock existing scratchpad
-  let mock_check = [{id: 1}]
-
-  with-env {
-    MOCK_query_db_CHECK_SCRATCHPAD: ({output: $mock_check exit_code: 0})
-    MOCK_query_db: ({output: [] exit_code: 0})
-  } {
-    let result = update-scratchpad $content_with_newlines
-    assert ($result.success == true)
-    assert ($result.scratchpad_id == 1)
-  }
-}
-
 # Test create-schema is called during init (integration-style test)
 export def "test init-database calls create-schema" [] {
   # We test this by verifying init-database completes successfully
@@ -530,12 +380,12 @@ export def "test get-notes filters by note_type" [] {
   }
 }
 
-# Test get-notes excludes scratchpad by default
-export def "test get-notes excludes scratchpad by default" [] {
+# Test get-notes returns all note types
+export def "test get-notes returns all note types" [] {
   use ../tests/mocks.nu *
   use ../storage.nu get-notes
 
-  # Mock returns manual and archived notes (no scratchpad)
+  # Mock returns manual and archived notes
   let mock_data = [
     {
       id: 1
@@ -567,39 +417,6 @@ export def "test get-notes excludes scratchpad by default" [] {
 
     assert ($result.success == true)
     assert ($result.count == 2)
-    # Verify no scratchpad in results
-    assert (($result.notes | where note_type == "scratchpad" | length) == 0)
-  }
-}
-
-# Test get-notes includes scratchpad when explicitly requested
-export def "test get-notes includes scratchpad when explicitly requested" [] {
-  use ../tests/mocks.nu *
-  use ../storage.nu get-notes
-
-  # Mock returns scratchpad
-  let mock_data = [
-    {
-      id: 1
-      title: "Scratchpad"
-      content: "Current work"
-      tags: "null"
-      note_type: "scratchpad"
-      source_id: null
-      created_at: "2025-01-14 16:30:00"
-      updated_at: "2025-01-14 17:00:00"
-    }
-  ]
-
-  with-env {
-    MOCK_query_db: ({output: $mock_data exit_code: 0})
-  } {
-    # Explicitly request scratchpad
-    let result = get-notes [] "scratchpad"
-
-    assert ($result.success == true)
-    assert ($result.count == 1)
-    assert ($result.notes.0.note_type == "scratchpad")
   }
 }
 
@@ -784,7 +601,6 @@ export def "test get-summary returns expected structure" [] {
   assert ("in_progress" in $result.summary)
   assert ("high_priority" in $result.summary)
   assert ("recently_completed" in $result.summary)
-  assert ("scratchpad" in $result.summary)
 
   # Verify stats fields
   assert ("active_lists" in $result.summary.stats)

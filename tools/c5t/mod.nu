@@ -430,7 +430,7 @@ def "main list-tools" [] {
     }
     {
       name: "create_note"
-      description: "Save important info or decisions as a searchable note (markdown supported)"
+      description: "Save important info or decisions as a searchable note (markdown supported). Tip: Use tag 'session' for notes that track context across conversation compactions."
       input_schema: {
         type: "object"
         properties: {
@@ -453,7 +453,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_notes"
-      description: "SHOW TO USER. Browse all saved notes and archived work. Filter by tags or type."
+      description: "SHOW TO USER. Browse all saved notes and archived work. Filter by tags or type. Lost context? Look for notes tagged 'session'."
       input_schema: {
         type: "object"
         properties: {
@@ -464,8 +464,8 @@ def "main list-tools" [] {
           }
           note_type: {
             type: "string"
-            description: "Filter by note type: 'manual' (user-created notes), 'archived_todo' (completed todo lists), 'scratchpad' (session context) (optional)"
-            enum: ["manual" "archived_todo" "scratchpad"]
+            description: "Filter by note type: 'manual' (user-created notes), 'archived_todo' (completed todo lists) (optional)"
+            enum: ["manual" "archived_todo"]
           }
           limit: {
             type: "integer"
@@ -515,38 +515,8 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "update_scratchpad"
-      description: "Save session context: current work, decisions, next steps. Update at milestones (every 3-5 changes)."
-      input_schema: {
-        type: "object"
-        properties: {
-          content: {
-            type: "string"
-            description: "Markdown content: what you're working on, key decisions, next steps."
-          }
-        }
-        required: ["content"]
-      }
-    }
-    {
-      name: "get_scratchpad"
-      description: "CONTEXT LOST? START HERE. Retrieve session notes to restore context after compaction. SHOW TO USER."
-      input_schema: {
-        type: "object"
-        properties: {}
-      }
-    }
-    {
-      name: "generate_scratchpad_draft"
-      description: "Auto-generate scratchpad template from current state. Review, enhance, then save with update_scratchpad."
-      input_schema: {
-        type: "object"
-        properties: {}
-      }
-    }
-    {
       name: "get_summary"
-      description: "SHOW TO USER. Quick status overview: what's active, what's done, what's priority. Perfect for session start."
+      description: "SHOW TO USER. Quick status overview: active lists, in-progress items, priorities. Perfect for session start. For detailed context, check notes tagged 'session'."
       input_schema: {
         type: "object"
         properties: {}
@@ -1127,69 +1097,6 @@ def "main call-tool" [
       }
 
       format-search-results $result.notes
-    }
-
-    "update_scratchpad" => {
-      if "content" not-in $parsed_args {
-        return "Error: Missing required field: 'content'"
-      }
-
-      let content = $parsed_args.content
-
-      let result = update-scratchpad $content
-
-      if not $result.success {
-        return $result.error
-      }
-
-      $"✅ Scratchpad updated \(ID: ($result.scratchpad_id)\)
-
-Content preview:($content | lines | first 3 | str join (char newline))
-..."
-    }
-
-    "get_scratchpad" => {
-      let result = get-scratchpad
-
-      if not $result.success {
-        return $result.error
-      }
-
-      if $result.scratchpad == null {
-        return "📝 No scratchpad exists yet. Create one with update_scratchpad."
-      }
-
-      format-note-detail $result.scratchpad
-    }
-
-    "generate_scratchpad_draft" => {
-      # Get all the data we need
-      let lists_result = get-active-lists-with-counts
-      let in_progress_result = get-all-in-progress-items
-      let completed_result = get-recently-completed-items
-      let high_priority_result = get-high-priority-next-steps
-
-      if not $lists_result.success {
-        return $lists_result.error
-      }
-      if not $in_progress_result.success {
-        return $in_progress_result.error
-      }
-      if not $completed_result.success {
-        return $completed_result.error
-      }
-      if not $high_priority_result.success {
-        return $high_priority_result.error
-      }
-
-      # Generate the template
-      let draft = generate-scratchpad-template $lists_result.lists $in_progress_result.items $completed_result.items $high_priority_result.items
-
-      $"📝 Scratchpad Draft Generated
-
-Review the draft below, add your context/learnings/decisions in the marked sections, then call update_scratchpad with the enhanced content.
-
----($draft)"
     }
 
     "get_summary" => {
