@@ -283,13 +283,13 @@ def "main list-tools" [] {
     }
     {
       name: "update_scratchpad"
-      description: "Update or create the scratchpad note for session context. Only one scratchpad exists. Best practice: Update at session milestones (every 3-5 changes, after major tasks). Use get_scratchpad at session start to review context."
+      description: "Your persistent memory across sessions. Store decisions, context, learnings, and session state here. Update at milestones. After context compacts, use get_scratchpad + search to restore state."
       input_schema: {
         type: "object"
         properties: {
           content: {
             type: "string"
-            description: "Markdown content for the scratchpad. Typically includes: active work summary, in-progress items, recent accomplishments, key decisions/learnings, next steps, and current timestamp. Use generate_scratchpad_draft to auto-generate a starting template."
+            description: "Markdown content: decisions made, key learnings, current focus, important context for next session. This is YOUR notes - not auto-generated."
           }
         }
         required: ["content"]
@@ -297,7 +297,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_scratchpad"
-      description: "CONTEXT LOST? START HERE. Recover exactly where you left off: active work, recent progress, git status, decisions. Essential for session continuity."
+      description: "CONTEXT LOST? START HERE. Your notes from previous sessions. Combine with 'search' to query archived work history."
       input_schema: {
         type: "object"
         properties: {}
@@ -305,7 +305,7 @@ def "main list-tools" [] {
     }
     {
       name: "generate_scratchpad_draft"
-      description: "Auto-generate session summary from current work (active lists, progress, git status). Review and enhance before saving."
+      description: "Generate a template with current todos, git status, etc. Use as starting point, then add your own context/decisions before saving."
       input_schema: {
         type: "object"
         properties: {}
@@ -436,9 +436,6 @@ def "main call-tool" [
         return $result.error
       }
 
-      # Auto-update scratchpad after status change
-      auto-update-scratchpad | ignore
-
       if $result.archived {
         format-item-updated-with-archive "status" $item_id $status $result.note_id
       } else {
@@ -499,9 +496,6 @@ def "main call-tool" [
       if not $result.success {
         return $result.error
       }
-
-      # Auto-update scratchpad after completion
-      auto-update-scratchpad | ignore
 
       if $result.archived {
         format-item-completed-with-archive $item_id $result.note_id

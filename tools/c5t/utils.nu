@@ -3,57 +3,6 @@
 # NOTE: ID generation removed - SQLite auto-generates INTEGER PRIMARY KEY
 # IDs are now integers auto-assigned by SQLite using last_insert_rowid()
 
-# Auto-update scratchpad with generated content (hybrid: preserves LLM context)
-export def auto-update-scratchpad [] {
-  # Wrap everything in try-catch to fail silently if DB doesn't exist
-  try {
-    use storage.nu *
-
-    # Get existing scratchpad to preserve LLM context
-    let existing_result = get-scratchpad
-    let llm_context = if $existing_result.success and $existing_result.scratchpad != null {
-      extract-llm-context $existing_result.scratchpad.content
-    } else {
-      "*[LLM: Add insights, decisions, important context for next session]*"
-    }
-
-    # Fetch data needed for template
-    let lists_result = get-active-lists-with-counts
-    let in_progress_result = get-all-in-progress-items
-    let completed_result = get-recently-completed-items
-    let high_priority_result = get-high-priority-next-steps
-
-    # Check for errors
-    if not $lists_result.success {
-      return false
-    }
-    if not $in_progress_result.success {
-      return false
-    }
-    if not $completed_result.success {
-      return false
-    }
-    if not $high_priority_result.success {
-      return false
-    }
-
-    # Generate fresh auto-generated sections
-    let auto_content = generate-scratchpad-template $lists_result.lists $in_progress_result.items $completed_result.items $high_priority_result.items
-
-    # Replace the LLM placeholder with preserved content
-    let final_content = $auto_content | str replace "*[LLM: Add insights, decisions, important context for next session]*" $llm_context
-
-    # Update scratchpad
-    let result = update-scratchpad $final_content
-
-    # Return success silently
-    $result.success
-  } catch {
-    # Fail silently if database doesn't exist or other errors
-    false
-  }
-}
-
 # Get git status for scratchpad
 export def get-git-status [] {
   # Check if we're in a git repo - use try/catch since git returns non-zero outside repo
@@ -336,32 +285,4 @@ export def generate-scratchpad-template [
   $lines = ($lines | append "")
 
   $lines | str join (char newline)
-}
-
-# Extract LLM-maintained section from existing scratchpad
-export def extract-llm-context [scratchpad_content: string] {
-  let lines = $scratchpad_content | lines
-
-  # Find the start of "Key Learnings & Context" section
-  let matches = $lines | enumerate | where {|row| $row.item =~ "^## Key Learnings" }
-
-  if ($matches | is-empty) {
-    # No existing LLM context found
-    return "*[LLM: Add insights, decisions, important context for next session]*"
-  }
-
-  let start_idx = $matches | get index | first
-
-  # Extract everything from that section onwards
-  let llm_lines = $lines | skip ($start_idx + 1)
-
-  # Skip the header line and empty line, then join
-  let content = $llm_lines | skip 1 | str join (char newline) | str trim
-
-  if ($content | str length) == 0 or ($content =~ '^\*\[LLM:') {
-    # Empty or placeholder, return default
-    return "*[LLM: Add insights, decisions, important context for next session]*"
-  }
-
-  $content
 }
