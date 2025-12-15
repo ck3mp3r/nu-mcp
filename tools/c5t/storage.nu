@@ -330,6 +330,7 @@ export def update-item-status [
 }
 
 # Update item priority
+# DEPRECATED: Use upsert-item instead
 export def update-item-priority [
   list_id: int
   item_id: int
@@ -1718,6 +1719,7 @@ export def upsert-list [
 }
 
 # Bulk add multiple items to a list
+# DEPRECATED: Prefer using upsert-item in real-time for better progress tracking
 export def bulk-add-items [
   list_id: int
   items: list # List of records with content, optional priority, optional status
@@ -1862,6 +1864,7 @@ export def export-data [] {
 }
 
 # Bulk update status for multiple items
+# DEPRECATED: Prefer using upsert-item in real-time for better progress tracking
 export def bulk-update-status [
   list_id: int
   item_ids: list<int>

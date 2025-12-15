@@ -227,7 +227,7 @@ def "main list-tools" [] {
     }
     {
       name: "import_data"
-      description: "Import c5t data from JSON backup file. Use merge=true to add to existing data, merge=false to replace all. Use list_backups to see available files."
+      description: "Import c5t data from JSON backup file. Replaces all existing data. Use list_backups to see available files."
       input_schema: {
         type: "object"
         properties: {

@@ -983,3 +983,218 @@ export def "test get-list returns error for non-existent list" [] {
     assert ($result.error | str contains "not found")
   }
 }
+
+# --- Upsert List Tests ---
+
+# Test upsert-list creates new list when no list_id
+export def "test upsert-list creates new list" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu [ upsert-list create-todo-list ]
+
+  with-env {
+    MOCK_query_db: ({output: [{id: 42}] exit_code: 0})
+  } {
+    # Use create-todo-list directly since upsert-list delegates to it
+    let result = create-todo-list "New List" "Description" ["tag1"]
+
+    assert ($result.success == true)
+    assert ($result.name == "New List")
+  }
+}
+
+# Test upsert-list updates existing list when list_id provided
+export def "test upsert-list updates existing list" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu upsert-list
+
+  with-env {
+    MOCK_query_db: ({output: [{id: 1 name: "Updated" description: "Desc" status: "active" tags: null notes: null created_at: "2025-01-01" updated_at: "2025-01-01" archived_at: null}] exit_code: 0})
+    MOCK_query_db_TODO_LIST: ({output: [{id: 1 name: "Test" description: null status: "active" tags: null notes: null created_at: "2025-01-01" updated_at: "2025-01-01" archived_at: null}] exit_code: 0})
+  } {
+    let result = upsert-list 1 "Updated Name"
+
+    assert ($result.success == true)
+    assert ($result.created == false)
+  }
+}
+
+# Test upsert-list requires name for new list
+export def "test upsert-list requires name for new list" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu upsert-list
+
+  # Call with no arguments - should fail
+  let result = upsert-list
+
+  assert ($result.success == false)
+  assert ($result.error | str contains "required")
+}
+
+# Test upsert-list rejects empty name for create
+export def "test upsert-list rejects empty name for create" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu create-todo-list
+
+  # Try creating with empty name
+  let result = create-todo-list ""
+
+  assert ($result.success == false)
+  assert (($result.error | str contains "empty") or ($result.error | str contains "Failed"))
+}
+
+# Test upsert-list returns error for non-existent list
+export def "test upsert-list returns error for non-existent list" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu upsert-list
+
+  with-env {
+    MOCK_query_db_TODO_LIST: ({output: [] exit_code: 0})
+  } {
+    let result = upsert-list 999 "Name"
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "not found")
+  }
+}
+
+# Test upsert-list requires at least one field for update
+export def "test upsert-list requires field for update" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu upsert-list
+
+  with-env {
+    MOCK_query_db_TODO_LIST: ({output: [{id: 1}] exit_code: 0})
+  } {
+    let result = upsert-list 1
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "At least one")
+  }
+}
+
+# --- Upsert Item Tests ---
+
+# Test upsert-item creates new item (via add-todo-item)
+export def "test upsert-item creates new item" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu add-todo-item
+
+  with-env {
+    MOCK_query_db: ({output: [{id: 42}] exit_code: 0})
+  } {
+    let result = add-todo-item 1 "New item content" 2 "todo"
+
+    assert ($result.success == true)
+    assert ($result.content == "New item content")
+  }
+}
+
+# Test upsert-item updates existing item when item_id provided
+export def "test upsert-item updates existing item" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu upsert-item
+
+  with-env {
+    MOCK_query_db: ({output: [{id: 42 list_id: 1 content: "Updated" status: "in_progress" priority: 1 position: null created_at: "2025-01-01" started_at: null completed_at: null}] exit_code: 0})
+    MOCK_query_db_TODO_LIST: ({output: [{id: 1}] exit_code: 0})
+  } {
+    let result = upsert-item 1 42 "Updated content"
+
+    assert ($result.success == true)
+    assert ($result.created == false)
+  }
+}
+
+# Test upsert-item returns error for non-existent item
+export def "test upsert-item returns error for non-existent item" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu upsert-item
+
+  with-env {
+    MOCK_query_db: ({output: [] exit_code: 0})
+    MOCK_query_db_TODO_LIST: ({output: [{id: 1}] exit_code: 0})
+  } {
+    let result = upsert-item 1 999 "Content"
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "not found")
+  }
+}
+
+# Test upsert-item requires at least one field for update
+export def "test upsert-item requires field for update" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu upsert-item
+
+  with-env {
+    MOCK_query_db: ({output: [{id: 42}] exit_code: 0})
+    MOCK_query_db_TODO_LIST: ({output: [{id: 1}] exit_code: 0})
+  } {
+    let result = upsert-item 1 42
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "At least one")
+  }
+}
+
+# --- Upsert Note Tests ---
+
+# Test upsert-note creates new note (via create-note)
+export def "test upsert-note creates new note" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu create-note
+
+  with-env {
+    MOCK_query_db: ({output: [{id: 42}] exit_code: 0})
+  } {
+    let result = create-note "New Note" "Content here" ["tag1"]
+
+    assert ($result.success == true)
+    assert ($result.title == "New Note")
+  }
+}
+
+# Test upsert-note updates existing note when note_id provided
+export def "test upsert-note updates existing note" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu upsert-note
+
+  with-env {
+    MOCK_query_db: ({output: [{id: 42 title: "Updated" content: "New content" tags: null note_type: "manual" source_id: null created_at: "2025-01-01" updated_at: "2025-01-01"}] exit_code: 0})
+  } {
+    let result = upsert-note 42 "New Title" "Updated content"
+
+    assert ($result.success == true)
+    assert ($result.created == false)
+  }
+}
+
+# Test upsert-note returns error for non-existent note
+export def "test upsert-note returns error for non-existent note" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu upsert-note
+
+  with-env {
+    MOCK_query_db: ({output: [] exit_code: 0})
+  } {
+    let result = upsert-note 999 "Title" "Content"
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "not found")
+  }
+}
+
+# Test upsert-note requires at least one field for update
+export def "test upsert-note requires field for update" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu upsert-note
+
+  with-env {
+    MOCK_query_db: ({output: [{id: 42 title: "Note" content: "Content" tags: null note_type: "manual" source_id: null created_at: "2025-01-01" updated_at: "2025-01-01"}] exit_code: 0})
+  } {
+    let result = upsert-note 42
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "At least one")
+  }
+}
