@@ -213,23 +213,43 @@ export def format-item-completed-with-archive [
   ] | str join (char newline)
 }
 
-# Format list of items as table
+# Format list of items as markdown
 export def format-items-table [list: record items: list] {
-  let header = [
-    $"# ($list.name) \(ID: ($list.id)\)"
+  mut lines = [
+    $"# ($list.name)"
+    $"**List ID:** ($list.id)"
     ""
-  ] | str join (char newline)
+  ]
 
   if ($items | is-empty) {
-    return $"($header)No items."
+    $lines = ($lines | append "No items.")
+    return ($lines | str join (char newline))
   }
 
-  # Select key columns and let Nushell render as table
-  let table_data = $items
-    | select id content status priority
-    | table --width 120
+  # Group by status
+  let grouped = $items | group-by status
 
-  $"($header)($table_data)"
+  let status_order = [
+    {status: "in_progress" label: "In Progress" emoji: "🔄"}
+    {status: "todo" label: "To Do" emoji: "📝"}
+    {status: "backlog" label: "Backlog" emoji: "📋"}
+    {status: "review" label: "Review" emoji: "👀"}
+  ]
+
+  for entry in $status_order {
+    if $entry.status in $grouped {
+      let status_items = $grouped | get $entry.status
+      $lines = ($lines | append $"## ($entry.emoji) ($entry.label)")
+      $lines = ($lines | append "")
+      for item in $status_items {
+        let priority = if $item.priority != null { $" [P($item.priority)]" } else { "" }
+        $lines = ($lines | append $"- **\(($item.id)\)**($priority) ($item.content)")
+      }
+      $lines = ($lines | append "")
+    }
+  }
+
+  $lines | str join (char newline)
 }
 
 # Format list with items (legacy bullet format)
