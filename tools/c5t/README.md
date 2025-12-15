@@ -157,7 +157,7 @@ Last updated: [timestamp]
 - `c5t_get_summary` - Quick status overview of active work
 
 ### Data Management
-- `c5t_export_data` - Export all data as JSON for backup
+- `c5t_export_data` - Export all data to `.c5t/backup-{timestamp}.json`
 - `c5t_import_data` - Import data from JSON backup (merge or replace)
 
 ## Auto-Archive

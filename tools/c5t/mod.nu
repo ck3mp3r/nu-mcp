@@ -353,10 +353,15 @@ def "main list-tools" [] {
     }
     {
       name: "export_data"
-      description: "Export all c5t data (lists, items, notes) as JSON for backup. Returns JSON string."
+      description: "Export all c5t data (lists, items, notes) as JSON backup file. Saves to .c5t/backup-{timestamp}.json by default."
       input_schema: {
         type: "object"
-        properties: {}
+        properties: {
+          filename: {
+            type: "string"
+            description: "Custom backup filename (optional, defaults to backup-{timestamp}.json)"
+          }
+        }
       }
     }
     {
@@ -937,8 +942,28 @@ def "main call-tool" [
         return $result.error
       }
 
-      # Return as formatted JSON
-      $result.data | to json --indent 2
+      # Generate filename
+      let timestamp = date now | format date "%Y%m%d-%H%M%S"
+      let filename = if "filename" in $parsed_args and $parsed_args.filename != null {
+        $parsed_args.filename
+      } else {
+        $"backup-($timestamp).json"
+      }
+
+      # Ensure .c5t directory exists
+      let backup_dir = ".c5t"
+      if not ($backup_dir | path exists) {
+        mkdir $backup_dir
+      }
+
+      # Write backup file
+      let filepath = $"($backup_dir)/($filename)"
+      $result.data | to json --indent 2 | save -f $filepath
+
+      $"✓ Backup saved to ($filepath)
+  Lists: ($result.data.lists | length)
+  Items: ($result.data.items | length)
+  Notes: ($result.data.notes | length)"
     }
 
     "import_data" => {
