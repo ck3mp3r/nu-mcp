@@ -32,9 +32,10 @@ export def run-migrations [] {
   $db_path
 }
 
+const SQL_DIR = (path self sql)
+
 def get-migration-files [] {
-  let sql_dir = "tools/c5t/sql"
-  glob $"($sql_dir)/*.sql" | sort
+  glob $"($SQL_DIR)/*.sql" | sort
 }
 
 def get-migration-version [filepath: string] {
