@@ -466,20 +466,20 @@ export def "test get-current-repo-id from git remote" [] {
 }
 
 # Test get-current-repo-id fails gracefully when not in git repo
-# Note: This test verifies the function signature and error structure.
-# The actual git mock requires the storage module to import mocks, which is not
-# the current architecture. Integration testing happens via actual git repo behavior.
-export def "test get-current-repo-id not in git repo" [] {
+# Test get-git-remote returns error when git fails
+export def "test get-git-remote error handling" [] {
+  use ../tests/mocks.nu *
   use ../storage.nu get-git-remote
 
-  # Test in a known non-git directory (temp dir)
-  cd /tmp
-  let result = get-git-remote
-  cd -
+  with-env {
+    MOCK_git_remote_get_url_origin: '{"output": "", "exit_code": 1}'
+  } {
+    let result = get-git-remote
 
-  # The function should return success: false when not in a git repo
-  assert ($result.success == false)
-  assert ("error" in $result)
+    # The function should return success: false when git fails
+    assert ($result.success == false)
+    assert ("error" in $result)
+  }
 }
 
 # Test create-todo-list uses current repo
