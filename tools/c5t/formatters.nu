@@ -523,3 +523,25 @@ export def format-summary [summary: record] {
 
   $lines | str join (char newline)
 }
+
+# Format list of repositories
+export def format-repos-list [repos: list] {
+  if ($repos | is-empty) {
+    return "No repositories found."
+  }
+
+  let items = $repos | each {|repo|
+      [
+        $"  • ($repo.remote)"
+        $"    ID: ($repo.id) | Path: ($repo.path)"
+        $"    Last accessed: ($repo.last_accessed_at)"
+      ] | str join (char newline)
+    }
+
+  let count = $repos | length
+  [
+    $"Known Repositories: ($count)"
+    ""
+    ...$items
+  ] | str join (char newline)
+}

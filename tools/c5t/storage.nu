@@ -102,6 +102,30 @@ export def get-current-repo-id [] {
   get-or-create-repo $remote $path
 }
 
+# List all known repositories
+export def list-repos [] {
+  let db_path = init-database
+
+  let sql = "SELECT id, remote, path, created_at, last_accessed_at 
+             FROM repo 
+             ORDER BY last_accessed_at DESC"
+
+  let result = query-sql $db_path $sql []
+
+  if not $result.success {
+    return {
+      success: false
+      error: $"Failed to get repositories: ($result.error)"
+    }
+  }
+
+  {
+    success: true
+    repos: $result.data
+    count: ($result.data | length)
+  }
+}
+
 export def init-database [] {
   let db_path = get-db-path
 

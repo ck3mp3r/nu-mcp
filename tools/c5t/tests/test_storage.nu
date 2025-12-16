@@ -584,3 +584,42 @@ export def "test get-xdg-data-path respects XDG_DATA_HOME" [] {
     assert ($result == "/custom/data/c5t")
   }
 }
+
+# --- Repository Listing ---
+
+# Test list-repos returns all known repositories
+export def "test list-repos returns all repos" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu list-repos
+
+  let mock_data = [
+    {id: 1 remote: "github:org/repo1" path: "/path/to/repo1" created_at: "2025-01-01" last_accessed_at: "2025-01-15"}
+    {id: 2 remote: "github:org/repo2" path: "/path/to/repo2" created_at: "2025-01-02" last_accessed_at: "2025-01-14"}
+  ]
+
+  with-env {
+    MOCK_query_db: ({output: $mock_data exit_code: 0})
+  } {
+    let result = list-repos
+
+    assert ($result.success == true)
+    assert ($result.count == 2)
+    assert ($result.repos.0.remote == "github:org/repo1")
+  }
+}
+
+# Test list-repos returns empty when no repos
+export def "test list-repos handles empty" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu list-repos
+
+  with-env {
+    MOCK_query_db: ({output: [] exit_code: 0})
+  } {
+    let result = list-repos
+
+    assert ($result.success == true)
+    assert ($result.count == 0)
+    assert ($result.repos | is-empty)
+  }
+}

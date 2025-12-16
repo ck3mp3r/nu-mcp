@@ -23,6 +23,7 @@ export def "test list-tools has expected tools" [] {
   assert ("list_active" in $names)
   assert ("get_summary" in $names)
   assert ("search" in $names)
+  assert ("list_repos" in $names)
 }
 
 export def "test call-tool rejects unknown tool" [] {

@@ -395,6 +395,14 @@ def "main list-tools" [] {
         }
       }
     }
+    {
+      name: "list_repos"
+      description: "SHOW TO USER. List all known repositories that have c5t data."
+      input_schema: {
+        type: "object"
+        properties: {}
+      }
+    }
   ] | to json
 }
 
@@ -866,6 +874,16 @@ Use list_backups to see available backup files."
       }
 
       format-summary $result.summary
+    }
+
+    "list_repos" => {
+      let result = list-repos
+
+      if not $result.success {
+        return $result.error
+      }
+
+      format-repos-list $result.repos
     }
 
     _ => {
