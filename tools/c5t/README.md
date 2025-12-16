@@ -10,10 +10,28 @@ c5t (Context) helps LLMs maintain state across sessions by providing:
 - **Auto-Archive**: Completed todo lists become searchable notes
 - **Full-Text Search**: FTS5 search with boolean operators
 - **Session Notes**: Use tag 'session' for context that persists across conversations
+- **Project Isolation**: Data is scoped per git repository (via remote URL)
 
 ## Quick Start
 
-The tool auto-initializes on first use. Database stored at `.c5t/context.db`.
+The tool auto-initializes on first use.
+
+### Storage Location
+
+- **Database**: `~/.local/share/c5t/context.db` (XDG compliant)
+- **Backups**: `~/.local/share/c5t/backups/`
+
+### Project Isolation
+
+c5t automatically isolates data by git repository. When you run a c5t command:
+1. It detects the current git remote URL (e.g., `git@github.com:org/repo.git`)
+2. Normalizes it to a project identifier (e.g., `github:org/repo`)
+3. All todo lists and notes are scoped to that project
+
+This means:
+- Different repositories have separate todo lists and notes
+- Cloning a repo in a new location auto-links to existing data
+- Use `--all-repos` flag to query across all projects
 
 ## Todo Workflow
 
@@ -168,9 +186,10 @@ Last updated: [timestamp]
 - `c5t_get_summary` - Quick status overview of active work
 
 ### Data Management
-- `c5t_export_data` - Export all data to `.c5t/backup-{timestamp}.json`
+- `c5t_export_data` - Export all data to `~/.local/share/c5t/backups/backup-{timestamp}.json`
 - `c5t_list_backups` - List available backup files
 - `c5t_import_data` - Import data from backup file (merge or replace)
+- `c5t_list_repos` - List all known repositories
 
 ## Auto-Archive
 
@@ -186,10 +205,49 @@ Archived notes are searchable and appear in `c5t_list_notes` with type `archived
 
 ## Database
 
-- **Location**: `.c5t/context.db`
+- **Location**: `~/.local/share/c5t/context.db` (respects `XDG_DATA_HOME`)
+- **Backups**: `~/.local/share/c5t/backups/`
 - **Schema**: SQLite with INTEGER PRIMARY KEYs
-- **Tables**: `todo_list`, `todo_item`, `note`, `note_fts` (FTS5)
+- **Tables**: `repo`, `todo_list`, `todo_item`, `note`, `note_fts` (FTS5)
 - **Migration**: Auto-applies on initialization
+
+## Project Isolation
+
+### How It Works
+
+c5t uses git remote URLs to identify projects:
+
+| Git Remote | Project ID |
+|------------|------------|
+| `git@github.com:org/repo.git` | `github:org/repo` |
+| `https://github.com/org/repo.git` | `github:org/repo` |
+| `git@gitlab.com:team/project.git` | `gitlab:team/project` |
+
+### Querying Across Projects
+
+Most read operations support an `allRepos` flag to query across all projects:
+
+```bash
+# View todos from current repo only (default)
+c5t_list_active {}
+
+# View todos from ALL repositories
+c5t_list_active {"allRepos": true}
+
+# Search notes across all projects
+c5t_search {"query": "auth", "allRepos": true}
+
+# Get summary across all projects
+c5t_get_summary {"allRepos": true}
+```
+
+### Managing Repositories
+
+```bash
+# List all known repositories
+c5t_list_repos {}
+# Shows: ID, remote identifier, local path, last accessed
+```
 
 ## FTS5 Search Syntax
 
