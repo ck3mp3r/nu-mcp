@@ -416,35 +416,34 @@ export def "test parse-git-remote strips .git suffix" [] {
   assert ($result1 == $result2)
 }
 
-# Test get-or-create-repo creates new repo
-export def "test get-or-create-repo creates new" [] {
+# Test get-repo returns existing repo
+export def "test get-repo returns existing" [] {
   use ../tests/mocks.nu *
-  use ../storage.nu get-or-create-repo
-
-  with-env {
-    # First query returns empty (repo doesn't exist), second returns new repo
-    MOCK_query_db_REPO: ({output: [] exit_code: 0})
-    MOCK_query_db: ({output: [{id: 1}] exit_code: 0})
-  } {
-    let result = get-or-create-repo "github:ck3mp3r/nu-mcp" "/Users/test/nu-mcp"
-
-    assert ($result.success == true)
-    assert ($result.repo_id == 1)
-  }
-}
-
-# Test get-or-create-repo returns existing repo
-export def "test get-or-create-repo returns existing" [] {
-  use ../tests/mocks.nu *
-  use ../storage.nu get-or-create-repo
+  use ../storage.nu get-repo
 
   with-env {
     MOCK_query_db_REPO: ({output: [{id: 42 remote: "github:ck3mp3r/nu-mcp" path: "/Users/test/nu-mcp"}] exit_code: 0})
   } {
-    let result = get-or-create-repo "github:ck3mp3r/nu-mcp" "/Users/test/nu-mcp"
+    let result = get-repo "github:ck3mp3r/nu-mcp"
 
     assert ($result.success == true)
+    assert ($result.exists == true)
     assert ($result.repo_id == 42)
+  }
+}
+
+# Test get-repo returns not exists for unknown repo
+export def "test get-repo returns not exists" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu get-repo
+
+  with-env {
+    MOCK_query_db_REPO: ({output: [] exit_code: 0})
+  } {
+    let result = get-repo "github:unknown/repo"
+
+    assert ($result.success == true)
+    assert ($result.exists == false)
   }
 }
 
@@ -621,5 +620,76 @@ export def "test list-repos handles empty" [] {
     assert ($result.success == true)
     assert ($result.count == 0)
     assert ($result.repos | is-empty)
+  }
+}
+
+# --- Upsert Repo ---
+
+# Test upsert-repo creates new repo
+export def "test upsert-repo creates new" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu upsert-repo
+
+  with-env {
+    MOCK_git_remote_get_url_origin: '{"output": "git@github.com:org/new-repo.git", "exit_code": 0}'
+    MOCK_query_db_REPO: ({output: [] exit_code: 0})
+    MOCK_query_db: ({output: [{id: 10}] exit_code: 0})
+  } {
+    let result = upsert-repo
+
+    assert ($result.success == true)
+    assert ($result.created == true)
+    assert ($result.repo_id == 10)
+    assert ($result.remote == "github:org/new-repo")
+  }
+}
+
+# Test upsert-repo updates existing repo
+export def "test upsert-repo updates existing" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu upsert-repo
+
+  with-env {
+    MOCK_git_remote_get_url_origin: '{"output": "git@github.com:org/existing-repo.git", "exit_code": 0}'
+    MOCK_query_db_REPO: ({output: [{id: 5 remote: "github:org/existing-repo" path: "/old/path"}] exit_code: 0})
+  } {
+    let result = upsert-repo
+
+    assert ($result.success == true)
+    assert ($result.created == false)
+    assert ($result.repo_id == 5)
+  }
+}
+
+# Test get-current-repo-id fails when repo not registered
+export def "test get-current-repo-id fails when not registered" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu get-current-repo-id
+
+  with-env {
+    MOCK_git_remote_get_url_origin: '{"output": "git@github.com:org/unregistered.git", "exit_code": 0}'
+    MOCK_query_db_REPO: ({output: [] exit_code: 0})
+  } {
+    let result = get-current-repo-id
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "not registered")
+    assert ($result.error | str contains "upsert_repo")
+  }
+}
+
+# Test create-todo-list fails when repo not registered
+export def "test create-todo-list fails when repo not registered" [] {
+  use ../tests/mocks.nu *
+  use ../storage.nu create-todo-list
+
+  with-env {
+    MOCK_git_remote_get_url_origin: '{"output": "git@github.com:org/unregistered.git", "exit_code": 0}'
+    MOCK_query_db_REPO: ({output: [] exit_code: 0})
+  } {
+    let result = create-todo-list "Test List" "Description" []
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "not registered")
   }
 }

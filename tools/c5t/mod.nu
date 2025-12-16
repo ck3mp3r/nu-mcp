@@ -15,7 +15,7 @@ def "main list-tools" [] {
   [
     {
       name: "upsert_list"
-      description: "Create or update a todo list. Omit list_id to create new, provide list_id to update. Supports name, description, tags, and progress notes."
+      description: "Create or update a todo list. Omit list_id to create new, provide list_id to update. Supports name, description, tags, and progress notes. Repository must be registered first with upsert_repo."
       input_schema: {
         type: "object"
         properties: {
@@ -287,7 +287,7 @@ def "main list-tools" [] {
 
     {
       name: "upsert_note"
-      description: "Create or update a note. Provide note_id to update existing, omit to create new. Tip: Use tag 'session' for context across compactions."
+      description: "Create or update a note. Provide note_id to update existing, omit to create new. Repository must be registered first with upsert_repo. Tip: Use tag 'session' for context across compactions."
       input_schema: {
         type: "object"
         properties: {
@@ -398,6 +398,14 @@ def "main list-tools" [] {
     {
       name: "list_repos"
       description: "SHOW TO USER. List all known repositories that have c5t data."
+      input_schema: {
+        type: "object"
+        properties: {}
+      }
+    }
+    {
+      name: "upsert_repo"
+      description: "Register or update the current git repository. REQUIRED before creating lists or notes. Detects git remote and registers this repo for c5t tracking. Call this first when working in a new repository."
       input_schema: {
         type: "object"
         properties: {}
@@ -885,6 +893,26 @@ Use list_backups to see available backup files."
       }
 
       format-repos-list $result.repos
+    }
+
+    "upsert_repo" => {
+      let result = upsert-repo
+
+      if not $result.success {
+        return $result.error
+      }
+
+      if $result.created {
+        $"✓ Repository registered
+  ID: ($result.repo_id)
+  Remote: ($result.remote)
+  Path: ($result.path)"
+      } else {
+        $"✓ Repository updated
+  ID: ($result.repo_id)
+  Remote: ($result.remote)
+  Path: ($result.path)"
+      }
     }
 
     _ => {

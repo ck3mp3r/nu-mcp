@@ -62,34 +62,53 @@ export def get-git-remote [] {
   }
 }
 
-# Get or create repo record, returns {success: bool, repo_id: int}
-export def get-or-create-repo [remote: string path: string] {
+# Get existing repo record, returns {success: bool, repo_id?: int, exists: bool}
+export def get-repo [remote: string] {
   let db_path = init-database
 
-  # Try to find existing repo
   let sql = "SELECT id, remote, path FROM repo WHERE remote = ?"
   let result = query-sql $db_path $sql [$remote]
 
   if $result.success and ($result.data | length) > 0 {
-    # Update path and last_accessed_at
-    let update_sql = "UPDATE repo SET path = ?, last_accessed_at = datetime('now') WHERE id = ?"
-    let _ = execute-sql $db_path $update_sql [$path $result.data.0.id]
-    return {success: true repo_id: ($result.data.0.id)}
+    # Update last_accessed_at
+    let update_sql = "UPDATE repo SET last_accessed_at = datetime('now') WHERE id = ?"
+    let _ = execute-sql $db_path $update_sql [$result.data.0.id]
+    return {success: true exists: true repo_id: ($result.data.0.id)}
   }
 
-  # Create new repo
+  {success: true exists: false}
+}
+
+# Create a new repo record
+export def create-repo [remote: string path: string] {
+  let db_path = init-database
+
   let insert_sql = "INSERT INTO repo (remote, path) VALUES (?, ?) RETURNING id"
   let insert_result = query-sql $db_path $insert_sql [$remote $path]
 
   if $insert_result.success and ($insert_result.data | length) > 0 {
-    {success: true repo_id: ($insert_result.data.0.id)}
+    {success: true repo_id: ($insert_result.data.0.id) created: true}
   } else {
     {success: false error: "Failed to create repo"}
   }
 }
 
-# Get repo ID for current working directory (from git remote)
-export def get-current-repo-id [] {
+# Update an existing repo's path
+export def update-repo-path [repo_id: int path: string] {
+  let db_path = init-database
+
+  let sql = "UPDATE repo SET path = ?, last_accessed_at = datetime('now') WHERE id = ?"
+  let result = execute-sql $db_path $sql [$path $repo_id]
+
+  if $result.success {
+    {success: true}
+  } else {
+    {success: false error: "Failed to update repo path"}
+  }
+}
+
+# Upsert repo - create if not exists, update path if exists
+export def upsert-repo [] {
   let git_result = get-git-remote
 
   if not $git_result.success {
@@ -99,7 +118,53 @@ export def get-current-repo-id [] {
   let remote = parse-git-remote $git_result.url
   let path = $env.PWD
 
-  get-or-create-repo $remote $path
+  let existing = get-repo $remote
+
+  if not $existing.success {
+    return $existing
+  }
+
+  if $existing.exists {
+    # Update path
+    let update_result = update-repo-path $existing.repo_id $path
+    if not $update_result.success {
+      return $update_result
+    }
+    {success: true created: false repo_id: $existing.repo_id remote: $remote path: $path}
+  } else {
+    # Create new
+    let create_result = create-repo $remote $path
+    if not $create_result.success {
+      return $create_result
+    }
+    {success: true created: true repo_id: $create_result.repo_id remote: $remote path: $path}
+  }
+}
+
+# Get repo ID for current working directory (from git remote) - does NOT auto-create
+export def get-current-repo-id [] {
+  let git_result = get-git-remote
+
+  if not $git_result.success {
+    return {success: false error: $git_result.error}
+  }
+
+  let remote = parse-git-remote $git_result.url
+
+  let existing = get-repo $remote
+
+  if not $existing.success {
+    return $existing
+  }
+
+  if not $existing.exists {
+    return {
+      success: false
+      error: $"Repository not registered: ($remote)\n\nUse upsert_repo to register this repository first."
+    }
+  }
+
+  {success: true repo_id: $existing.repo_id}
 }
 
 # List all known repositories
