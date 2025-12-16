@@ -15,7 +15,7 @@ def "main list-tools" [] {
   [
     {
       name: "upsert_list"
-      description: "Create or update a todo list. Omit list_id to create new, provide list_id to update. Supports name, description, tags, and progress notes."
+      description: "Create or update a todo list. Omit list_id to create new, provide list_id to update. Supports name, description, tags, and progress notes. Repository must be registered first with upsert_repo."
       input_schema: {
         type: "object"
         properties: {
@@ -53,6 +53,10 @@ def "main list-tools" [] {
             type: "array"
             items: {type: "string"}
             description: "Filter lists by tags - shows lists with ANY of these tags (optional)"
+          }
+          all_repos: {
+            type: "boolean"
+            description: "If true, show lists from all repositories instead of just current directory (optional, default: false)"
           }
         }
       }
@@ -214,7 +218,7 @@ def "main list-tools" [] {
     }
     {
       name: "export_data"
-      description: "Export all c5t data (lists, items, notes) as JSON backup file. Saves to .c5t/backup-{timestamp}.json by default."
+      description: "Export all c5t data (lists, items, notes) as JSON backup file. Saves to ~/.local/share/c5t/backups/ by default."
       input_schema: {
         type: "object"
         properties: {
@@ -233,7 +237,7 @@ def "main list-tools" [] {
         properties: {
           filename: {
             type: "string"
-            description: "Backup filename in .c5t/ directory (e.g., 'backup-20251215-120000.json')"
+            description: "Backup filename (e.g., 'backup-20251215-120000.json')"
           }
         }
         required: ["filename"]
@@ -241,7 +245,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_backups"
-      description: "SHOW TO USER. List available backup files in .c5t/ directory."
+      description: "SHOW TO USER. List available backup files."
       input_schema: {
         type: "object"
         properties: {}
@@ -283,7 +287,7 @@ def "main list-tools" [] {
 
     {
       name: "upsert_note"
-      description: "Create or update a note. Provide note_id to update existing, omit to create new. Tip: Use tag 'session' for context across compactions."
+      description: "Create or update a note. Provide note_id to update existing, omit to create new. Repository must be registered first with upsert_repo. Tip: Use tag 'session' for context across compactions."
       input_schema: {
         type: "object"
         properties: {
@@ -328,6 +332,10 @@ def "main list-tools" [] {
             description: "Maximum number of notes to return (optional, default: all)"
             minimum: 1
           }
+          all_repos: {
+            type: "boolean"
+            description: "If true, show notes from all repositories instead of just current directory (optional, default: false)"
+          }
         }
       }
     }
@@ -366,6 +374,10 @@ def "main list-tools" [] {
             minimum: 1
             default: 10
           }
+          all_repos: {
+            type: "boolean"
+            description: "If true, search notes from all repositories instead of just current directory (optional, default: false)"
+          }
         }
         required: ["query"]
       }
@@ -373,6 +385,27 @@ def "main list-tools" [] {
     {
       name: "get_summary"
       description: "SHOW TO USER. Quick status overview: active lists, in-progress items, priorities. Perfect for session start. For detailed context, check notes tagged 'session'."
+      input_schema: {
+        type: "object"
+        properties: {
+          all_repos: {
+            type: "boolean"
+            description: "If true, show summary from all repositories instead of just current directory (optional, default: false)"
+          }
+        }
+      }
+    }
+    {
+      name: "list_repos"
+      description: "SHOW TO USER. List all known repositories that have c5t data."
+      input_schema: {
+        type: "object"
+        properties: {}
+      }
+    }
+    {
+      name: "upsert_repo"
+      description: "Register or update the current git repository. REQUIRED before creating lists or notes. Detects git remote and registers this repo for c5t tracking. Call this first when working in a new repository."
       input_schema: {
         type: "object"
         properties: {}
@@ -416,8 +449,13 @@ def "main call-tool" [
 
     "list_active" => {
       let tag_filter = if "tags" in $parsed_args { $parsed_args.tags } else { null }
+      let all_repos = if "all_repos" in $parsed_args { $parsed_args.all_repos } else { false }
 
-      let result = get-active-lists $tag_filter
+      let result = if $all_repos {
+        get-active-lists $tag_filter --all-repos
+      } else {
+        get-active-lists $tag_filter
+      }
 
       if not $result.success {
         return $result.error
@@ -628,8 +666,8 @@ def "main call-tool" [
         $"backup-($timestamp).json"
       }
 
-      # Ensure .c5t directory exists
-      let backup_dir = ".c5t"
+      # Ensure backup directory exists
+      let backup_dir = $"(get-xdg-data-path)/backups"
       if not ($backup_dir | path exists) {
         mkdir $backup_dir
       }
@@ -652,7 +690,8 @@ def "main call-tool" [
       let filename = $parsed_args.filename
 
       # Build filepath
-      let filepath = $".c5t/($filename)"
+      let backup_dir = $"(get-xdg-data-path)/backups"
+      let filepath = $"($backup_dir)/($filename)"
 
       # Check if file exists
       if not ($filepath | path exists) {
@@ -681,7 +720,7 @@ Use list_backups to see available backup files."
     }
 
     "list_backups" => {
-      let backup_dir = ".c5t"
+      let backup_dir = $"(get-xdg-data-path)/backups"
 
       if not ($backup_dir | path exists) {
         return "No backup directory found. Run export_data first to create a backup."
@@ -690,7 +729,7 @@ Use list_backups to see available backup files."
       let backups = glob $"($backup_dir)/*.json" | sort -r
 
       if ($backups | is-empty) {
-        return "No backup files found in .c5t/"
+        return "No backup files found."
       }
 
       let backup_info = $backups | each {|file|
@@ -776,8 +815,13 @@ Use list_backups to see available backup files."
       let tag_filter = if "tags" in $parsed_args { $parsed_args.tags } else { null }
       let note_type = if "note_type" in $parsed_args { $parsed_args.note_type } else { null }
       let limit = if "limit" in $parsed_args { $parsed_args.limit } else { null }
+      let all_repos = if "all_repos" in $parsed_args { $parsed_args.all_repos } else { false }
 
-      let result = get-notes $tag_filter $note_type $limit
+      let result = if $all_repos {
+        get-notes $tag_filter $note_type $limit --all-repos
+      } else {
+        get-notes $tag_filter $note_type $limit
+      }
 
       if not $result.success {
         return $result.error
@@ -810,8 +854,13 @@ Use list_backups to see available backup files."
       let query = $parsed_args.query
       let tag_filter = if "tags" in $parsed_args { $parsed_args.tags } else { [] }
       let limit = if "limit" in $parsed_args { $parsed_args.limit } else { 10 }
+      let all_repos = if "all_repos" in $parsed_args { $parsed_args.all_repos } else { false }
 
-      let result = search-notes $query --limit $limit --tags $tag_filter
+      let result = if $all_repos {
+        search-notes $query --limit $limit --tags $tag_filter --all-repos
+      } else {
+        search-notes $query --limit $limit --tags $tag_filter
+      }
 
       if not $result.success {
         return $result.error
@@ -821,13 +870,49 @@ Use list_backups to see available backup files."
     }
 
     "get_summary" => {
-      let result = get-summary
+      let all_repos = if "all_repos" in $parsed_args { $parsed_args.all_repos } else { false }
+
+      let result = if $all_repos {
+        get-summary --all-repos
+      } else {
+        get-summary
+      }
 
       if not $result.success {
         return $result.error
       }
 
       format-summary $result.summary
+    }
+
+    "list_repos" => {
+      let result = list-repos
+
+      if not $result.success {
+        return $result.error
+      }
+
+      format-repos-list $result.repos
+    }
+
+    "upsert_repo" => {
+      let result = upsert-repo
+
+      if not $result.success {
+        return $result.error
+      }
+
+      if $result.created {
+        $"✓ Repository registered
+  ID: ($result.repo_id)
+  Remote: ($result.remote)
+  Path: ($result.path)"
+      } else {
+        $"✓ Repository updated
+  ID: ($result.repo_id)
+  Remote: ($result.remote)
+  Path: ($result.path)"
+      }
     }
 
     _ => {

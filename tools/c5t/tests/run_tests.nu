@@ -37,22 +37,35 @@ scope commands
   | get name 
   | to json"
 
-      # Run discovery
-      let test_commands = (
-        nu --no-config-file -c $discover_script | from json
-      )
+      # Run discovery - capture both stdout and stderr
+      let discovery_result = do { nu --no-config-file -c $discover_script } | complete
 
-      print $"Found ($test_commands | length) tests\n"
+      if $discovery_result.exit_code != 0 {
+        print $"ERROR: Failed to parse test file!"
+        print $discovery_result.stderr
+        # Return a failure record for the parse error
+        [{file: $test_file test: "PARSE_ERROR" status: "fail" error: $"Parse error in ($test_file)"}]
+      } else {
+        let test_commands = ($discovery_result.stdout | from json)
 
-      # Run each test
-      $test_commands | each {|test_name|
-        try {
-          nu --no-config-file -c $"source ($test_file); ($test_name)"
-          print $"✓ ($test_name)"
-          {file: $test_file test: $test_name status: "pass"}
-        } catch {|err|
-          print $"✗ ($test_name): ($err.msg)"
-          {file: $test_file test: $test_name status: "fail" error: $err.msg}
+        print $"Found ($test_commands | length) tests\n"
+
+        # Run each test
+        $test_commands | each {|test_name|
+          let test_result = do { nu --no-config-file -c $"source ($test_file); ($test_name)" } | complete
+
+          if $test_result.exit_code == 0 {
+            print $"✓ ($test_name)"
+            {file: $test_file test: $test_name status: "pass"}
+          } else {
+            let error_msg = if ($test_result.stderr | str trim | is-not-empty) {
+              $test_result.stderr | str trim
+            } else {
+              "Test failed"
+            }
+            print $"✗ ($test_name): ($error_msg)"
+            {file: $test_file test: $test_name status: "fail" error: $error_msg}
+          }
         }
       }
     } | flatten

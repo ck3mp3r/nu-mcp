@@ -1,5 +1,6 @@
 -- c5t Database Schema - Initial Migration
 -- SQLite database for context/memory management across LLM sessions
+-- Single database with repository isolation
 
 -- Schema migrations table - tracks which migrations have been applied
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -7,9 +8,19 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
     applied_at TEXT DEFAULT (datetime('now'))
 );
 
+-- Repository table - isolates data by git repository
+CREATE TABLE IF NOT EXISTS repo (
+    id INTEGER PRIMARY KEY,
+    remote TEXT UNIQUE NOT NULL,        -- e.g. "github:ck3mp3r/nu-mcp"
+    path TEXT,                          -- local absolute path (last known)
+    created_at TEXT DEFAULT (datetime('now')),
+    last_accessed_at TEXT DEFAULT (datetime('now'))
+);
+
 -- Todo List table - tracks collections of work items
 CREATE TABLE IF NOT EXISTS todo_list (
     id INTEGER PRIMARY KEY,
+    repo_id INTEGER NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
     notes TEXT,
@@ -17,7 +28,8 @@ CREATE TABLE IF NOT EXISTS todo_list (
     status TEXT DEFAULT 'active' CHECK(status IN ('active', 'archived')),
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
-    archived_at TEXT
+    archived_at TEXT,
+    FOREIGN KEY (repo_id) REFERENCES repo(id)
 );
 
 -- Todo Item table - individual work items within lists
@@ -37,23 +49,30 @@ CREATE TABLE IF NOT EXISTS todo_item (
 -- Note table - persistent markdown notes
 CREATE TABLE IF NOT EXISTS note (
     id INTEGER PRIMARY KEY,
+    repo_id INTEGER NOT NULL,
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     tags TEXT,  -- JSON array
     note_type TEXT DEFAULT 'manual' CHECK(note_type IN ('manual', 'archived_todo', 'scratchpad')),
     source_id INTEGER,
     created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (repo_id) REFERENCES repo(id)
 );
 
 -- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_repo_remote ON repo(remote);
+CREATE INDEX IF NOT EXISTS idx_todo_list_repo ON todo_list(repo_id);
 CREATE INDEX IF NOT EXISTS idx_todo_list_status ON todo_list(status);
+CREATE INDEX IF NOT EXISTS idx_todo_list_repo_status ON todo_list(repo_id, status);
 CREATE INDEX IF NOT EXISTS idx_todo_item_list ON todo_item(list_id);
 CREATE INDEX IF NOT EXISTS idx_todo_item_status ON todo_item(status);
 CREATE INDEX IF NOT EXISTS idx_todo_item_list_status ON todo_item(list_id, status);
 CREATE INDEX IF NOT EXISTS idx_todo_item_priority ON todo_item(priority);
 CREATE INDEX IF NOT EXISTS idx_todo_item_list_priority ON todo_item(list_id, priority);
+CREATE INDEX IF NOT EXISTS idx_note_repo ON note(repo_id);
 CREATE INDEX IF NOT EXISTS idx_note_type ON note(note_type);
+CREATE INDEX IF NOT EXISTS idx_note_repo_type ON note(repo_id, note_type);
 
 -- Full-text search virtual table for notes
 CREATE VIRTUAL TABLE IF NOT EXISTS note_fts USING fts5(

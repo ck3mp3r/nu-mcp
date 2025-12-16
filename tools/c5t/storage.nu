@@ -6,14 +6,189 @@ export def run-query-db [db_path: string sql: string params: list = []] {
   open $db_path | query db $sql -p $params
 }
 
+# Get XDG data directory for c5t
+export def get-xdg-data-path [] {
+  let xdg_data = if "XDG_DATA_HOME" in $env and $env.XDG_DATA_HOME != null and ($env.XDG_DATA_HOME | str length) > 0 {
+    $env.XDG_DATA_HOME
+  } else {
+    $"($env.HOME)/.local/share"
+  }
+  $"($xdg_data)/c5t"
+}
+
 export def get-db-path [] {
-  let db_dir = ".c5t"
+  let db_dir = get-xdg-data-path
 
   if not ($db_dir | path exists) {
     mkdir $db_dir
   }
 
   $"($db_dir)/context.db"
+}
+
+# Parse git remote URL into normalized format: "host:org/repo"
+# Supports: https://github.com/org/repo.git, git@github.com:org/repo.git
+export def parse-git-remote [url: string] {
+  let cleaned = $url | str trim | str replace -r '\.git$' ''
+
+  # SSH format: git@github.com:org/repo
+  if ($cleaned | str starts-with "git@") {
+    let parts = $cleaned | str replace "git@" "" | split row ":"
+    let host = $parts | first | str replace ".com" ""
+    let path = $parts | skip 1 | str join ":"
+    return $"($host):($path)"
+  }
+
+  # HTTPS format: https://github.com/org/repo
+  if ($cleaned | str contains "://") {
+    let without_proto = $cleaned | split row "://" | last
+    let parts = $without_proto | split row "/"
+    let host = $parts | first | str replace ".com" ""
+    let path = $parts | skip 1 | str join "/"
+    return $"($host):($path)"
+  }
+
+  # Unknown format - return as-is
+  $cleaned
+}
+
+# Get git remote URL for current directory
+export def get-git-remote [] {
+  try {
+    let url = git remote get-url origin | str trim
+    {success: true url: $url}
+  } catch {
+    {success: false error: "Not a git repository or no remote 'origin' configured"}
+  }
+}
+
+# Get existing repo record, returns {success: bool, repo_id?: int, exists: bool}
+export def get-repo [remote: string] {
+  let db_path = init-database
+
+  let sql = "SELECT id, remote, path FROM repo WHERE remote = ?"
+  let result = query-sql $db_path $sql [$remote]
+
+  if $result.success and ($result.data | length) > 0 {
+    # Update last_accessed_at
+    let update_sql = "UPDATE repo SET last_accessed_at = datetime('now') WHERE id = ?"
+    let _ = execute-sql $db_path $update_sql [$result.data.0.id]
+    return {success: true exists: true repo_id: ($result.data.0.id)}
+  }
+
+  {success: true exists: false}
+}
+
+# Create a new repo record
+export def create-repo [remote: string path: string] {
+  let db_path = init-database
+
+  let insert_sql = "INSERT INTO repo (remote, path) VALUES (?, ?) RETURNING id"
+  let insert_result = query-sql $db_path $insert_sql [$remote $path]
+
+  if $insert_result.success and ($insert_result.data | length) > 0 {
+    {success: true repo_id: ($insert_result.data.0.id) created: true}
+  } else {
+    {success: false error: "Failed to create repo"}
+  }
+}
+
+# Update an existing repo's path
+export def update-repo-path [repo_id: int path: string] {
+  let db_path = init-database
+
+  let sql = "UPDATE repo SET path = ?, last_accessed_at = datetime('now') WHERE id = ?"
+  let result = execute-sql $db_path $sql [$path $repo_id]
+
+  if $result.success {
+    {success: true}
+  } else {
+    {success: false error: "Failed to update repo path"}
+  }
+}
+
+# Upsert repo - create if not exists, update path if exists
+export def upsert-repo [] {
+  let git_result = get-git-remote
+
+  if not $git_result.success {
+    return {success: false error: $git_result.error}
+  }
+
+  let remote = parse-git-remote $git_result.url
+  let path = $env.PWD
+
+  let existing = get-repo $remote
+
+  if not $existing.success {
+    return $existing
+  }
+
+  if $existing.exists {
+    # Update path
+    let update_result = update-repo-path $existing.repo_id $path
+    if not $update_result.success {
+      return $update_result
+    }
+    {success: true created: false repo_id: $existing.repo_id remote: $remote path: $path}
+  } else {
+    # Create new
+    let create_result = create-repo $remote $path
+    if not $create_result.success {
+      return $create_result
+    }
+    {success: true created: true repo_id: $create_result.repo_id remote: $remote path: $path}
+  }
+}
+
+# Get repo ID for current working directory (from git remote) - does NOT auto-create
+export def get-current-repo-id [] {
+  let git_result = get-git-remote
+
+  if not $git_result.success {
+    return {success: false error: $git_result.error}
+  }
+
+  let remote = parse-git-remote $git_result.url
+
+  let existing = get-repo $remote
+
+  if not $existing.success {
+    return $existing
+  }
+
+  if not $existing.exists {
+    return {
+      success: false
+      error: $"Repository not registered: ($remote)\n\nUse upsert_repo to register this repository first."
+    }
+  }
+
+  {success: true repo_id: $existing.repo_id}
+}
+
+# List all known repositories
+export def list-repos [] {
+  let db_path = init-database
+
+  let sql = "SELECT id, remote, path, created_at, last_accessed_at 
+             FROM repo 
+             ORDER BY last_accessed_at DESC"
+
+  let result = query-sql $db_path $sql []
+
+  if not $result.success {
+    return {
+      success: false
+      error: $"Failed to get repositories: ($result.error)"
+    }
+  }
+
+  {
+    success: true
+    repos: $result.data
+    count: ($result.data | length)
+  }
 }
 
 export def init-database [] {
@@ -105,7 +280,19 @@ export def create-todo-list [
   description?: string
   tags?: list
 ] {
-  let db_path = get-db-path
+  let db_path = init-database
+
+  # Get repo_id from current git repository
+  let repo_result = get-current-repo-id
+
+  if not $repo_result.success {
+    return {
+      success: false
+      error: $"Failed to get repository: ($repo_result.error? | default 'unknown')"
+    }
+  }
+
+  let repo_id = $repo_result.repo_id
 
   let tags_json = if $tags != null and ($tags | is-not-empty) {
     $tags | to json --raw
@@ -119,12 +306,12 @@ export def create-todo-list [
     null
   }
 
-  # Use INSERT ... RETURNING with parameters
-  let sql = "INSERT INTO todo_list (name, description, tags) 
-             VALUES (?, ?, ?) 
+  # Use INSERT ... RETURNING with parameters - now includes repo_id
+  let sql = "INSERT INTO todo_list (repo_id, name, description, tags) 
+             VALUES (?, ?, ?, ?) 
              RETURNING id"
 
-  let params = [$name $desc_value $tags_json]
+  let params = [$repo_id $name $desc_value $tags_json]
 
   let result = query-sql $db_path $sql $params
 
@@ -147,6 +334,7 @@ export def create-todo-list [
   {
     success: true
     id: $list_id
+    repo_id: $repo_id
     name: $name
     description: $description
     tags: $tags
@@ -163,15 +351,34 @@ def parse-tags [tags_json: any] {
 
 export def get-active-lists [
   tag_filter?: list
+  --all-repos # If true, return lists from all repositories
 ] {
-  let db_path = get-db-path
+  let db_path = init-database
 
-  let sql = "SELECT id, name, description, notes, tags, created_at, updated_at 
-             FROM todo_list 
-             WHERE status = 'active' 
-             ORDER BY created_at DESC;"
+  # Build query based on whether we're filtering by repo
+  let sql = if $all_repos {
+    "SELECT id, repo_id, name, description, notes, tags, created_at, updated_at 
+     FROM todo_list 
+     WHERE status = 'active' 
+     ORDER BY created_at DESC"
+  } else {
+    # Get current repo ID
+    let repo_result = get-current-repo-id
+    if not $repo_result.success {
+      return {
+        success: false
+        error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
+      }
+    }
+    let repo_id = $repo_result.repo_id
 
-  let result = query-sql $db_path $sql
+    $"SELECT id, repo_id, name, description, notes, tags, created_at, updated_at 
+      FROM todo_list 
+      WHERE status = 'active' AND repo_id = ($repo_id)
+      ORDER BY created_at DESC"
+  }
+
+  let result = query-sql $db_path $sql []
 
   if not $result.success {
     return {
@@ -363,14 +570,14 @@ export def get-list-with-items [
   list_id: int
   status_filter?: string
 ] {
-  let db_path = get-db-path
+  let db_path = init-database
 
-  # Get the list
-  let list_sql = $"SELECT id, name, description, notes, tags, created_at, updated_at 
+  # Get the list (includes repo_id)
+  let list_sql = $"SELECT id, repo_id, name, description, notes, tags, created_at, updated_at 
                    FROM todo_list 
                    WHERE id = '($list_id)';"
 
-  let list_result = query-sql $db_path $list_sql
+  let list_result = query-sql $db_path $list_sql []
 
   if not $list_result.success {
     return {
@@ -604,9 +811,9 @@ export def all-items-completed [
 export def archive-todo-list [
   list_id: int
 ] {
-  let db_path = get-db-path
+  let db_path = init-database
 
-  # Get the list with items
+  # Get the list with items (includes repo_id)
   let list_data = get-list-with-items $list_id
 
   if not $list_data.success {
@@ -619,18 +826,19 @@ export def archive-todo-list [
   # Generate archive note content
   let note_content = generate-archive-note $list_data.list $list_data.items
 
-  # Create note with parameters
+  # Create note with parameters - inherit repo_id from the list
+  let repo_id = $list_data.list.repo_id
   let tags_value = if $list_data.list.tags != null and ($list_data.list.tags | is-not-empty) {
     $list_data.list.tags | to json --raw
   } else {
     null
   }
 
-  let insert_note_sql = "INSERT INTO note (title, content, tags, note_type, source_id) 
-                         VALUES (?, ?, ?, ?, ?) 
+  let insert_note_sql = "INSERT INTO note (repo_id, title, content, tags, note_type, source_id) 
+                         VALUES (?, ?, ?, ?, ?, ?) 
                          RETURNING id"
 
-  let params = [$list_data.list.name $note_content $tags_value "archived_todo" $list_id]
+  let params = [$repo_id $list_data.list.name $note_content $tags_value "archived_todo" $list_id]
   let note_result = query-sql $db_path $insert_note_sql $params
 
   if not $note_result.success {
@@ -677,7 +885,19 @@ export def create-note [
   content: string
   tags?: list
 ] {
-  let db_path = get-db-path
+  let db_path = init-database
+
+  # Get repo_id from current git repository
+  let repo_result = get-current-repo-id
+
+  if not $repo_result.success {
+    return {
+      success: false
+      error: $"Failed to get repository: ($repo_result.error? | default 'unknown')"
+    }
+  }
+
+  let repo_id = $repo_result.repo_id
 
   let tags_value = if $tags != null and ($tags | is-not-empty) {
     $tags | to json --raw
@@ -685,11 +905,11 @@ export def create-note [
     null
   }
 
-  let sql = "INSERT INTO note (title, content, tags, note_type) 
-             VALUES (?, ?, ?, ?) 
+  let sql = "INSERT INTO note (repo_id, title, content, tags, note_type) 
+             VALUES (?, ?, ?, ?, ?) 
              RETURNING id"
 
-  let params = [$title $content $tags_value "manual"]
+  let params = [$repo_id $title $content $tags_value "manual"]
   let result = query-sql $db_path $sql $params
 
   if not $result.success {
@@ -711,6 +931,7 @@ export def create-note [
   {
     success: true
     id: $note_id
+    repo_id: $repo_id
     title: $title
     tags: $tags
   }
@@ -721,11 +942,24 @@ export def get-notes [
   tag_filter?: list
   note_type?: string
   limit?: int
+  --all-repos # If true, return notes from all repositories
 ] {
-  let db_path = get-db-path
+  let db_path = init-database
 
   # Build WHERE clauses
   mut where_clauses = []
+
+  # Add repo filter unless all_repos is true
+  if not $all_repos {
+    let repo_result = get-current-repo-id
+    if not $repo_result.success {
+      return {
+        success: false
+        error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
+      }
+    }
+    $where_clauses = ($where_clauses | append $"repo_id = ($repo_result.repo_id)")
+  }
 
   if $note_type != null {
     $where_clauses = ($where_clauses | append $"note_type = '($note_type)'")
@@ -743,13 +977,13 @@ export def get-notes [
     ""
   }
 
-  let sql = $"SELECT id, title, content, tags, note_type, source_id, created_at, updated_at 
+  let sql = $"SELECT id, repo_id, title, content, tags, note_type, source_id, created_at, updated_at 
              FROM note 
              ($where_sql)
              ORDER BY created_at DESC 
              ($limit_sql);"
 
-  let result = query-sql $db_path $sql
+  let result = query-sql $db_path $sql []
 
   if not $result.success {
     return {
@@ -827,7 +1061,7 @@ export def upsert-note [
   content?: string
   tags?: list
 ] {
-  let db_path = get-db-path
+  let db_path = init-database
 
   # If note_id provided, update existing
   if $note_id != null {
@@ -908,10 +1142,12 @@ export def upsert-note [
       created: true
       id: $result.id
       note_id: $result.id
+      repo_id: $result.repo_id
       title: $title
       tags: $tags
       note: {
         id: $result.id
+        repo_id: $result.repo_id
         title: $title
       }
     }
@@ -923,21 +1159,37 @@ export def search-notes [
   query: string
   --limit: int = 10
   --tags: list = []
+  --all-repos # If true, search notes from all repositories
 ] {
-  let db_path = get-db-path
+  let db_path = init-database
+
+  # Build WHERE clause based on repo filter
+  let repo_filter = if $all_repos {
+    ""
+  } else {
+    let repo_result = get-current-repo-id
+    if not $repo_result.success {
+      return {
+        success: false
+        error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
+      }
+    }
+    $" AND note.repo_id = ($repo_result.repo_id)"
+  }
 
   # FTS5 search query with bm25 ranking using parameters
-  let sql = "SELECT 
+  let sql = $"SELECT 
                note.id, 
+               note.repo_id,
                note.title, 
                note.content, 
                note.tags, 
                note.note_type,
                note.created_at,
-               bm25(note_fts) as rank
+               bm25\(note_fts\) as rank
              FROM note_fts
              JOIN note ON note.id = note_fts.rowid
-             WHERE note_fts MATCH ?
+             WHERE note_fts MATCH ?($repo_filter)
              ORDER BY rank
              LIMIT ?"
 
@@ -975,28 +1227,45 @@ export def search-notes [
 }
 
 # Get active lists with item counts by status for summary
-export def get-active-lists-with-counts [] {
-  let db_path = get-db-path
+export def get-active-lists-with-counts [
+  --all-repos # If true, return lists from all repositories
+] {
+  let db_path = init-database
 
-  let sql = "SELECT 
+  # Build repo filter
+  let repo_filter = if $all_repos {
+    ""
+  } else {
+    let repo_result = get-current-repo-id
+    if not $repo_result.success {
+      return {
+        success: false
+        error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
+      }
+    }
+    $" AND tl.repo_id = ($repo_result.repo_id)"
+  }
+
+  let sql = $"SELECT 
                tl.id,
+               tl.repo_id,
                tl.name,
                tl.description,
                tl.tags,
-               COUNT(CASE WHEN ti.status = 'backlog' THEN 1 END) as backlog_count,
-               COUNT(CASE WHEN ti.status = 'todo' THEN 1 END) as todo_count,
-               COUNT(CASE WHEN ti.status = 'in_progress' THEN 1 END) as in_progress_count,
-               COUNT(CASE WHEN ti.status = 'review' THEN 1 END) as review_count,
-               COUNT(CASE WHEN ti.status = 'done' THEN 1 END) as done_count,
-               COUNT(CASE WHEN ti.status = 'cancelled' THEN 1 END) as cancelled_count,
-               COUNT(ti.id) as total_count
+               COUNT\(CASE WHEN ti.status = 'backlog' THEN 1 END\) as backlog_count,
+               COUNT\(CASE WHEN ti.status = 'todo' THEN 1 END\) as todo_count,
+               COUNT\(CASE WHEN ti.status = 'in_progress' THEN 1 END\) as in_progress_count,
+               COUNT\(CASE WHEN ti.status = 'review' THEN 1 END\) as review_count,
+               COUNT\(CASE WHEN ti.status = 'done' THEN 1 END\) as done_count,
+               COUNT\(CASE WHEN ti.status = 'cancelled' THEN 1 END\) as cancelled_count,
+               COUNT\(ti.id\) as total_count
              FROM todo_list tl
              LEFT JOIN todo_item ti ON tl.id = ti.list_id
-             WHERE tl.status = 'active'
+             WHERE tl.status = 'active'($repo_filter)
              GROUP BY tl.id
-             ORDER BY tl.created_at DESC;"
+             ORDER BY tl.created_at DESC"
 
-  let result = query-sql $db_path $sql
+  let result = query-sql $db_path $sql []
 
   if not $result.success {
     return {
@@ -1017,10 +1286,26 @@ export def get-active-lists-with-counts [] {
 }
 
 # Get all in-progress items across all lists for summary
-export def get-all-in-progress-items [] {
-  let db_path = get-db-path
+export def get-all-in-progress-items [
+  --all-repos # If true, return items from all repositories
+] {
+  let db_path = init-database
 
-  let sql = "SELECT 
+  # Build repo filter
+  let repo_filter = if $all_repos {
+    ""
+  } else {
+    let repo_result = get-current-repo-id
+    if not $repo_result.success {
+      return {
+        success: false
+        error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
+      }
+    }
+    $" AND tl.repo_id = ($repo_result.repo_id)"
+  }
+
+  let sql = $"SELECT 
                ti.id,
                ti.list_id,
                ti.content,
@@ -1030,10 +1315,10 @@ export def get-all-in-progress-items [] {
              FROM todo_item ti
              JOIN todo_list tl ON ti.list_id = tl.id
              WHERE ti.status = 'in_progress'
-             AND tl.status = 'active'
-             ORDER BY ti.priority DESC NULLS LAST, ti.started_at ASC;"
+             AND tl.status = 'active'($repo_filter)
+             ORDER BY ti.priority DESC NULLS LAST, ti.started_at ASC"
 
-  let result = query-sql $db_path $sql
+  let result = query-sql $db_path $sql []
 
   if not $result.success {
     return {
@@ -1050,10 +1335,26 @@ export def get-all-in-progress-items [] {
 }
 
 # Get recently completed items for summary
-export def get-recently-completed-items [] {
-  let db_path = get-db-path
+export def get-recently-completed-items [
+  --all-repos # If true, return items from all repositories
+] {
+  let db_path = init-database
 
-  let sql = "SELECT 
+  # Build repo filter
+  let repo_filter = if $all_repos {
+    ""
+  } else {
+    let repo_result = get-current-repo-id
+    if not $repo_result.success {
+      return {
+        success: false
+        error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
+      }
+    }
+    $" AND tl.repo_id = ($repo_result.repo_id)"
+  }
+
+  let sql = $"SELECT 
                ti.id,
                ti.list_id,
                ti.content,
@@ -1063,13 +1364,13 @@ export def get-recently-completed-items [] {
                tl.name as list_name
              FROM todo_item ti
              JOIN todo_list tl ON ti.list_id = tl.id
-             WHERE ti.status IN ('done', 'cancelled')
-             AND tl.status = 'active'
+             WHERE ti.status IN \('done', 'cancelled'\)
+             AND tl.status = 'active'($repo_filter)
              AND ti.completed_at IS NOT NULL
              ORDER BY ti.completed_at DESC
-             LIMIT 20;"
+             LIMIT 20"
 
-  let result = query-sql $db_path $sql
+  let result = query-sql $db_path $sql []
 
   if not $result.success {
     return {
@@ -1086,10 +1387,26 @@ export def get-recently-completed-items [] {
 }
 
 # Get high-priority pending items for summary
-export def get-high-priority-next-steps [] {
-  let db_path = get-db-path
+export def get-high-priority-next-steps [
+  --all-repos # If true, return items from all repositories
+] {
+  let db_path = init-database
 
-  let sql = "SELECT 
+  # Build repo filter
+  let repo_filter = if $all_repos {
+    ""
+  } else {
+    let repo_result = get-current-repo-id
+    if not $repo_result.success {
+      return {
+        success: false
+        error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
+      }
+    }
+    $" AND tl.repo_id = ($repo_result.repo_id)"
+  }
+
+  let sql = $"SELECT 
                ti.id,
                ti.list_id,
                ti.content,
@@ -1098,13 +1415,13 @@ export def get-high-priority-next-steps [] {
                tl.name as list_name
              FROM todo_item ti
              JOIN todo_list tl ON ti.list_id = tl.id
-             WHERE ti.status IN ('backlog', 'todo')
-             AND tl.status = 'active'
+             WHERE ti.status IN \('backlog', 'todo'\)
+             AND tl.status = 'active'($repo_filter)
              AND ti.priority >= 4
              ORDER BY ti.priority DESC, ti.created_at ASC
-             LIMIT 10;"
+             LIMIT 10"
 
-  let result = query-sql $db_path $sql
+  let result = query-sql $db_path $sql []
 
   if not $result.success {
     return {
@@ -1121,24 +1438,40 @@ export def get-high-priority-next-steps [] {
 }
 
 # Get comprehensive summary/overview for quick status at-a-glance
-export def get-summary [] {
-  let db_path = get-db-path
+export def get-summary [
+  --all-repos # If true, return summary from all repositories
+] {
+  let db_path = init-database
 
-  # Get overall stats across all active lists
-  let stats_sql = "SELECT 
-                     COUNT(DISTINCT tl.id) as active_lists,
-                     COUNT(CASE WHEN ti.status = 'backlog' THEN 1 END) as backlog_total,
-                     COUNT(CASE WHEN ti.status = 'todo' THEN 1 END) as todo_total,
-                     COUNT(CASE WHEN ti.status = 'in_progress' THEN 1 END) as in_progress_total,
-                     COUNT(CASE WHEN ti.status = 'review' THEN 1 END) as review_total,
-                     COUNT(CASE WHEN ti.status = 'done' THEN 1 END) as done_total,
-                     COUNT(CASE WHEN ti.status = 'cancelled' THEN 1 END) as cancelled_total,
-                     COUNT(ti.id) as total_items
+  # Build repo filter
+  let repo_filter = if $all_repos {
+    ""
+  } else {
+    let repo_result = get-current-repo-id
+    if not $repo_result.success {
+      return {
+        success: false
+        error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
+      }
+    }
+    $" AND tl.repo_id = ($repo_result.repo_id)"
+  }
+
+  # Get overall stats across active lists (filtered by repo if not all_repos)
+  let stats_sql = $"SELECT 
+                     COUNT\(DISTINCT tl.id\) as active_lists,
+                     COUNT\(CASE WHEN ti.status = 'backlog' THEN 1 END\) as backlog_total,
+                     COUNT\(CASE WHEN ti.status = 'todo' THEN 1 END\) as todo_total,
+                     COUNT\(CASE WHEN ti.status = 'in_progress' THEN 1 END\) as in_progress_total,
+                     COUNT\(CASE WHEN ti.status = 'review' THEN 1 END\) as review_total,
+                     COUNT\(CASE WHEN ti.status = 'done' THEN 1 END\) as done_total,
+                     COUNT\(CASE WHEN ti.status = 'cancelled' THEN 1 END\) as cancelled_total,
+                     COUNT\(ti.id\) as total_items
                    FROM todo_list tl
                    LEFT JOIN todo_item ti ON tl.id = ti.list_id
-                   WHERE tl.status = 'active';"
+                   WHERE tl.status = 'active'($repo_filter)"
 
-  let stats_result = query-sql $db_path $stats_sql
+  let stats_result = query-sql $db_path $stats_sql []
 
   if not $stats_result.success {
     return {
@@ -1163,8 +1496,12 @@ export def get-summary [] {
     $stats_result.data | first
   }
 
-  # Get active lists with counts
-  let lists_result = get-active-lists-with-counts
+  # Get active lists with counts (pass through all_repos flag)
+  let lists_result = if $all_repos {
+    get-active-lists-with-counts --all-repos
+  } else {
+    get-active-lists-with-counts
+  }
 
   if not $lists_result.success {
     return {
@@ -1173,8 +1510,12 @@ export def get-summary [] {
     }
   }
 
-  # Get in-progress items
-  let in_progress_result = get-all-in-progress-items
+  # Get in-progress items (pass through all_repos flag)
+  let in_progress_result = if $all_repos {
+    get-all-in-progress-items --all-repos
+  } else {
+    get-all-in-progress-items
+  }
 
   if not $in_progress_result.success {
     return {
@@ -1183,8 +1524,12 @@ export def get-summary [] {
     }
   }
 
-  # Get high-priority next steps
-  let priority_result = get-high-priority-next-steps
+  # Get high-priority next steps (pass through all_repos flag)
+  let priority_result = if $all_repos {
+    get-high-priority-next-steps --all-repos
+  } else {
+    get-high-priority-next-steps
+  }
 
   if not $priority_result.success {
     return {
@@ -1193,8 +1538,12 @@ export def get-summary [] {
     }
   }
 
-  # Get recently completed items
-  let completed_result = get-recently-completed-items
+  # Get recently completed items (pass through all_repos flag)
+  let completed_result = if $all_repos {
+    get-recently-completed-items --all-repos
+  } else {
+    get-recently-completed-items
+  }
 
   if not $completed_result.success {
     return {
@@ -1595,7 +1944,7 @@ export def upsert-list [
   tags?: list
   notes?: string
 ] {
-  let db_path = get-db-path
+  let db_path = init-database
 
   # If list_id provided, update existing
   if $list_id != null {
@@ -1704,12 +2053,14 @@ export def upsert-list [
       created: true
       id: $result.id
       list_id: $result.id
+      repo_id: $result.repo_id
       name: $name
       description: $description
       tags: $tags
       notes: $notes
       list: {
         id: $result.id
+        repo_id: $result.repo_id
         name: $name
         description: $description
         tags: $tags
@@ -1914,9 +2265,9 @@ export def bulk-update-status [
 export def get-list [
   list_id: int
 ] {
-  let db_path = get-db-path
+  let db_path = init-database
 
-  let sql = "SELECT id, name, description, notes, tags, status, created_at, updated_at, archived_at 
+  let sql = "SELECT id, repo_id, name, description, notes, tags, status, created_at, updated_at, archived_at 
              FROM todo_list 
              WHERE id = ?"
   let params = [$list_id]
