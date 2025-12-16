@@ -218,7 +218,7 @@ def "main list-tools" [] {
     }
     {
       name: "export_data"
-      description: "Export all c5t data (lists, items, notes) as JSON backup file. Saves to .c5t/backup-{timestamp}.json by default."
+      description: "Export all c5t data (lists, items, notes) as JSON backup file. Saves to ~/.local/share/c5t/backups/ by default."
       input_schema: {
         type: "object"
         properties: {
@@ -237,7 +237,7 @@ def "main list-tools" [] {
         properties: {
           filename: {
             type: "string"
-            description: "Backup filename in .c5t/ directory (e.g., 'backup-20251215-120000.json')"
+            description: "Backup filename (e.g., 'backup-20251215-120000.json')"
           }
         }
         required: ["filename"]
@@ -245,7 +245,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_backups"
-      description: "SHOW TO USER. List available backup files in .c5t/ directory."
+      description: "SHOW TO USER. List available backup files."
       input_schema: {
         type: "object"
         properties: {}
@@ -658,8 +658,8 @@ def "main call-tool" [
         $"backup-($timestamp).json"
       }
 
-      # Ensure .c5t directory exists
-      let backup_dir = ".c5t"
+      # Ensure backup directory exists
+      let backup_dir = $"(get-xdg-data-path)/backups"
       if not ($backup_dir | path exists) {
         mkdir $backup_dir
       }
@@ -682,7 +682,8 @@ def "main call-tool" [
       let filename = $parsed_args.filename
 
       # Build filepath
-      let filepath = $".c5t/($filename)"
+      let backup_dir = $"(get-xdg-data-path)/backups"
+      let filepath = $"($backup_dir)/($filename)"
 
       # Check if file exists
       if not ($filepath | path exists) {
@@ -711,7 +712,7 @@ Use list_backups to see available backup files."
     }
 
     "list_backups" => {
-      let backup_dir = ".c5t"
+      let backup_dir = $"(get-xdg-data-path)/backups"
 
       if not ($backup_dir | path exists) {
         return "No backup directory found. Run export_data first to create a backup."
@@ -720,7 +721,7 @@ Use list_backups to see available backup files."
       let backups = glob $"($backup_dir)/*.json" | sort -r
 
       if ($backups | is-empty) {
-        return "No backup files found in .c5t/"
+        return "No backup files found."
       }
 
       let backup_info = $backups | each {|file|
