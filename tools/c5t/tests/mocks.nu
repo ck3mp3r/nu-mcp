@@ -27,10 +27,10 @@ export def "query db" [
     }
   }
 
-  # Project queries
-  if ($sql | str contains "FROM project") {
-    if "MOCK_query_db_PROJECT" in $env {
-      let mock_data = $env | get MOCK_query_db_PROJECT
+  # Repository queries
+  if ($sql | str contains "FROM repo") {
+    if "MOCK_query_db_REPO" in $env {
+      let mock_data = $env | get MOCK_query_db_REPO
       if $mock_data.exit_code != 0 {
         error make {msg: $"SQLite error: ($mock_data.error)"}
       }

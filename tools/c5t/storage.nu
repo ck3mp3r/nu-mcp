@@ -26,57 +26,80 @@ export def get-db-path [] {
   $"($db_dir)/context.db"
 }
 
-# Generate project key from absolute path: <8-char-hash>-<basename>
-export def get-project-key [path: string] {
-  let basename = $path | path basename
-  let hash = $path | hash sha256 | str substring 0..<8
-  $"($hash)-($basename)"
-}
+# Parse git remote URL into normalized format: "host:org/repo"
+# Supports: https://github.com/org/repo.git, git@github.com:org/repo.git
+export def parse-git-remote [url: string] {
+  let cleaned = $url | str trim | str replace -r '\.git$' ''
 
-# Get or create project record, returns {success: bool, project_id: int}
-export def get-or-create-project [project_key: string path: string name: string] {
-  let db_path = init-database
-
-  # Try to find existing project
-  let sql = "SELECT id, project_key, path, name FROM project WHERE project_key = ?"
-  let result = query-sql $db_path $sql [$project_key]
-
-  if $result.success and ($result.data | length) > 0 {
-    return {success: true project_id: ($result.data.0.id)}
+  # SSH format: git@github.com:org/repo
+  if ($cleaned | str starts-with "git@") {
+    let parts = $cleaned | str replace "git@" "" | split row ":"
+    let host = $parts | first | str replace ".com" ""
+    let path = $parts | skip 1 | str join ":"
+    return $"($host):($path)"
   }
 
-  # Create new project
-  let insert_sql = "INSERT INTO project (project_key, path, name) VALUES (?, ?, ?) RETURNING id"
-  let insert_result = query-sql $db_path $insert_sql [$project_key $path $name]
+  # HTTPS format: https://github.com/org/repo
+  if ($cleaned | str contains "://") {
+    let without_proto = $cleaned | split row "://" | last
+    let parts = $without_proto | split row "/"
+    let host = $parts | first | str replace ".com" ""
+    let path = $parts | skip 1 | str join "/"
+    return $"($host):($path)"
+  }
+
+  # Unknown format - return as-is
+  $cleaned
+}
+
+# Get git remote URL for current directory
+export def get-git-remote [] {
+  try {
+    let url = git remote get-url origin | str trim
+    {success: true url: $url}
+  } catch {
+    {success: false error: "Not a git repository or no remote 'origin' configured"}
+  }
+}
+
+# Get or create repo record, returns {success: bool, repo_id: int}
+export def get-or-create-repo [remote: string path: string] {
+  let db_path = init-database
+
+  # Try to find existing repo
+  let sql = "SELECT id, remote, path FROM repo WHERE remote = ?"
+  let result = query-sql $db_path $sql [$remote]
+
+  if $result.success and ($result.data | length) > 0 {
+    # Update path and last_accessed_at
+    let update_sql = "UPDATE repo SET path = ?, last_accessed_at = datetime('now') WHERE id = ?"
+    let _ = execute-sql $db_path $update_sql [$path $result.data.0.id]
+    return {success: true repo_id: ($result.data.0.id)}
+  }
+
+  # Create new repo
+  let insert_sql = "INSERT INTO repo (remote, path) VALUES (?, ?) RETURNING id"
+  let insert_result = query-sql $db_path $insert_sql [$remote $path]
 
   if $insert_result.success and ($insert_result.data | length) > 0 {
-    {success: true project_id: ($insert_result.data.0.id)}
+    {success: true repo_id: ($insert_result.data.0.id)}
   } else {
-    {success: false error: "Failed to create project"}
+    {success: false error: "Failed to create repo"}
   }
 }
 
-# Get project ID for current working directory
-export def get-current-project-id [] {
+# Get repo ID for current working directory (from git remote)
+export def get-current-repo-id [] {
+  let git_result = get-git-remote
+
+  if not $git_result.success {
+    return {success: false error: $git_result.error}
+  }
+
+  let remote = parse-git-remote $git_result.url
   let path = $env.PWD
-  let name = $path | path basename
-  let project_key = get-project-key $path
 
-  get-or-create-project $project_key $path $name
-}
-
-# Get the global project ID (project_key = "__global__")
-export def get-global-project-id [] {
-  let db_path = init-database
-
-  let sql = "SELECT id FROM project WHERE project_key = '__global__'"
-  let result = query-sql $db_path $sql []
-
-  if $result.success and ($result.data | length) > 0 {
-    {success: true project_id: ($result.data.0.id)}
-  } else {
-    {success: false error: "Global project not found"}
-  }
+  get-or-create-repo $remote $path
 }
 
 export def init-database [] {
@@ -167,25 +190,20 @@ export def create-todo-list [
   name: string
   description?: string
   tags?: list
-  --global # If true, create in global project instead of current project
 ] {
   let db_path = init-database
 
-  # Get project_id - either global or current project
-  let project_result = if $global {
-    get-global-project-id
-  } else {
-    get-current-project-id
-  }
+  # Get repo_id from current git repository
+  let repo_result = get-current-repo-id
 
-  if not $project_result.success {
+  if not $repo_result.success {
     return {
       success: false
-      error: $"Failed to get project: ($project_result.error? | default 'unknown')"
+      error: $"Failed to get repository: ($repo_result.error? | default 'unknown')"
     }
   }
 
-  let project_id = $project_result.project_id
+  let repo_id = $repo_result.repo_id
 
   let tags_json = if $tags != null and ($tags | is-not-empty) {
     $tags | to json --raw
@@ -199,12 +217,12 @@ export def create-todo-list [
     null
   }
 
-  # Use INSERT ... RETURNING with parameters - now includes project_id
-  let sql = "INSERT INTO todo_list (project_id, name, description, tags) 
+  # Use INSERT ... RETURNING with parameters - now includes repo_id
+  let sql = "INSERT INTO todo_list (repo_id, name, description, tags) 
              VALUES (?, ?, ?, ?) 
              RETURNING id"
 
-  let params = [$project_id $name $desc_value $tags_json]
+  let params = [$repo_id $name $desc_value $tags_json]
 
   let result = query-sql $db_path $sql $params
 
@@ -227,7 +245,7 @@ export def create-todo-list [
   {
     success: true
     id: $list_id
-    project_id: $project_id
+    repo_id: $repo_id
     name: $name
     description: $description
     tags: $tags
@@ -244,30 +262,30 @@ def parse-tags [tags_json: any] {
 
 export def get-active-lists [
   tag_filter?: list
-  --all-projects # If true, return lists from all projects
+  --all-repos # If true, return lists from all repositories
 ] {
   let db_path = init-database
 
-  # Build query based on whether we're filtering by project
-  let sql = if $all_projects {
-    "SELECT id, project_id, name, description, notes, tags, created_at, updated_at 
+  # Build query based on whether we're filtering by repo
+  let sql = if $all_repos {
+    "SELECT id, repo_id, name, description, notes, tags, created_at, updated_at 
      FROM todo_list 
      WHERE status = 'active' 
      ORDER BY created_at DESC"
   } else {
-    # Get current project ID
-    let project_result = get-current-project-id
-    if not $project_result.success {
+    # Get current repo ID
+    let repo_result = get-current-repo-id
+    if not $repo_result.success {
       return {
         success: false
-        error: $"Failed to get current project: ($project_result.error? | default 'unknown')"
+        error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
       }
     }
-    let project_id = $project_result.project_id
+    let repo_id = $repo_result.repo_id
 
-    $"SELECT id, project_id, name, description, notes, tags, created_at, updated_at 
+    $"SELECT id, repo_id, name, description, notes, tags, created_at, updated_at 
       FROM todo_list 
-      WHERE status = 'active' AND project_id = ($project_id)
+      WHERE status = 'active' AND repo_id = ($repo_id)
       ORDER BY created_at DESC"
   }
 
@@ -465,8 +483,8 @@ export def get-list-with-items [
 ] {
   let db_path = init-database
 
-  # Get the list (includes project_id)
-  let list_sql = $"SELECT id, project_id, name, description, notes, tags, created_at, updated_at 
+  # Get the list (includes repo_id)
+  let list_sql = $"SELECT id, repo_id, name, description, notes, tags, created_at, updated_at 
                    FROM todo_list 
                    WHERE id = '($list_id)';"
 
@@ -706,7 +724,7 @@ export def archive-todo-list [
 ] {
   let db_path = init-database
 
-  # Get the list with items (includes project_id)
+  # Get the list with items (includes repo_id)
   let list_data = get-list-with-items $list_id
 
   if not $list_data.success {
@@ -719,19 +737,19 @@ export def archive-todo-list [
   # Generate archive note content
   let note_content = generate-archive-note $list_data.list $list_data.items
 
-  # Create note with parameters - inherit project_id from the list
-  let project_id = $list_data.list.project_id
+  # Create note with parameters - inherit repo_id from the list
+  let repo_id = $list_data.list.repo_id
   let tags_value = if $list_data.list.tags != null and ($list_data.list.tags | is-not-empty) {
     $list_data.list.tags | to json --raw
   } else {
     null
   }
 
-  let insert_note_sql = "INSERT INTO note (project_id, title, content, tags, note_type, source_id) 
+  let insert_note_sql = "INSERT INTO note (repo_id, title, content, tags, note_type, source_id) 
                          VALUES (?, ?, ?, ?, ?, ?) 
                          RETURNING id"
 
-  let params = [$project_id $list_data.list.name $note_content $tags_value "archived_todo" $list_id]
+  let params = [$repo_id $list_data.list.name $note_content $tags_value "archived_todo" $list_id]
   let note_result = query-sql $db_path $insert_note_sql $params
 
   if not $note_result.success {
@@ -777,25 +795,20 @@ export def create-note [
   title: string
   content: string
   tags?: list
-  --global # If true, create in global project instead of current project
 ] {
   let db_path = init-database
 
-  # Get project_id - either global or current project
-  let project_result = if $global {
-    get-global-project-id
-  } else {
-    get-current-project-id
-  }
+  # Get repo_id from current git repository
+  let repo_result = get-current-repo-id
 
-  if not $project_result.success {
+  if not $repo_result.success {
     return {
       success: false
-      error: $"Failed to get project: ($project_result.error? | default 'unknown')"
+      error: $"Failed to get repository: ($repo_result.error? | default 'unknown')"
     }
   }
 
-  let project_id = $project_result.project_id
+  let repo_id = $repo_result.repo_id
 
   let tags_value = if $tags != null and ($tags | is-not-empty) {
     $tags | to json --raw
@@ -803,11 +816,11 @@ export def create-note [
     null
   }
 
-  let sql = "INSERT INTO note (project_id, title, content, tags, note_type) 
+  let sql = "INSERT INTO note (repo_id, title, content, tags, note_type) 
              VALUES (?, ?, ?, ?, ?) 
              RETURNING id"
 
-  let params = [$project_id $title $content $tags_value "manual"]
+  let params = [$repo_id $title $content $tags_value "manual"]
   let result = query-sql $db_path $sql $params
 
   if not $result.success {
@@ -829,7 +842,7 @@ export def create-note [
   {
     success: true
     id: $note_id
-    project_id: $project_id
+    repo_id: $repo_id
     title: $title
     tags: $tags
   }
@@ -840,23 +853,23 @@ export def get-notes [
   tag_filter?: list
   note_type?: string
   limit?: int
-  --all-projects # If true, return notes from all projects
+  --all-repos # If true, return notes from all repositories
 ] {
   let db_path = init-database
 
   # Build WHERE clauses
   mut where_clauses = []
 
-  # Add project filter unless all_projects is true
-  if not $all_projects {
-    let project_result = get-current-project-id
-    if not $project_result.success {
+  # Add repo filter unless all_repos is true
+  if not $all_repos {
+    let repo_result = get-current-repo-id
+    if not $repo_result.success {
       return {
         success: false
-        error: $"Failed to get current project: ($project_result.error? | default 'unknown')"
+        error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
       }
     }
-    $where_clauses = ($where_clauses | append $"project_id = ($project_result.project_id)")
+    $where_clauses = ($where_clauses | append $"repo_id = ($repo_result.repo_id)")
   }
 
   if $note_type != null {
@@ -875,7 +888,7 @@ export def get-notes [
     ""
   }
 
-  let sql = $"SELECT id, project_id, title, content, tags, note_type, source_id, created_at, updated_at 
+  let sql = $"SELECT id, repo_id, title, content, tags, note_type, source_id, created_at, updated_at 
              FROM note 
              ($where_sql)
              ORDER BY created_at DESC 
@@ -959,7 +972,7 @@ export def upsert-note [
   content?: string
   tags?: list
 ] {
-  let db_path = get-db-path
+  let db_path = init-database
 
   # If note_id provided, update existing
   if $note_id != null {
@@ -1040,10 +1053,12 @@ export def upsert-note [
       created: true
       id: $result.id
       note_id: $result.id
+      repo_id: $result.repo_id
       title: $title
       tags: $tags
       note: {
         id: $result.id
+        repo_id: $result.repo_id
         title: $title
       }
     }
@@ -1055,28 +1070,28 @@ export def search-notes [
   query: string
   --limit: int = 10
   --tags: list = []
-  --all-projects # If true, search notes from all projects
+  --all-repos # If true, search notes from all repositories
 ] {
   let db_path = init-database
 
-  # Build WHERE clause based on project filter
-  let project_filter = if $all_projects {
+  # Build WHERE clause based on repo filter
+  let repo_filter = if $all_repos {
     ""
   } else {
-    let project_result = get-current-project-id
-    if not $project_result.success {
+    let repo_result = get-current-repo-id
+    if not $repo_result.success {
       return {
         success: false
-        error: $"Failed to get current project: ($project_result.error? | default 'unknown')"
+        error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
       }
     }
-    $" AND note.project_id = ($project_result.project_id)"
+    $" AND note.repo_id = ($repo_result.repo_id)"
   }
 
   # FTS5 search query with bm25 ranking using parameters
   let sql = $"SELECT 
                note.id, 
-               note.project_id,
+               note.repo_id,
                note.title, 
                note.content, 
                note.tags, 
@@ -1085,7 +1100,7 @@ export def search-notes [
                bm25\(note_fts\) as rank
              FROM note_fts
              JOIN note ON note.id = note_fts.rowid
-             WHERE note_fts MATCH ?($project_filter)
+             WHERE note_fts MATCH ?($repo_filter)
              ORDER BY rank
              LIMIT ?"
 
@@ -1124,27 +1139,27 @@ export def search-notes [
 
 # Get active lists with item counts by status for summary
 export def get-active-lists-with-counts [
-  --all-projects # If true, return lists from all projects
+  --all-repos # If true, return lists from all repositories
 ] {
   let db_path = init-database
 
-  # Build project filter
-  let project_filter = if $all_projects {
+  # Build repo filter
+  let repo_filter = if $all_repos {
     ""
   } else {
-    let project_result = get-current-project-id
-    if not $project_result.success {
+    let repo_result = get-current-repo-id
+    if not $repo_result.success {
       return {
         success: false
-        error: $"Failed to get current project: ($project_result.error? | default 'unknown')"
+        error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
       }
     }
-    $" AND tl.project_id = ($project_result.project_id)"
+    $" AND tl.repo_id = ($repo_result.repo_id)"
   }
 
   let sql = $"SELECT 
                tl.id,
-               tl.project_id,
+               tl.repo_id,
                tl.name,
                tl.description,
                tl.tags,
@@ -1157,7 +1172,7 @@ export def get-active-lists-with-counts [
                COUNT\(ti.id\) as total_count
              FROM todo_list tl
              LEFT JOIN todo_item ti ON tl.id = ti.list_id
-             WHERE tl.status = 'active'($project_filter)
+             WHERE tl.status = 'active'($repo_filter)
              GROUP BY tl.id
              ORDER BY tl.created_at DESC"
 
@@ -1183,22 +1198,22 @@ export def get-active-lists-with-counts [
 
 # Get all in-progress items across all lists for summary
 export def get-all-in-progress-items [
-  --all-projects # If true, return items from all projects
+  --all-repos # If true, return items from all repositories
 ] {
   let db_path = init-database
 
-  # Build project filter
-  let project_filter = if $all_projects {
+  # Build repo filter
+  let repo_filter = if $all_repos {
     ""
   } else {
-    let project_result = get-current-project-id
-    if not $project_result.success {
+    let repo_result = get-current-repo-id
+    if not $repo_result.success {
       return {
         success: false
-        error: $"Failed to get current project: ($project_result.error? | default 'unknown')"
+        error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
       }
     }
-    $" AND tl.project_id = ($project_result.project_id)"
+    $" AND tl.repo_id = ($repo_result.repo_id)"
   }
 
   let sql = $"SELECT 
@@ -1211,7 +1226,7 @@ export def get-all-in-progress-items [
              FROM todo_item ti
              JOIN todo_list tl ON ti.list_id = tl.id
              WHERE ti.status = 'in_progress'
-             AND tl.status = 'active'($project_filter)
+             AND tl.status = 'active'($repo_filter)
              ORDER BY ti.priority DESC NULLS LAST, ti.started_at ASC"
 
   let result = query-sql $db_path $sql []
@@ -1232,22 +1247,22 @@ export def get-all-in-progress-items [
 
 # Get recently completed items for summary
 export def get-recently-completed-items [
-  --all-projects # If true, return items from all projects
+  --all-repos # If true, return items from all repositories
 ] {
   let db_path = init-database
 
-  # Build project filter
-  let project_filter = if $all_projects {
+  # Build repo filter
+  let repo_filter = if $all_repos {
     ""
   } else {
-    let project_result = get-current-project-id
-    if not $project_result.success {
+    let repo_result = get-current-repo-id
+    if not $repo_result.success {
       return {
         success: false
-        error: $"Failed to get current project: ($project_result.error? | default 'unknown')"
+        error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
       }
     }
-    $" AND tl.project_id = ($project_result.project_id)"
+    $" AND tl.repo_id = ($repo_result.repo_id)"
   }
 
   let sql = $"SELECT 
@@ -1261,7 +1276,7 @@ export def get-recently-completed-items [
              FROM todo_item ti
              JOIN todo_list tl ON ti.list_id = tl.id
              WHERE ti.status IN \('done', 'cancelled'\)
-             AND tl.status = 'active'($project_filter)
+             AND tl.status = 'active'($repo_filter)
              AND ti.completed_at IS NOT NULL
              ORDER BY ti.completed_at DESC
              LIMIT 20"
@@ -1284,22 +1299,22 @@ export def get-recently-completed-items [
 
 # Get high-priority pending items for summary
 export def get-high-priority-next-steps [
-  --all-projects # If true, return items from all projects
+  --all-repos # If true, return items from all repositories
 ] {
   let db_path = init-database
 
-  # Build project filter
-  let project_filter = if $all_projects {
+  # Build repo filter
+  let repo_filter = if $all_repos {
     ""
   } else {
-    let project_result = get-current-project-id
-    if not $project_result.success {
+    let repo_result = get-current-repo-id
+    if not $repo_result.success {
       return {
         success: false
-        error: $"Failed to get current project: ($project_result.error? | default 'unknown')"
+        error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
       }
     }
-    $" AND tl.project_id = ($project_result.project_id)"
+    $" AND tl.repo_id = ($repo_result.repo_id)"
   }
 
   let sql = $"SELECT 
@@ -1312,7 +1327,7 @@ export def get-high-priority-next-steps [
              FROM todo_item ti
              JOIN todo_list tl ON ti.list_id = tl.id
              WHERE ti.status IN \('backlog', 'todo'\)
-             AND tl.status = 'active'($project_filter)
+             AND tl.status = 'active'($repo_filter)
              AND ti.priority >= 4
              ORDER BY ti.priority DESC, ti.created_at ASC
              LIMIT 10"
@@ -1335,25 +1350,25 @@ export def get-high-priority-next-steps [
 
 # Get comprehensive summary/overview for quick status at-a-glance
 export def get-summary [
-  --all-projects # If true, return summary from all projects
+  --all-repos # If true, return summary from all repositories
 ] {
   let db_path = init-database
 
-  # Build project filter
-  let project_filter = if $all_projects {
+  # Build repo filter
+  let repo_filter = if $all_repos {
     ""
   } else {
-    let project_result = get-current-project-id
-    if not $project_result.success {
+    let repo_result = get-current-repo-id
+    if not $repo_result.success {
       return {
         success: false
-        error: $"Failed to get current project: ($project_result.error? | default 'unknown')"
+        error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
       }
     }
-    $" AND tl.project_id = ($project_result.project_id)"
+    $" AND tl.repo_id = ($repo_result.repo_id)"
   }
 
-  # Get overall stats across active lists (filtered by project if not all_projects)
+  # Get overall stats across active lists (filtered by repo if not all_repos)
   let stats_sql = $"SELECT 
                      COUNT\(DISTINCT tl.id\) as active_lists,
                      COUNT\(CASE WHEN ti.status = 'backlog' THEN 1 END\) as backlog_total,
@@ -1365,7 +1380,7 @@ export def get-summary [
                      COUNT\(ti.id\) as total_items
                    FROM todo_list tl
                    LEFT JOIN todo_item ti ON tl.id = ti.list_id
-                   WHERE tl.status = 'active'($project_filter)"
+                   WHERE tl.status = 'active'($repo_filter)"
 
   let stats_result = query-sql $db_path $stats_sql []
 
@@ -1392,9 +1407,9 @@ export def get-summary [
     $stats_result.data | first
   }
 
-  # Get active lists with counts (pass through all_projects flag)
-  let lists_result = if $all_projects {
-    get-active-lists-with-counts --all-projects
+  # Get active lists with counts (pass through all_repos flag)
+  let lists_result = if $all_repos {
+    get-active-lists-with-counts --all-repos
   } else {
     get-active-lists-with-counts
   }
@@ -1406,9 +1421,9 @@ export def get-summary [
     }
   }
 
-  # Get in-progress items (pass through all_projects flag)
-  let in_progress_result = if $all_projects {
-    get-all-in-progress-items --all-projects
+  # Get in-progress items (pass through all_repos flag)
+  let in_progress_result = if $all_repos {
+    get-all-in-progress-items --all-repos
   } else {
     get-all-in-progress-items
   }
@@ -1420,9 +1435,9 @@ export def get-summary [
     }
   }
 
-  # Get high-priority next steps (pass through all_projects flag)
-  let priority_result = if $all_projects {
-    get-high-priority-next-steps --all-projects
+  # Get high-priority next steps (pass through all_repos flag)
+  let priority_result = if $all_repos {
+    get-high-priority-next-steps --all-repos
   } else {
     get-high-priority-next-steps
   }
@@ -1434,9 +1449,9 @@ export def get-summary [
     }
   }
 
-  # Get recently completed items (pass through all_projects flag)
-  let completed_result = if $all_projects {
-    get-recently-completed-items --all-projects
+  # Get recently completed items (pass through all_repos flag)
+  let completed_result = if $all_repos {
+    get-recently-completed-items --all-repos
   } else {
     get-recently-completed-items
   }
@@ -1840,7 +1855,7 @@ export def upsert-list [
   tags?: list
   notes?: string
 ] {
-  let db_path = get-db-path
+  let db_path = init-database
 
   # If list_id provided, update existing
   if $list_id != null {
@@ -1949,12 +1964,14 @@ export def upsert-list [
       created: true
       id: $result.id
       list_id: $result.id
+      repo_id: $result.repo_id
       name: $name
       description: $description
       tags: $tags
       notes: $notes
       list: {
         id: $result.id
+        repo_id: $result.repo_id
         name: $name
         description: $description
         tags: $tags
@@ -2161,7 +2178,7 @@ export def get-list [
 ] {
   let db_path = init-database
 
-  let sql = "SELECT id, project_id, name, description, notes, tags, status, created_at, updated_at, archived_at 
+  let sql = "SELECT id, repo_id, name, description, notes, tags, status, created_at, updated_at, archived_at 
              FROM todo_list 
              WHERE id = ?"
   let params = [$list_id]

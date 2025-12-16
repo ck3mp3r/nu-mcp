@@ -54,6 +54,10 @@ def "main list-tools" [] {
             items: {type: "string"}
             description: "Filter lists by tags - shows lists with ANY of these tags (optional)"
           }
+          all_repos: {
+            type: "boolean"
+            description: "If true, show lists from all repositories instead of just current directory (optional, default: false)"
+          }
         }
       }
     }
@@ -328,6 +332,10 @@ def "main list-tools" [] {
             description: "Maximum number of notes to return (optional, default: all)"
             minimum: 1
           }
+          all_repos: {
+            type: "boolean"
+            description: "If true, show notes from all repositories instead of just current directory (optional, default: false)"
+          }
         }
       }
     }
@@ -366,6 +374,10 @@ def "main list-tools" [] {
             minimum: 1
             default: 10
           }
+          all_repos: {
+            type: "boolean"
+            description: "If true, search notes from all repositories instead of just current directory (optional, default: false)"
+          }
         }
         required: ["query"]
       }
@@ -375,7 +387,12 @@ def "main list-tools" [] {
       description: "SHOW TO USER. Quick status overview: active lists, in-progress items, priorities. Perfect for session start. For detailed context, check notes tagged 'session'."
       input_schema: {
         type: "object"
-        properties: {}
+        properties: {
+          all_repos: {
+            type: "boolean"
+            description: "If true, show summary from all repositories instead of just current directory (optional, default: false)"
+          }
+        }
       }
     }
   ] | to json
@@ -416,8 +433,13 @@ def "main call-tool" [
 
     "list_active" => {
       let tag_filter = if "tags" in $parsed_args { $parsed_args.tags } else { null }
+      let all_repos = if "all_repos" in $parsed_args { $parsed_args.all_repos } else { false }
 
-      let result = get-active-lists $tag_filter
+      let result = if $all_repos {
+        get-active-lists $tag_filter --all-repos
+      } else {
+        get-active-lists $tag_filter
+      }
 
       if not $result.success {
         return $result.error
@@ -776,8 +798,13 @@ Use list_backups to see available backup files."
       let tag_filter = if "tags" in $parsed_args { $parsed_args.tags } else { null }
       let note_type = if "note_type" in $parsed_args { $parsed_args.note_type } else { null }
       let limit = if "limit" in $parsed_args { $parsed_args.limit } else { null }
+      let all_repos = if "all_repos" in $parsed_args { $parsed_args.all_repos } else { false }
 
-      let result = get-notes $tag_filter $note_type $limit
+      let result = if $all_repos {
+        get-notes $tag_filter $note_type $limit --all-repos
+      } else {
+        get-notes $tag_filter $note_type $limit
+      }
 
       if not $result.success {
         return $result.error
@@ -810,8 +837,13 @@ Use list_backups to see available backup files."
       let query = $parsed_args.query
       let tag_filter = if "tags" in $parsed_args { $parsed_args.tags } else { [] }
       let limit = if "limit" in $parsed_args { $parsed_args.limit } else { 10 }
+      let all_repos = if "all_repos" in $parsed_args { $parsed_args.all_repos } else { false }
 
-      let result = search-notes $query --limit $limit --tags $tag_filter
+      let result = if $all_repos {
+        search-notes $query --limit $limit --tags $tag_filter --all-repos
+      } else {
+        search-notes $query --limit $limit --tags $tag_filter
+      }
 
       if not $result.success {
         return $result.error
@@ -821,7 +853,13 @@ Use list_backups to see available backup files."
     }
 
     "get_summary" => {
-      let result = get-summary
+      let all_repos = if "all_repos" in $parsed_args { $parsed_args.all_repos } else { false }
+
+      let result = if $all_repos {
+        get-summary --all-repos
+      } else {
+        get-summary
+      }
 
       if not $result.success {
         return $result.error

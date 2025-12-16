@@ -384,155 +384,141 @@ export def "test export-data returns data" [] {
   }
 }
 
-# --- Project Isolation ---
+# --- Repository Isolation ---
 
-# Test get-project-key generates hash + basename format
-export def "test get-project-key generates correct format" [] {
-  use ../storage.nu get-project-key
+# Test parse-git-remote extracts org/repo from various URL formats
+export def "test parse-git-remote handles https url" [] {
+  use ../storage.nu parse-git-remote
 
-  # Test with a sample path
-  let result = get-project-key "/Users/test/Projects/my-app"
-
-  # Should be in format: <8-char-hash>-<basename>
-  assert ($result | str contains "-my-app")
-  assert (($result | str length) > 10) # hash + hyphen + name
-
-  # Hash part should be 8 chars
-  let parts = $result | split row "-"
-  assert (($parts | first | str length) == 8)
+  let result = parse-git-remote "https://github.com/ck3mp3r/nu-mcp.git"
+  assert ($result == "github:ck3mp3r/nu-mcp")
 }
 
-# Test get-project-key is deterministic
-export def "test get-project-key is deterministic" [] {
-  use ../storage.nu get-project-key
+export def "test parse-git-remote handles ssh url" [] {
+  use ../storage.nu parse-git-remote
 
-  let path = "/Users/test/Projects/foo"
-  let result1 = get-project-key $path
-  let result2 = get-project-key $path
+  let result = parse-git-remote "git@github.com:ck3mp3r/nu-mcp.git"
+  assert ($result == "github:ck3mp3r/nu-mcp")
+}
 
+export def "test parse-git-remote handles gitlab" [] {
+  use ../storage.nu parse-git-remote
+
+  let result = parse-git-remote "git@gitlab.com:myorg/myrepo.git"
+  assert ($result == "gitlab:myorg/myrepo")
+}
+
+export def "test parse-git-remote strips .git suffix" [] {
+  use ../storage.nu parse-git-remote
+
+  let result1 = parse-git-remote "https://github.com/org/repo.git"
+  let result2 = parse-git-remote "https://github.com/org/repo"
   assert ($result1 == $result2)
 }
 
-# Test get-project-key different paths produce different keys
-export def "test get-project-key unique for different paths" [] {
-  use ../storage.nu get-project-key
-
-  let key1 = get-project-key "/Users/test/work/foo"
-  let key2 = get-project-key "/Users/test/personal/foo"
-
-  # Same basename "foo" but different full paths = different keys
-  assert ($key1 != $key2)
-}
-
-# Test get-or-create-project creates new project
-export def "test get-or-create-project creates new" [] {
+# Test get-or-create-repo creates new repo
+export def "test get-or-create-repo creates new" [] {
   use ../tests/mocks.nu *
-  use ../storage.nu get-or-create-project
+  use ../storage.nu get-or-create-repo
 
   with-env {
-    # First query returns empty (project doesn't exist), second returns new project
-    MOCK_query_db_PROJECT: ({output: [] exit_code: 0})
+    # First query returns empty (repo doesn't exist), second returns new repo
+    MOCK_query_db_REPO: ({output: [] exit_code: 0})
     MOCK_query_db: ({output: [{id: 1}] exit_code: 0})
   } {
-    let result = get-or-create-project "abc12345-foo" "/Users/test/foo" "foo"
+    let result = get-or-create-repo "github:ck3mp3r/nu-mcp" "/Users/test/nu-mcp"
 
     assert ($result.success == true)
-    assert ($result.project_id == 1)
+    assert ($result.repo_id == 1)
   }
 }
 
-# Test get-or-create-project returns existing project
-export def "test get-or-create-project returns existing" [] {
+# Test get-or-create-repo returns existing repo
+export def "test get-or-create-repo returns existing" [] {
   use ../tests/mocks.nu *
-  use ../storage.nu get-or-create-project
+  use ../storage.nu get-or-create-repo
 
   with-env {
-    MOCK_query_db_PROJECT: ({output: [{id: 42 project_key: "abc12345-foo" path: "/Users/test/foo" name: "foo"}] exit_code: 0})
+    MOCK_query_db_REPO: ({output: [{id: 42 remote: "github:ck3mp3r/nu-mcp" path: "/Users/test/nu-mcp"}] exit_code: 0})
   } {
-    let result = get-or-create-project "abc12345-foo" "/Users/test/foo" "foo"
+    let result = get-or-create-repo "github:ck3mp3r/nu-mcp" "/Users/test/nu-mcp"
 
     assert ($result.success == true)
-    assert ($result.project_id == 42)
+    assert ($result.repo_id == 42)
   }
 }
 
-# Test get-current-project-id uses PWD to get project
-# Note: We can't mock PWD directly in Nushell, so we test with actual PWD
-export def "test get-current-project-id from PWD" [] {
+# Test get-current-repo-id uses git remote from PWD
+export def "test get-current-repo-id from git remote" [] {
   use ../tests/mocks.nu *
-  use ../storage.nu [ get-current-project-id get-project-key ]
-
-  # Generate the expected project_key from actual PWD
-  let expected_key = get-project-key $env.PWD
+  use ../storage.nu get-current-repo-id
 
   with-env {
-    MOCK_query_db_PROJECT: ({output: [{id: 99 project_key: $expected_key}] exit_code: 0})
+    # Mock git remote to return a known URL - must be JSON string for mock
+    MOCK_git_remote_get_url_origin: '{"output": "git@github.com:ck3mp3r/nu-mcp.git", "exit_code": 0}'
+    MOCK_query_db_REPO: ({output: [{id: 99 remote: "github:ck3mp3r/nu-mcp"}] exit_code: 0})
   } {
-    let result = get-current-project-id
+    let result = get-current-repo-id
 
     assert ($result.success == true)
-    assert ($result.project_id == 99)
+    assert ($result.repo_id == 99)
   }
 }
 
-# Test get-global-project-id returns __global__ project
-export def "test get-global-project-id returns global" [] {
-  use ../tests/mocks.nu *
-  use ../storage.nu get-global-project-id
+# Test get-current-repo-id fails gracefully when not in git repo
+# Note: This test verifies the function signature and error structure.
+# The actual git mock requires the storage module to import mocks, which is not
+# the current architecture. Integration testing happens via actual git repo behavior.
+export def "test get-current-repo-id not in git repo" [] {
+  use ../storage.nu get-git-remote
 
-  with-env {
-    MOCK_query_db_PROJECT: ({output: [{id: 1 project_key: "__global__" path: null name: "Global"}] exit_code: 0})
-  } {
-    let result = get-global-project-id
+  # Test in a known non-git directory (temp dir)
+  cd /tmp
+  let result = get-git-remote
+  cd -
 
-    assert ($result.success == true)
-    assert ($result.project_id == 1)
-  }
+  # The function should return success: false when not in a git repo
+  assert ($result.success == false)
+  assert ("error" in $result)
 }
 
-# Test create-todo-list uses current project
-# Note: Uses actual PWD since Nushell doesn't allow overriding it
-export def "test create-todo-list uses project_id" [] {
+# Test create-todo-list uses current repo
+export def "test create-todo-list uses repo_id" [] {
   use ../tests/mocks.nu *
-  use ../storage.nu [ create-todo-list get-project-key ]
-
-  # Generate expected project key from actual PWD
-  let expected_key = get-project-key $env.PWD
+  use ../storage.nu create-todo-list
 
   with-env {
-    MOCK_query_db_PROJECT: ({output: [{id: 5 project_key: $expected_key}] exit_code: 0})
+    MOCK_git_remote_get_url_origin: '{"output": "git@github.com:ck3mp3r/nu-mcp.git", "exit_code": 0}'
+    MOCK_query_db_REPO: ({output: [{id: 5 remote: "github:ck3mp3r/nu-mcp"}] exit_code: 0})
     MOCK_query_db: ({output: [{id: 42}] exit_code: 0})
   } {
     let result = create-todo-list "Test List" "Description" []
 
     assert ($result.success == true)
     assert ($result.id == 42)
-    assert ($result.project_id == 5)
+    assert ($result.repo_id == 5)
   }
 }
 
-# Test get-active-lists filters by current project
-# Note: Uses actual PWD since Nushell doesn't allow overriding it
-export def "test get-active-lists filters by project" [] {
+# Test get-active-lists filters by current repo
+export def "test get-active-lists filters by repo" [] {
   use ../tests/mocks.nu *
-  use ../storage.nu [ get-active-lists get-project-key ]
-
-  # Generate expected project key from actual PWD
-  let expected_key = get-project-key $env.PWD
+  use ../storage.nu get-active-lists
 
   with-env {
-    MOCK_query_db_PROJECT: ({output: [{id: 5 project_key: $expected_key}] exit_code: 0})
-    MOCK_query_db: ({output: [{id: 1 name: "Project List" project_id: 5 description: null tags: null created_at: "2025-01-01" updated_at: "2025-01-01"}] exit_code: 0})
+    MOCK_git_remote_get_url_origin: '{"output": "git@github.com:ck3mp3r/nu-mcp.git", "exit_code": 0}'
+    MOCK_query_db_REPO: ({output: [{id: 5 remote: "github:ck3mp3r/nu-mcp"}] exit_code: 0})
+    MOCK_query_db: ({output: [{id: 1 name: "Repo List" repo_id: 5 description: null tags: null created_at: "2025-01-01" updated_at: "2025-01-01"}] exit_code: 0})
   } {
     let result = get-active-lists
 
     assert ($result.success == true)
-    # Should only return lists for current project (project_id = 5)
+    # Should only return lists for current repo (repo_id = 5)
   }
 }
 
-# Test get-active-lists with all_projects flag
-export def "test get-active-lists all projects" [] {
+# Test get-active-lists with all_repos flag
+export def "test get-active-lists all repos" [] {
   use ../tests/mocks.nu *
   use ../storage.nu get-active-lists
 
@@ -540,34 +526,35 @@ export def "test get-active-lists all projects" [] {
     MOCK_query_db: (
       {
         output: [
-          {id: 1 name: "List A" project_id: 1 description: null tags: null created_at: "2025-01-01" updated_at: "2025-01-01"}
-          {id: 2 name: "List B" project_id: 2 description: null tags: null created_at: "2025-01-01" updated_at: "2025-01-01"}
+          {id: 1 name: "List A" repo_id: 1 description: null tags: null created_at: "2025-01-01" updated_at: "2025-01-01"}
+          {id: 2 name: "List B" repo_id: 2 description: null tags: null created_at: "2025-01-01" updated_at: "2025-01-01"}
         ]
         exit_code: 0
       }
     )
   } {
-    let result = get-active-lists --all-projects
+    let result = get-active-lists --all-repos
 
     assert ($result.success == true)
     assert ($result.count == 2)
   }
 }
 
-# Test create-note with global flag
-export def "test create-note global flag" [] {
+# Test create-note uses current repo
+export def "test create-note uses repo_id" [] {
   use ../tests/mocks.nu *
   use ../storage.nu create-note
 
   with-env {
-    MOCK_query_db_PROJECT: ({output: [{id: 1 project_key: "__global__"}] exit_code: 0})
+    MOCK_git_remote_get_url_origin: '{"output": "git@github.com:ck3mp3r/nu-mcp.git", "exit_code": 0}'
+    MOCK_query_db_REPO: ({output: [{id: 5 remote: "github:ck3mp3r/nu-mcp"}] exit_code: 0})
     MOCK_query_db: ({output: [{id: 99}] exit_code: 0})
   } {
-    let result = create-note "Global Note" "Content" [] --global
+    let result = create-note "Test Note" "Content" []
 
     assert ($result.success == true)
     assert ($result.id == 99)
-    # Note should be created with project_id = 1 (global project)
+    assert ($result.repo_id == 5)
   }
 }
 
