@@ -27,6 +27,17 @@ export def "query db" [
     }
   }
 
+  # Project queries
+  if ($sql | str contains "FROM project") {
+    if "MOCK_query_db_PROJECT" in $env {
+      let mock_data = $env | get MOCK_query_db_PROJECT
+      if $mock_data.exit_code != 0 {
+        error make {msg: $"SQLite error: ($mock_data.error)"}
+      }
+      return $mock_data.output
+    }
+  }
+
   # Todo list queries
   if ($sql | str contains "FROM todo_list") {
     if "MOCK_query_db_TODO_LIST" in $env {
