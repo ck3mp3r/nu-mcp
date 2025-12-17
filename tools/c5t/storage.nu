@@ -1866,6 +1866,9 @@ export def upsert-item [
       }
     }
 
+    # Get the updated item first (needed for both archived and non-archived responses)
+    let updated = get-item $list_id $item_id
+
     # Check if all items are now completed and auto-archive if so
     if $status != null and $status in ["done" "cancelled"] {
       if (all-items-completed $list_id) {
@@ -1876,13 +1879,13 @@ export def upsert-item [
             created: false
             archived: true
             note_id: $archive_result.note_id
+            item: $updated.item
           }
         }
       }
     }
 
     # Return updated item
-    let updated = get-item $list_id $item_id
     {
       success: true
       created: false
