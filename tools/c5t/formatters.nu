@@ -271,7 +271,11 @@ export def format-items-table [list: record items: list] {
 
   for entry in $status_order {
     if $entry.status in $grouped {
-      let status_items = $grouped | get $entry.status
+      # Sort by priority (P1 first, nulls last)
+      let raw_items = $grouped | get $entry.status
+      let with_priority = $raw_items | where priority != null | sort-by priority
+      let without_priority = $raw_items | where priority == null
+      let status_items = $with_priority | append $without_priority
       $lines = ($lines | append $"## ($entry.emoji) ($entry.label)")
       $lines = ($lines | append "")
       for item in $status_items {
@@ -319,7 +323,11 @@ export def format-items-list [list: record items: list] {
   for status_info in $status_order {
     let status = $status_info.status
     if $status in $grouped {
-      let status_items = $grouped | get $status
+      # Sort by priority (P1 first, nulls last)
+      let raw_items = $grouped | get $status
+      let with_priority = $raw_items | where priority != null | sort-by priority
+      let without_priority = $raw_items | where priority == null
+      let status_items = $with_priority | append $without_priority
       let count = $status_items | length
 
       $output_lines = ($output_lines | append $"($status_info.emoji) ($status_info.label) \(($count)\):")
