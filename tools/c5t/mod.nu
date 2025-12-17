@@ -49,7 +49,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_task_lists"
-      description: "SHOW TO USER. See all your active task lists at a glance."
+      description: "list_task_lists returns tabular data that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {
@@ -198,7 +198,7 @@ def "main list-tools" [] {
 
     {
       name: "get_task_list"
-      description: "SHOW TO USER. Get list metadata (name, description, tags, status) without tasks."
+      description: "get_task_list returns list metadata that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {
@@ -239,7 +239,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_backups"
-      description: "SHOW TO USER. List available backup files."
+      description: "list_backups returns backup file list that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {}
@@ -247,7 +247,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_tasks"
-      description: "SHOW TO USER. View all tasks with status, priority, and timestamps. Filter by status if needed."
+      description: "list_tasks returns tabular data that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {
@@ -297,7 +297,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_notes"
-      description: "SHOW TO USER. Browse all saved notes and archived work. Filter by tags or type. Lost context? Look for notes tagged 'session'."
+      description: "list_notes returns tabular data that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {
@@ -329,7 +329,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_note"
-      description: "SHOW TO USER. Retrieve a saved note or archived list."
+      description: "get_note returns note content that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {
@@ -343,7 +343,7 @@ def "main list-tools" [] {
     }
     {
       name: "search"
-      description: "SHOW TO USER. Find past work instantly. Searches all notes and archived tasks with boolean operators (AND, OR, NOT)."
+      description: "search returns tabular results that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {
@@ -376,7 +376,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_summary"
-      description: "SHOW TO USER. Quick status overview: active lists, in-progress tasks, priorities. Perfect for session start. For detailed context, check notes tagged 'session'."
+      description: "get_summary returns a status overview that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {
@@ -393,7 +393,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_repos"
-      description: "SHOW TO USER. List all known repositories that have c5t data."
+      description: "list_repos returns tabular data that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {}
