@@ -32,7 +32,7 @@ export def format-active-lists [lists: list] {
     $"# Active Task Lists \(($lists | length)\)"
     ""
     "| ID | Name | Tags | Description |"
-    "|---:|------|------|-------------|"
+    "|----|------|------|-------------|"
   ]
 
   for list in $lists {
@@ -157,7 +157,7 @@ export def format-search-results [notes: list] {
     $"# Search Results \(($notes | length)\)"
     ""
     "| ID | Type | Title |"
-    "|---:|:----:|-------|"
+    "|----|------|-------|"
   ]
 
   for note in $notes {
@@ -281,7 +281,7 @@ export def format-tasks-table [list: record tasks: list] {
       $lines = ($lines | append $"## ($entry.emoji) ($entry.label)")
       $lines = ($lines | append "")
       $lines = ($lines | append "| ID | P | Content |")
-      $lines = ($lines | append "|---:|:-:|---------|")
+      $lines = ($lines | append "|----|---|---------|")
 
       for task in $status_items {
         let priority = if $task.priority != null { $"($task.priority)" } else { "-" }
@@ -402,7 +402,7 @@ export def format-notes-list-detailed [notes: list] {
     $"# Notes \(($notes | length)\)"
     ""
     "| ID | Type | Title | Tags |"
-    "|---:|:----:|-------|------|"
+    "|----|------|-------|------|"
   ]
 
   for note in $notes {
@@ -535,7 +535,7 @@ export def format-repos-list [repos: list] {
     $"# Repositories \(($repos | length)\)"
     ""
     "| ID | Remote | Path |"
-    "|---:|--------|------|"
+    "|----|--------|------|"
   ]
 
   for repo in $repos {
