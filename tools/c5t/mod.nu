@@ -14,7 +14,7 @@ def "main list-tools" [] {
 
   [
     {
-      name: "upsert_list"
+      name: "upsert_task_list"
       description: "Create or update a task list. Omit list_id to create new, provide list_id to update. Supports name, description, tags, and progress notes. Repository must be registered first with upsert_repo."
       input_schema: {
         type: "object"
@@ -141,7 +141,7 @@ def "main list-tools" [] {
     }
 
     {
-      name: "delete_list"
+      name: "delete_task_list"
       description: "Remove a task list. Use force=true to delete list with tasks, otherwise fails if list has tasks."
       input_schema: {
         type: "object"
@@ -197,7 +197,7 @@ def "main list-tools" [] {
     }
 
     {
-      name: "get_list"
+      name: "get_task_list"
       description: "SHOW TO USER. Get list metadata (name, description, tags, status) without tasks."
       input_schema: {
         type: "object"
@@ -426,7 +426,7 @@ def "main call-tool" [
   }
 
   match $tool_name {
-    "upsert_list" => {
+    "upsert_task_list" => {
       let list_id = if "list_id" in $parsed_args { $parsed_args.list_id } else { null }
       let name = if "name" in $parsed_args { $parsed_args.name } else { null }
       let description = if "description" in $parsed_args { $parsed_args.description } else { null }
@@ -443,7 +443,7 @@ def "main call-tool" [
       if $result.created {
         format-list-created $result
       } else {
-        $"✓ List updated
+        $"✓ Task list updated
   ID: ($result.list.id)
   Name: ($result.list.name)"
       }
@@ -562,7 +562,7 @@ def "main call-tool" [
       $"✓ Task deleted \(ID: ($task_id)\)"
     }
 
-    "delete_list" => {
+    "delete_task_list" => {
       if "list_id" not-in $parsed_args {
         return "Error: Missing required field: 'list_id'"
       }
@@ -577,9 +577,9 @@ def "main call-tool" [
       }
 
       if $force {
-        $"✓ List and all tasks deleted \(ID: ($list_id)\)"
+        $"✓ Task list and all tasks deleted \(ID: ($list_id)\)"
       } else {
-        $"✓ List deleted \(ID: ($list_id)\)"
+        $"✓ Task list deleted \(ID: ($list_id)\)"
       }
     }
 
@@ -627,7 +627,7 @@ def "main call-tool" [
   To list: ($target_list_id)"
     }
 
-    "get_list" => {
+    "get_task_list" => {
       if "list_id" not-in $parsed_args {
         return "Error: Missing required field: 'list_id'"
       }
