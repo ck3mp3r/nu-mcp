@@ -874,11 +874,11 @@ export def archive-todo-list [
     null
   }
 
-  let insert_note_sql = "INSERT INTO note (repo_id, title, content, tags, note_type, source_id) 
-                         VALUES (?, ?, ?, ?, ?, ?) 
+  let insert_note_sql = "INSERT INTO note (repo_id, title, content, tags, note_type) 
+                         VALUES (?, ?, ?, ?, ?) 
                          RETURNING id"
 
-  let params = [$repo_id $list_data.list.name $note_content $tags_value "archived_todo" $list_id]
+  let params = [$repo_id $list_data.list.name $note_content $tags_value "archived_todo"]
   let note_result = query-sql $db_path $insert_note_sql $params
 
   if not $note_result.success {
@@ -897,25 +897,31 @@ export def archive-todo-list [
 
   let note_id = $note_result.data.0.id
 
-  # Update list status to archived with parameters
-  let archive_list_sql = "UPDATE todo_list 
-                           SET status = 'archived', archived_at = datetime('now') 
-                           WHERE id = ?"
+  # Delete items first (foreign key constraint)
+  let delete_items_sql = "DELETE FROM todo_item WHERE list_id = ?"
+  let delete_items_result = execute-sql $db_path $delete_items_sql [$list_id]
 
-  let archive_params = [$list_id]
-  let archive_result = execute-sql $db_path $archive_list_sql $archive_params
-
-  if not $archive_result.success {
+  if not $delete_items_result.success {
     return {
       success: false
-      error: $"Failed to archive list: ($archive_result.error)"
+      error: $"Failed to delete list items: ($delete_items_result.error)"
+    }
+  }
+
+  # Delete the list itself
+  let delete_list_sql = "DELETE FROM todo_list WHERE id = ?"
+  let delete_list_result = execute-sql $db_path $delete_list_sql [$list_id]
+
+  if not $delete_list_result.success {
+    return {
+      success: false
+      error: $"Failed to delete archived list: ($delete_list_result.error)"
     }
   }
 
   {
     success: true
     note_id: $note_id
-    list_id: $list_id
   }
 }
 

@@ -432,18 +432,11 @@ export def format-note-detail [note: record] {
     "none"
   }
 
-  let type_info = if $note.note_type == "archived_todo" and $note.source_id != null {
-    $"\n  Source List ID: ($note.source_id)"
-  } else {
-    ""
-  }
-
   [
     $"Note: ($note.title)"
     $"  ID: ($note.id)"
     $"  Type: ($note.note_type) | Tags: ($tags_str)"
     $"  Created: ($note.created_at) | Updated: ($note.updated_at)"
-    $type_info
     ""
     "---"
     ""
