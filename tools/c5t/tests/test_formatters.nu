@@ -131,7 +131,8 @@ export def "test format-summary formats output" [] {
 
   let output = format-summary $summary
 
-  assert ($output | str contains "Active Lists: 2")
+  # Check key content is present (now in table format)
+  assert ($output | str contains "Active Lists")
   assert ($output | str contains "Project Alpha")
   assert ($output | str contains "Working on X")
   assert ($output | str contains "Task with null priority")

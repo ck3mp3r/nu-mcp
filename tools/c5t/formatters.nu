@@ -428,84 +428,68 @@ export def format-note-detail [note: record] {
 }
 
 # Format comprehensive summary/overview
+# Format summary as nushell tables
 export def format-summary [summary: record] {
-  mut lines = []
+  mut output = "# C5T Summary\n\n"
 
-  # Header
-  $lines = ($lines | append "# C5T Summary")
-  $lines = ($lines | append "")
-
-  # Stats overview
   let stats = $summary.stats
   if $stats.active_lists == 0 {
-    $lines = ($lines | append "## Status")
-    $lines = ($lines | append "No active lists")
-    $lines = ($lines | append "")
-    return ($lines | str join (char newline))
+    return ($output + "No active lists.")
   }
 
-  $lines = ($lines | append "## Overview")
-  $lines = ($lines | append $"• Active Lists: ($stats.active_lists)")
-  $lines = ($lines | append $"• Total Tasks: ($stats.total_tasks)")
-  $lines = ($lines | append "")
+  # Stats table
+  $output = $output + "## Status\n\n"
+  let status_data = [
+    {Status: "📋 Backlog" Count: $stats.backlog_total}
+    {Status: "📝 Todo" Count: $stats.todo_total}
+    {Status: "🔄 In Progress" Count: $stats.in_progress_total}
+    {Status: "👀 Review" Count: $stats.review_total}
+    {Status: "✅ Done" Count: $stats.done_total}
+    {Status: "❌ Cancelled" Count: $stats.cancelled_total}
+  ]
+  $output = $output + ($status_data | to-nu-table) + "\n\n"
 
-  $lines = ($lines | append "### By Status")
-  $lines = ($lines | append $"• 📋 Backlog: ($stats.backlog_total)")
-  $lines = ($lines | append $"• 📝 Todo: ($stats.todo_total)")
-  $lines = ($lines | append $"• 🔄 In Progress: ($stats.in_progress_total)")
-  $lines = ($lines | append $"• 👀 Review: ($stats.review_total)")
-  $lines = ($lines | append $"• ✅ Done: ($stats.done_total)")
-  $lines = ($lines | append $"• ❌ Cancelled: ($stats.cancelled_total)")
-  $lines = ($lines | append "")
-
-  # Active Lists
+  # Active Lists table
   if ($summary.active_lists | length) > 0 {
-    $lines = ($lines | append "## Active Lists")
-    for list in $summary.active_lists {
-      $lines = ($lines | append $"• ($list.name) - ($list.total_count) tasks \(($list.in_progress_count) in progress, ($list.todo_count) todo\)")
-    }
-    $lines = ($lines | append "")
+    $output = $output + "## Active Lists\n\n"
+    let lists_data = $summary.active_lists | each {|list|
+        {Name: $list.name Total: $list.total_count "In Progress": $list.in_progress_count Todo: $list.todo_count}
+      }
+    $output = $output + ($lists_data | to-nu-table) + "\n\n"
   }
 
-  # In Progress Tasks
+  # In Progress table
+  $output = $output + "## In Progress\n\n"
   if ($summary.in_progress | length) > 0 {
-    $lines = ($lines | append "## In Progress")
-    for task in $summary.in_progress {
-      let priority_marker = if $task.priority != null and $task.priority >= 4 { "🔥 " } else { "" }
-      $lines = ($lines | append $"• ($priority_marker)($task.content) [($task.list_name)]")
-    }
-    $lines = ($lines | append "")
+    let in_progress_data = $summary.in_progress | each {|task|
+        let p = if $task.priority != null { $task.priority } else { "-" }
+        {P: $p Task: $task.content List: $task.list_name}
+      }
+    $output = $output + ($in_progress_data | to-nu-table) + "\n\n"
   } else {
-    $lines = ($lines | append "## In Progress")
-    $lines = ($lines | append "No tasks in progress")
-    $lines = ($lines | append "")
+    $output = $output + "No tasks in progress.\n\n"
   }
 
-  # High Priority Next Steps
+  # High Priority table
   if ($summary.high_priority | length) > 0 {
-    $lines = ($lines | append "## High Priority (P4-P5)")
-    for task in $summary.high_priority {
-      let status_emoji = if $task.status == "todo" { "📝" } else { "📋" }
-      $lines = ($lines | append $"• ($status_emoji) P($task.priority): ($task.content) [($task.list_name)]")
-    }
-    $lines = ($lines | append "")
+    $output = $output + "## High Priority\n\n"
+    let high_priority_data = $summary.high_priority | each {|task|
+        {P: $task.priority Task: $task.content List: $task.list_name}
+      }
+    $output = $output + ($high_priority_data | to-nu-table) + "\n\n"
   }
 
-  # Recently Completed
+  # Recently Completed table
   if ($summary.recently_completed | length) > 0 {
-    $lines = ($lines | append "## Recently Completed")
-    let show_count = if ($summary.recently_completed | length) > 5 { 5 } else { ($summary.recently_completed | length) }
-    for task in ($summary.recently_completed | first $show_count) {
-      $lines = ($lines | append $"• ✅ ($task.content) [($task.list_name)]")
-    }
-    $lines = ($lines | append "")
+    $output = $output + "## Recently Completed\n\n"
+    let show_count = [($summary.recently_completed | length) 5] | math min
+    let completed_data = $summary.recently_completed | first $show_count | each {|task|
+        {Task: $task.content List: $task.list_name}
+      }
+    $output = $output + ($completed_data | to-nu-table) + "\n"
   }
 
-  # Session context tip
-  $lines = ($lines | append "---")
-  $lines = ($lines | append "💡 For detailed session context, check `c5t_list_notes {\"tags\": [\"session\"]}`")
-
-  $lines | str join (char newline)
+  $output | str trim
 }
 
 # Format list of repositories as nushell table
