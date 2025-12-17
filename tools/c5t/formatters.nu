@@ -22,45 +22,36 @@ export def format-list-created [result: record] {
   ] | str join (char newline)
 }
 
-# Format active todo lists
+# Format active task lists as markdown table
 export def format-active-lists [lists: list] {
   if ($lists | is-empty) {
-    return "No active todo lists found."
+    return "No active task lists found."
   }
 
-  let items = $lists | each {|list|
-      let tags_str = if ($list.tags | is-not-empty) {
-        $list.tags | str join ", "
-      } else {
-        "none"
-      }
+  mut lines = [
+    $"# Active Task Lists \(($lists | length)\)"
+    ""
+    "| ID | Name | Tags | Description |"
+    "|---:|------|------|-------------|"
+  ]
 
-      let desc = if $list.description != null and $list.description != "" {
-        $"\n    ($list.description)"
-      } else {
-        ""
-      }
-
-      let notes = if $list.notes != null and $list.notes != "" {
-        $"\n    Notes: ($list.notes)"
-      } else {
-        ""
-      }
-
-      [
-        $"  • ($list.name)"
-        $"    ID: ($list.id) | Tags: ($tags_str)"
-        $desc
-        $notes
-      ] | str join (char newline)
+  for list in $lists {
+    let tags_str = if ($list.tags | is-not-empty) {
+      $list.tags | str join ", "
+    } else {
+      "-"
     }
 
-  let count = $lists | length
-  [
-    $"Active Todo Lists: ($count)"
-    ""
-    ...$items
-  ] | str join (char newline)
+    let desc = if $list.description != null and $list.description != "" {
+      $list.description | str substring 0..50
+    } else {
+      "-"
+    }
+
+    $lines = ($lines | append $"| ($list.id) | ($list.name) | ($tags_str) | ($desc) |")
+  }
+
+  $lines | str join (char newline)
 }
 
 # Format list metadata detail
@@ -156,20 +147,30 @@ export def format-notes-list [notes: list] {
   ["Notes:" ...$items] | str join (char newline)
 }
 
-# Format search results
+# Format search results as markdown table
 export def format-search-results [notes: list] {
   if ($notes | is-empty) {
     return "No results found."
   }
 
-  let items = $notes | each {|note|
-      [
-        $"- ($note.title) [ID: ($note.id)]"
-        $"  Type: ($note.note_type) | Created: ($note.created_at)"
-      ] | str join (char newline)
+  mut lines = [
+    $"# Search Results \(($notes | length)\)"
+    ""
+    "| ID | Type | Title |"
+    "|---:|:----:|-------|"
+  ]
+
+  for note in $notes {
+    let type_emoji = match $note.note_type {
+      "manual" => "📝"
+      "archived_todo" => "🗃️"
+      _ => "📄"
     }
 
-  ["Search Results:" ...$items] | str join (char newline)
+    $lines = ($lines | append $"| ($note.id) | ($type_emoji) | ($note.title) |")
+  }
+
+  $lines | str join (char newline)
 }
 
 # Format task creation response
@@ -246,7 +247,7 @@ export def format-item-completed-with-archive [
   ] | str join (char newline)
 }
 
-# Format list of tasks as markdown
+# Format list of tasks as markdown table
 export def format-tasks-table [list: record tasks: list] {
   mut lines = [
     $"# ($list.name)"
@@ -276,11 +277,15 @@ export def format-tasks-table [list: record tasks: list] {
       let with_priority = $raw_items | where priority != null | sort-by priority
       let without_priority = $raw_items | where priority == null
       let status_items = $with_priority | append $without_priority
+
       $lines = ($lines | append $"## ($entry.emoji) ($entry.label)")
       $lines = ($lines | append "")
+      $lines = ($lines | append "| ID | P | Content |")
+      $lines = ($lines | append "|---:|:-:|---------|")
+
       for task in $status_items {
-        let priority = if $task.priority != null { $" [P($task.priority)]" } else { "" }
-        $lines = ($lines | append $"- **\(($task.id)\)**($priority) ($task.content)")
+        let priority = if $task.priority != null { $"($task.priority)" } else { "-" }
+        $lines = ($lines | append $"| ($task.id) | ($priority) | ($task.content) |")
       }
       $lines = ($lines | append "")
     }
@@ -387,41 +392,36 @@ export def format-note-created-manual [result: record] {
   $lines_with_created | str join (char newline)
 }
 
-# Format list of notes with detailed info
+# Format list of notes as markdown table
 export def format-notes-list-detailed [notes: list] {
   if ($notes | is-empty) {
     return "No notes found."
   }
 
-  let items = $notes | each {|note|
-      let tags_str = if ($note.tags | is-not-empty) {
-        $note.tags | str join ", "
-      } else {
-        "none"
-      }
+  mut lines = [
+    $"# Notes \(($notes | length)\)"
+    ""
+    "| ID | Type | Title | Tags |"
+    "|---:|:----:|-------|------|"
+  ]
 
-      let type_emoji = match $note.note_type {
-        "manual" => "📝"
-        "archived_todo" => "🗃️"
-        _ => "📄"
-      }
-
-      let content_preview = $note.content | str substring 0..100 | str replace --all (char newline) " "
-
-      [
-        $"  ($type_emoji) ($note.title)"
-        $"    ID: ($note.id) | Type: ($note.note_type) | Tags: ($tags_str)"
-        $"    Created: ($note.created_at)"
-        $"    Preview: ($content_preview)..."
-      ] | str join (char newline)
+  for note in $notes {
+    let tags_str = if ($note.tags | is-not-empty) {
+      $note.tags | str join ", "
+    } else {
+      "-"
     }
 
-  let count = $notes | length
-  [
-    $"Notes: ($count)"
-    ""
-    ...$items
-  ] | str join (char newline)
+    let type_emoji = match $note.note_type {
+      "manual" => "📝"
+      "archived_todo" => "🗃️"
+      _ => "📄"
+    }
+
+    $lines = ($lines | append $"| ($note.id) | ($type_emoji) | ($note.title) | ($tags_str) |")
+  }
+
+  $lines | str join (char newline)
 }
 
 # Format detailed note view
@@ -525,24 +525,22 @@ export def format-summary [summary: record] {
   $lines | str join (char newline)
 }
 
-# Format list of repositories
+# Format list of repositories as markdown table
 export def format-repos-list [repos: list] {
   if ($repos | is-empty) {
     return "No repositories found."
   }
 
-  let items = $repos | each {|repo|
-      [
-        $"  • ($repo.remote)"
-        $"    ID: ($repo.id) | Path: ($repo.path)"
-        $"    Last accessed: ($repo.last_accessed_at)"
-      ] | str join (char newline)
-    }
-
-  let count = $repos | length
-  [
-    $"Known Repositories: ($count)"
+  mut lines = [
+    $"# Repositories \(($repos | length)\)"
     ""
-    ...$items
-  ] | str join (char newline)
+    "| ID | Remote | Path |"
+    "|---:|--------|------|"
+  ]
+
+  for repo in $repos {
+    $lines = ($lines | append $"| ($repo.id) | ($repo.remote) | ($repo.path) |")
+  }
+
+  $lines | str join (char newline)
 }
