@@ -1,5 +1,10 @@
 # Output formatting functions for c5t tool
 
+# Helper: Convert list to nushell table string (removes index column)
+def to-nu-table [] {
+  $in | table --index false | into string
+}
+
 # Format a todo list creation response
 export def format-list-created [result: record] {
   let tags_str = if $result.tags != null and ($result.tags | is-not-empty) {
@@ -22,36 +27,31 @@ export def format-list-created [result: record] {
   ] | str join (char newline)
 }
 
-# Format active task lists as markdown table
+# Format active task lists as nushell table
 export def format-active-lists [lists: list] {
   if ($lists | is-empty) {
     return "No active task lists found."
   }
 
-  mut lines = [
-    $"# Active Task Lists \(($lists | length)\)"
-    ""
-    "| ID | Name | Tags | Description |"
-    "|----|------|------|-------------|"
-  ]
+  let header = $"# Active Task Lists \(($lists | length)\)\n\n"
 
-  for list in $lists {
-    let tags_str = if ($list.tags | is-not-empty) {
-      $list.tags | str join ", "
-    } else {
-      "-"
+  let table_data = $lists | each {|list|
+      let tags_str = if ($list.tags | is-not-empty) {
+        $list.tags | str join ", "
+      } else {
+        "-"
+      }
+
+      let desc = if $list.description != null and $list.description != "" {
+        $list.description | str substring 0..50
+      } else {
+        "-"
+      }
+
+      {ID: $list.id Name: $list.name Tags: $tags_str Description: $desc}
     }
 
-    let desc = if $list.description != null and $list.description != "" {
-      $list.description | str substring 0..50
-    } else {
-      "-"
-    }
-
-    $lines = ($lines | append $"| ($list.id) | ($list.name) | ($tags_str) | ($desc) |")
-  }
-
-  $lines | str join (char newline)
+  $header + ($table_data | to-nu-table)
 }
 
 # Format list metadata detail
@@ -147,30 +147,25 @@ export def format-notes-list [notes: list] {
   ["Notes:" ...$items] | str join (char newline)
 }
 
-# Format search results as markdown table
+# Format search results as nushell table
 export def format-search-results [notes: list] {
   if ($notes | is-empty) {
     return "No results found."
   }
 
-  mut lines = [
-    $"# Search Results \(($notes | length)\)"
-    ""
-    "| ID | Type | Title |"
-    "|----|------|-------|"
-  ]
+  let header = $"# Search Results \(($notes | length)\)\n\n"
 
-  for note in $notes {
-    let type_emoji = match $note.note_type {
-      "manual" => "📝"
-      "archived_todo" => "🗃️"
-      _ => "📄"
+  let table_data = $notes | each {|note|
+      let type_emoji = match $note.note_type {
+        "manual" => "📝"
+        "archived_todo" => "🗃️"
+        _ => "📄"
+      }
+
+      {ID: $note.id Type: $type_emoji Title: $note.title}
     }
 
-    $lines = ($lines | append $"| ($note.id) | ($type_emoji) | ($note.title) |")
-  }
-
-  $lines | str join (char newline)
+  $header + ($table_data | to-nu-table)
 }
 
 # Format task creation response
@@ -248,16 +243,12 @@ export def format-item-completed-with-archive [
 }
 
 # Format list of tasks as markdown table
+# Format list of tasks as nushell table
 export def format-tasks-table [list: record tasks: list] {
-  mut lines = [
-    $"# ($list.name)"
-    $"**List ID:** ($list.id)"
-    ""
-  ]
+  mut output = $"# ($list.name)\n**List ID:** ($list.id)\n\n"
 
   if ($tasks | is-empty) {
-    $lines = ($lines | append "No tasks.")
-    return ($lines | str join (char newline))
+    return ($output + "No tasks.")
   }
 
   # Group by status
@@ -278,20 +269,17 @@ export def format-tasks-table [list: record tasks: list] {
       let without_priority = $raw_items | where priority == null
       let status_items = $with_priority | append $without_priority
 
-      $lines = ($lines | append $"## ($entry.emoji) ($entry.label)")
-      $lines = ($lines | append "")
-      $lines = ($lines | append "| ID | P | Content |")
-      $lines = ($lines | append "|----|---|---------|")
+      let table_data = $status_items | each {|task|
+          let priority = if $task.priority != null { $task.priority } else { "-" }
+          {ID: $task.id P: $priority Content: $task.content}
+        }
 
-      for task in $status_items {
-        let priority = if $task.priority != null { $"($task.priority)" } else { "-" }
-        $lines = ($lines | append $"| ($task.id) | ($priority) | ($task.content) |")
-      }
-      $lines = ($lines | append "")
+      $output = $output + $"## ($entry.emoji) ($entry.label)\n\n"
+      $output = $output + ($table_data | to-nu-table) + "\n\n"
     }
   }
 
-  $lines | str join (char newline)
+  $output | str trim
 }
 
 # Format list with items (legacy bullet format)
@@ -392,36 +380,31 @@ export def format-note-created-manual [result: record] {
   $lines_with_created | str join (char newline)
 }
 
-# Format list of notes as markdown table
+# Format list of notes as nushell table
 export def format-notes-list-detailed [notes: list] {
   if ($notes | is-empty) {
     return "No notes found."
   }
 
-  mut lines = [
-    $"# Notes \(($notes | length)\)"
-    ""
-    "| ID | Type | Title | Tags |"
-    "|----|------|-------|------|"
-  ]
+  let header = $"# Notes \(($notes | length)\)\n\n"
 
-  for note in $notes {
-    let tags_str = if ($note.tags | is-not-empty) {
-      $note.tags | str join ", "
-    } else {
-      "-"
+  let table_data = $notes | each {|note|
+      let tags_str = if ($note.tags | is-not-empty) {
+        $note.tags | str join ", "
+      } else {
+        "-"
+      }
+
+      let type_emoji = match $note.note_type {
+        "manual" => "📝"
+        "archived_todo" => "🗃️"
+        _ => "📄"
+      }
+
+      {ID: $note.id Type: $type_emoji Title: $note.title Tags: $tags_str}
     }
 
-    let type_emoji = match $note.note_type {
-      "manual" => "📝"
-      "archived_todo" => "🗃️"
-      _ => "📄"
-    }
-
-    $lines = ($lines | append $"| ($note.id) | ($type_emoji) | ($note.title) | ($tags_str) |")
-  }
-
-  $lines | str join (char newline)
+  $header + ($table_data | to-nu-table)
 }
 
 # Format detailed note view
@@ -525,22 +508,17 @@ export def format-summary [summary: record] {
   $lines | str join (char newline)
 }
 
-# Format list of repositories as markdown table
+# Format list of repositories as nushell table
 export def format-repos-list [repos: list] {
   if ($repos | is-empty) {
     return "No repositories found."
   }
 
-  mut lines = [
-    $"# Repositories \(($repos | length)\)"
-    ""
-    "| ID | Remote | Path |"
-    "|----|--------|------|"
-  ]
+  let header = $"# Repositories \(($repos | length)\)\n\n"
 
-  for repo in $repos {
-    $lines = ($lines | append $"| ($repo.id) | ($repo.remote) | ($repo.path) |")
-  }
+  let table_data = $repos | each {|repo|
+      {ID: $repo.id Remote: $repo.remote Path: $repo.path}
+    }
 
-  $lines | str join (char newline)
+  $header + ($table_data | to-nu-table)
 }
