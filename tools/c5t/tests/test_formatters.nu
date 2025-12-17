@@ -131,3 +131,53 @@ export def "test format-summary formats output" [] {
   assert ($output | str contains "Active Lists: 2")
   assert ($output | str contains "Project Alpha")
 }
+
+# Test that items are sorted by priority (P1 first, nulls last)
+export def "test format-items-table sorts by priority" [] {
+  use ../formatters.nu format-items-table
+
+  let list = {id: 1 name: "Test List"}
+  let items = [
+    {id: 3 content: "No priority" status: "todo" priority: null started_at: null completed_at: null}
+    {id: 1 content: "P3 item" status: "todo" priority: 3 started_at: null completed_at: null}
+    {id: 2 content: "P1 item" status: "todo" priority: 1 started_at: null completed_at: null}
+    {id: 4 content: "P2 item" status: "todo" priority: 2 started_at: null completed_at: null}
+  ]
+
+  let output = format-items-table $list $items
+
+  # P1 should appear before P2, P2 before P3, P3 before null
+  let p1_pos = $output | str index-of "P1 item"
+  let p2_pos = $output | str index-of "P2 item"
+  let p3_pos = $output | str index-of "P3 item"
+  let no_priority_pos = $output | str index-of "No priority"
+
+  assert ($p1_pos < $p2_pos) "P1 should come before P2"
+  assert ($p2_pos < $p3_pos) "P2 should come before P3"
+  assert ($p3_pos < $no_priority_pos) "P3 should come before items without priority"
+}
+
+# Test that format-items-list also sorts by priority
+export def "test format-items-list sorts by priority" [] {
+  use ../formatters.nu format-items-list
+
+  let list = {id: 1 name: "Test List"}
+  let items = [
+    {id: 3 content: "No priority" status: "backlog" priority: null started_at: null completed_at: null}
+    {id: 1 content: "P3 item" status: "backlog" priority: 3 started_at: null completed_at: null}
+    {id: 2 content: "P1 item" status: "backlog" priority: 1 started_at: null completed_at: null}
+    {id: 4 content: "P2 item" status: "backlog" priority: 2 started_at: null completed_at: null}
+  ]
+
+  let output = format-items-list $list $items
+
+  # P1 should appear before P2, P2 before P3, P3 before null
+  let p1_pos = $output | str index-of "P1 item"
+  let p2_pos = $output | str index-of "P2 item"
+  let p3_pos = $output | str index-of "P3 item"
+  let no_priority_pos = $output | str index-of "No priority"
+
+  assert ($p1_pos < $p2_pos) "P1 should come before P2"
+  assert ($p2_pos < $p3_pos) "P2 should come before P3"
+  assert ($p3_pos < $no_priority_pos) "P3 should come before items without priority"
+}
