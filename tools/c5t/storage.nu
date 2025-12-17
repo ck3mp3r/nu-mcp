@@ -52,10 +52,14 @@ export def parse-git-remote [url: string] {
   $cleaned
 }
 
-# Get git remote URL for current directory
-export def get-git-remote [] {
+# Get git remote URL for a directory (defaults to CWD)
+export def get-git-remote [path?: string] {
   try {
-    let url = git remote get-url origin | str trim
+    let url = if $path != null {
+      git -C $path remote get-url origin | str trim
+    } else {
+      git remote get-url origin | str trim
+    }
     {success: true url: $url}
   } catch {
     {success: false error: "Not a git repository or no remote 'origin' configured"}
@@ -108,15 +112,23 @@ export def update-repo-path [repo_id: int path: string] {
 }
 
 # Upsert repo - create if not exists, update path if exists
-export def upsert-repo [] {
-  let git_result = get-git-remote
+# path: optional path to git repo (defaults to CWD)
+export def upsert-repo [path?: string] {
+  # Resolve the path - if provided, use it; otherwise use CWD
+  let resolved_path = if $path != null {
+    # Resolve relative paths to absolute
+    $path | path expand
+  } else {
+    $env.PWD
+  }
+
+  let git_result = get-git-remote (if $path != null { $resolved_path } else { null })
 
   if not $git_result.success {
     return {success: false error: $git_result.error}
   }
 
   let remote = parse-git-remote $git_result.url
-  let path = $env.PWD
 
   let existing = get-repo $remote
 
@@ -126,45 +138,71 @@ export def upsert-repo [] {
 
   if $existing.exists {
     # Update path
-    let update_result = update-repo-path $existing.repo_id $path
+    let update_result = update-repo-path $existing.repo_id $resolved_path
     if not $update_result.success {
       return $update_result
     }
-    {success: true created: false repo_id: $existing.repo_id remote: $remote path: $path}
+    {success: true created: false repo_id: $existing.repo_id remote: $remote path: $resolved_path}
   } else {
     # Create new
-    let create_result = create-repo $remote $path
+    let create_result = create-repo $remote $resolved_path
     if not $create_result.success {
       return $create_result
     }
-    {success: true created: true repo_id: $create_result.repo_id remote: $remote path: $path}
+    {success: true created: true repo_id: $create_result.repo_id remote: $remote path: $resolved_path}
   }
 }
 
-# Get repo ID for current working directory (from git remote) - does NOT auto-create
-export def get-current-repo-id [] {
+# Get the last-accessed repository (most recently used)
+export def get-last-accessed-repo [] {
+  let db_path = init-database
+
+  let sql = "SELECT id, remote, path FROM repo ORDER BY last_accessed_at DESC LIMIT 1"
+  let result = query-sql $db_path $sql []
+
+  if not $result.success {
+    return {success: false error: $"Failed to get last-accessed repo: ($result.error)"}
+  }
+
+  if ($result.data | is-empty) {
+    return {success: false error: "No repositories registered. Use upsert_repo to register a repository first."}
+  }
+
+  {success: true repo_id: $result.data.0.id remote: $result.data.0.remote}
+}
+
+# Get repo ID - uses explicit repo_id, or CWD git repo, or falls back to last-accessed
+# repo_id: optional explicit repo ID to use
+export def get-current-repo-id [repo_id?: int] {
+  # If explicit repo_id provided, use it
+  if $repo_id != null {
+    return {success: true repo_id: $repo_id}
+  }
+
+  # Try to get from CWD git remote
   let git_result = get-git-remote
 
-  if not $git_result.success {
-    return {success: false error: $git_result.error}
-  }
+  if $git_result.success {
+    let remote = parse-git-remote $git_result.url
+    let existing = get-repo $remote
 
-  let remote = parse-git-remote $git_result.url
+    if not $existing.success {
+      return $existing
+    }
 
-  let existing = get-repo $remote
+    if $existing.exists {
+      return {success: true repo_id: $existing.repo_id}
+    }
 
-  if not $existing.success {
-    return $existing
-  }
-
-  if not $existing.exists {
+    # CWD is a git repo but not registered
     return {
       success: false
       error: $"Repository not registered: ($remote)\n\nUse upsert_repo to register this repository first."
     }
   }
 
-  {success: true repo_id: $existing.repo_id}
+  # Not in a git repo - fall back to last-accessed repo
+  get-last-accessed-repo
 }
 
 # List all known repositories
@@ -279,11 +317,12 @@ export def create-todo-list [
   name: string
   description?: string
   tags?: list
+  explicit_repo_id?: int # Optional explicit repo ID
 ] {
   let db_path = init-database
 
-  # Get repo_id from current git repository
-  let repo_result = get-current-repo-id
+  # Get repo_id - use explicit if provided, otherwise resolve from CWD or last-accessed
+  let repo_result = get-current-repo-id $explicit_repo_id
 
   if not $repo_result.success {
     return {
@@ -352,6 +391,7 @@ def parse-tags [tags_json: any] {
 export def get-active-lists [
   tag_filter?: list
   --all-repos # If true, return lists from all repositories
+  --repo-id: int # Optional explicit repo ID
 ] {
   let db_path = init-database
 
@@ -362,19 +402,19 @@ export def get-active-lists [
      WHERE status = 'active' 
      ORDER BY created_at DESC"
   } else {
-    # Get current repo ID
-    let repo_result = get-current-repo-id
+    # Get current repo ID - use explicit if provided
+    let repo_result = get-current-repo-id $repo_id
     if not $repo_result.success {
       return {
         success: false
         error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
       }
     }
-    let repo_id = $repo_result.repo_id
+    let resolved_repo_id = $repo_result.repo_id
 
     $"SELECT id, repo_id, name, description, notes, tags, created_at, updated_at 
       FROM todo_list 
-      WHERE status = 'active' AND repo_id = ($repo_id)
+      WHERE status = 'active' AND repo_id = ($resolved_repo_id)
       ORDER BY created_at DESC"
   }
 
@@ -834,11 +874,11 @@ export def archive-todo-list [
     null
   }
 
-  let insert_note_sql = "INSERT INTO note (repo_id, title, content, tags, note_type, source_id) 
-                         VALUES (?, ?, ?, ?, ?, ?) 
+  let insert_note_sql = "INSERT INTO note (repo_id, title, content, tags, note_type) 
+                         VALUES (?, ?, ?, ?, ?) 
                          RETURNING id"
 
-  let params = [$repo_id $list_data.list.name $note_content $tags_value "archived_todo" $list_id]
+  let params = [$repo_id $list_data.list.name $note_content $tags_value "archived_todo"]
   let note_result = query-sql $db_path $insert_note_sql $params
 
   if not $note_result.success {
@@ -857,25 +897,31 @@ export def archive-todo-list [
 
   let note_id = $note_result.data.0.id
 
-  # Update list status to archived with parameters
-  let archive_list_sql = "UPDATE todo_list 
-                           SET status = 'archived', archived_at = datetime('now') 
-                           WHERE id = ?"
+  # Delete items first (foreign key constraint)
+  let delete_items_sql = "DELETE FROM todo_item WHERE list_id = ?"
+  let delete_items_result = execute-sql $db_path $delete_items_sql [$list_id]
 
-  let archive_params = [$list_id]
-  let archive_result = execute-sql $db_path $archive_list_sql $archive_params
-
-  if not $archive_result.success {
+  if not $delete_items_result.success {
     return {
       success: false
-      error: $"Failed to archive list: ($archive_result.error)"
+      error: $"Failed to delete list items: ($delete_items_result.error)"
+    }
+  }
+
+  # Delete the list itself
+  let delete_list_sql = "DELETE FROM todo_list WHERE id = ?"
+  let delete_list_result = execute-sql $db_path $delete_list_sql [$list_id]
+
+  if not $delete_list_result.success {
+    return {
+      success: false
+      error: $"Failed to delete archived list: ($delete_list_result.error)"
     }
   }
 
   {
     success: true
     note_id: $note_id
-    list_id: $list_id
   }
 }
 
@@ -884,11 +930,12 @@ export def create-note [
   title: string
   content: string
   tags?: list
+  explicit_repo_id?: int # Optional explicit repo ID
 ] {
   let db_path = init-database
 
-  # Get repo_id from current git repository
-  let repo_result = get-current-repo-id
+  # Get repo_id - use explicit if provided, otherwise resolve from CWD or last-accessed
+  let repo_result = get-current-repo-id $explicit_repo_id
 
   if not $repo_result.success {
     return {
@@ -943,6 +990,7 @@ export def get-notes [
   note_type?: string
   limit?: int
   --all-repos # If true, return notes from all repositories
+  --repo-id: int # Optional explicit repo ID
 ] {
   let db_path = init-database
 
@@ -951,7 +999,7 @@ export def get-notes [
 
   # Add repo filter unless all_repos is true
   if not $all_repos {
-    let repo_result = get-current-repo-id
+    let repo_result = get-current-repo-id $repo_id
     if not $repo_result.success {
       return {
         success: false
@@ -1160,6 +1208,7 @@ export def search-notes [
   --limit: int = 10
   --tags: list = []
   --all-repos # If true, search notes from all repositories
+  --repo-id: int # Optional explicit repo ID
 ] {
   let db_path = init-database
 
@@ -1167,7 +1216,7 @@ export def search-notes [
   let repo_filter = if $all_repos {
     ""
   } else {
-    let repo_result = get-current-repo-id
+    let repo_result = get-current-repo-id $repo_id
     if not $repo_result.success {
       return {
         success: false
@@ -1229,6 +1278,7 @@ export def search-notes [
 # Get active lists with item counts by status for summary
 export def get-active-lists-with-counts [
   --all-repos # If true, return lists from all repositories
+  --repo-id: int # Optional explicit repo ID
 ] {
   let db_path = init-database
 
@@ -1236,7 +1286,7 @@ export def get-active-lists-with-counts [
   let repo_filter = if $all_repos {
     ""
   } else {
-    let repo_result = get-current-repo-id
+    let repo_result = get-current-repo-id $repo_id
     if not $repo_result.success {
       return {
         success: false
@@ -1288,6 +1338,7 @@ export def get-active-lists-with-counts [
 # Get all in-progress items across all lists for summary
 export def get-all-in-progress-items [
   --all-repos # If true, return items from all repositories
+  --repo-id: int # Optional explicit repo ID
 ] {
   let db_path = init-database
 
@@ -1295,7 +1346,7 @@ export def get-all-in-progress-items [
   let repo_filter = if $all_repos {
     ""
   } else {
-    let repo_result = get-current-repo-id
+    let repo_result = get-current-repo-id $repo_id
     if not $repo_result.success {
       return {
         success: false
@@ -1337,6 +1388,7 @@ export def get-all-in-progress-items [
 # Get recently completed items for summary
 export def get-recently-completed-items [
   --all-repos # If true, return items from all repositories
+  --repo-id: int # Optional explicit repo ID
 ] {
   let db_path = init-database
 
@@ -1344,7 +1396,7 @@ export def get-recently-completed-items [
   let repo_filter = if $all_repos {
     ""
   } else {
-    let repo_result = get-current-repo-id
+    let repo_result = get-current-repo-id $repo_id
     if not $repo_result.success {
       return {
         success: false
@@ -1389,6 +1441,7 @@ export def get-recently-completed-items [
 # Get high-priority pending items for summary
 export def get-high-priority-next-steps [
   --all-repos # If true, return items from all repositories
+  --repo-id: int # Optional explicit repo ID
 ] {
   let db_path = init-database
 
@@ -1396,7 +1449,7 @@ export def get-high-priority-next-steps [
   let repo_filter = if $all_repos {
     ""
   } else {
-    let repo_result = get-current-repo-id
+    let repo_result = get-current-repo-id $repo_id
     if not $repo_result.success {
       return {
         success: false
@@ -1440,6 +1493,7 @@ export def get-high-priority-next-steps [
 # Get comprehensive summary/overview for quick status at-a-glance
 export def get-summary [
   --all-repos # If true, return summary from all repositories
+  --repo-id: int # Optional explicit repo ID
 ] {
   let db_path = init-database
 
@@ -1447,7 +1501,7 @@ export def get-summary [
   let repo_filter = if $all_repos {
     ""
   } else {
-    let repo_result = get-current-repo-id
+    let repo_result = get-current-repo-id $repo_id
     if not $repo_result.success {
       return {
         success: false
@@ -1818,6 +1872,9 @@ export def upsert-item [
       }
     }
 
+    # Get the updated item first (needed for both archived and non-archived responses)
+    let updated = get-item $list_id $item_id
+
     # Check if all items are now completed and auto-archive if so
     if $status != null and $status in ["done" "cancelled"] {
       if (all-items-completed $list_id) {
@@ -1828,13 +1885,13 @@ export def upsert-item [
             created: false
             archived: true
             note_id: $archive_result.note_id
+            item: $updated.item
           }
         }
       }
     }
 
     # Return updated item
-    let updated = get-item $list_id $item_id
     {
       success: true
       created: false
