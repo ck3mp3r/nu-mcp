@@ -736,39 +736,38 @@ export def "test get-git-remote accepts path parameter" [] {
 
 # --- Use from anywhere: repo_id parameter ---
 
-# Test get-current-repo-id falls back to last-accessed when not in git repo
-export def "test get-current-repo-id fallback to last-accessed" [] {
+# Test get-current-repo-id errors when not in a git repo (no implicit fallback)
+export def "test get-current-repo-id errors when not in git repo" [] {
   use ../tests/mocks.nu *
   use ../storage.nu get-current-repo-id
 
   with-env {
     # Git fails - not in a repo
     MOCK_git_remote_get_url_origin: '{"output": "", "exit_code": 1}'
-    # But we have a last-accessed repo
-    MOCK_query_db_REPO_LAST_ACCESSED: ({output: [{id: 99 remote: "github:last/accessed"}] exit_code: 0})
   } {
     let result = get-current-repo-id
 
-    assert ($result.success == true)
-    assert ($result.repo_id == 99)
+    # Should error - no implicit fallback to last-accessed repo
+    assert ($result.success == false)
+    assert ($result.error | str contains "Not in a git repository")
+    assert ($result.error | str contains "repo_id")
   }
 }
 
-# Test get-current-repo-id fails when not in git repo and no repos registered
-export def "test get-current-repo-id fails when no repos" [] {
+# Test get-current-repo-id with explicit repo_id bypasses git check
+export def "test get-current-repo-id with explicit repo_id" [] {
   use ../tests/mocks.nu *
   use ../storage.nu get-current-repo-id
 
   with-env {
-    # Git fails - not in a repo
+    # Git fails - not in a repo, but we pass explicit repo_id
     MOCK_git_remote_get_url_origin: '{"output": "", "exit_code": 1}'
-    # No repos registered
-    MOCK_query_db_REPO_LAST_ACCESSED: ({output: [] exit_code: 0})
   } {
-    let result = get-current-repo-id
+    # Explicit repo_id should work even when not in a git repo
+    let result = get-current-repo-id 42
 
-    assert ($result.success == false)
-    assert ($result.error | str contains "No repositories registered")
+    assert ($result.success == true)
+    assert ($result.repo_id == 42)
   }
 }
 

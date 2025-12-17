@@ -60,3 +60,65 @@ export def "test get_summary returns output" [] {
   assert ($get_summary.name == "get_summary")
   assert ($get_summary.description | str contains "status")
 }
+
+# --- repo_id parameter tests ---
+
+# Test upsert_list schema has repo_id parameter
+export def "test upsert_list schema has repo_id" [] {
+  let output = nu tools/c5t/mod.nu list-tools
+  let tools = $output | from json
+  let tool = $tools | where name == "upsert_list" | first
+
+  assert ("repo_id" in ($tool.input_schema.properties | columns))
+  assert ($tool.input_schema.properties.repo_id.type == "integer")
+}
+
+# Test upsert_note schema has repo_id parameter
+export def "test upsert_note schema has repo_id" [] {
+  let output = nu tools/c5t/mod.nu list-tools
+  let tools = $output | from json
+  let tool = $tools | where name == "upsert_note" | first
+
+  assert ("repo_id" in ($tool.input_schema.properties | columns))
+  assert ($tool.input_schema.properties.repo_id.type == "integer")
+}
+
+# Test list_active schema has repo_id parameter
+export def "test list_active schema has repo_id" [] {
+  let output = nu tools/c5t/mod.nu list-tools
+  let tools = $output | from json
+  let tool = $tools | where name == "list_active" | first
+
+  assert ("repo_id" in ($tool.input_schema.properties | columns))
+  assert ($tool.input_schema.properties.repo_id.type == "integer")
+}
+
+# Test list_notes schema has repo_id parameter
+export def "test list_notes schema has repo_id" [] {
+  let output = nu tools/c5t/mod.nu list-tools
+  let tools = $output | from json
+  let tool = $tools | where name == "list_notes" | first
+
+  assert ("repo_id" in ($tool.input_schema.properties | columns))
+  assert ($tool.input_schema.properties.repo_id.type == "integer")
+}
+
+# Test search schema has repo_id parameter
+export def "test search schema has repo_id" [] {
+  let output = nu tools/c5t/mod.nu list-tools
+  let tools = $output | from json
+  let tool = $tools | where name == "search" | first
+
+  assert ("repo_id" in ($tool.input_schema.properties | columns))
+  assert ($tool.input_schema.properties.repo_id.type == "integer")
+}
+
+# Test get_summary schema has repo_id parameter
+export def "test get_summary schema has repo_id" [] {
+  let output = nu tools/c5t/mod.nu list-tools
+  let tools = $output | from json
+  let tool = $tools | where name == "get_summary" | first
+
+  assert ("repo_id" in ($tool.input_schema.properties | columns))
+  assert ($tool.input_schema.properties.repo_id.type == "integer")
+}

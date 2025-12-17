@@ -171,8 +171,9 @@ export def get-last-accessed-repo [] {
   {success: true repo_id: $result.data.0.id remote: $result.data.0.remote}
 }
 
-# Get repo ID - uses explicit repo_id, or CWD git repo, or falls back to last-accessed
+# Get repo ID - uses explicit repo_id if provided, otherwise resolves from CWD git repo
 # repo_id: optional explicit repo ID to use
+# Errors if CWD is not a git repo or not registered (no implicit fallback)
 export def get-current-repo-id [repo_id?: int] {
   # If explicit repo_id provided, use it
   if $repo_id != null {
@@ -182,27 +183,30 @@ export def get-current-repo-id [repo_id?: int] {
   # Try to get from CWD git remote
   let git_result = get-git-remote
 
-  if $git_result.success {
-    let remote = parse-git-remote $git_result.url
-    let existing = get-repo $remote
-
-    if not $existing.success {
-      return $existing
-    }
-
-    if $existing.exists {
-      return {success: true repo_id: $existing.repo_id}
-    }
-
-    # CWD is a git repo but not registered
+  if not $git_result.success {
+    # Not in a git repo - error, don't fall back
     return {
       success: false
-      error: $"Repository not registered: ($remote)\n\nUse upsert_repo to register this repository first."
+      error: "Not in a git repository.\n\nEither:\n  1. Run from within a git repository, or\n  2. Provide an explicit repo_id parameter\n\nUse list_repos to see available repositories."
     }
   }
 
-  # Not in a git repo - fall back to last-accessed repo
-  get-last-accessed-repo
+  let remote = parse-git-remote $git_result.url
+  let existing = get-repo $remote
+
+  if not $existing.success {
+    return $existing
+  }
+
+  if $existing.exists {
+    return {success: true repo_id: $existing.repo_id}
+  }
+
+  # CWD is a git repo but not registered
+  {
+    success: false
+    error: $"Repository not registered: ($remote)\n\nUse upsert_repo to register this repository first."
+  }
 }
 
 # List all known repositories
@@ -1108,6 +1112,7 @@ export def upsert-note [
   title?: string
   content?: string
   tags?: list
+  repo_id?: int # Only used for creating new notes
 ] {
   let db_path = init-database
 
@@ -1179,7 +1184,7 @@ export def upsert-note [
     }
 
     # Use existing create-note function
-    let result = create-note $title $content $tags
+    let result = create-note $title $content $tags $repo_id
 
     if not $result.success {
       return $result
@@ -2000,6 +2005,7 @@ export def upsert-list [
   description?: string
   tags?: list
   notes?: string
+  repo_id?: int # Only used for creating new lists
 ] {
   let db_path = init-database
 
@@ -2094,7 +2100,7 @@ export def upsert-list [
     }
 
     # Use existing create-todo-list function
-    let result = create-todo-list $name $description $tags
+    let result = create-todo-list $name $description $tags $repo_id
 
     if not $result.success {
       return $result
