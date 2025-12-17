@@ -405,10 +405,15 @@ def "main list-tools" [] {
     }
     {
       name: "upsert_repo"
-      description: "Register or update the current git repository. REQUIRED before creating lists or notes. Detects git remote and registers this repo for c5t tracking. Call this first when working in a new repository."
+      description: "Register or update a git repository. REQUIRED before creating lists or notes. Detects git remote and registers the repo for c5t tracking. Call this first when working in a new repository. If no path provided, uses current working directory."
       input_schema: {
         type: "object"
-        properties: {}
+        properties: {
+          path: {
+            type: "string"
+            description: "Path to the git repository (optional, defaults to current working directory). Can be relative or absolute."
+          }
+        }
       }
     }
   ] | to json
@@ -896,7 +901,9 @@ Use list_backups to see available backup files."
     }
 
     "upsert_repo" => {
-      let result = upsert-repo
+      let path = if "path" in $parsed_args { $parsed_args.path } else { null }
+
+      let result = upsert-repo $path
 
       if not $result.success {
         return $result.error
