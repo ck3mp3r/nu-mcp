@@ -38,19 +38,19 @@ export def "test validate-item-input rejects missing content" [] {
   assert ($result.error | str contains "content")
 }
 
-export def "test validate-item-update-input accepts valid" [] {
-  use ../utils.nu validate-item-update-input
+export def "test validate-task-update-input accepts valid" [] {
+  use ../utils.nu validate-task-update-input
 
-  let result = validate-item-update-input {list_id: "123" item_id: "456"}
+  let result = validate-task-update-input {list_id: "123" task_id: "456"}
   assert $result.valid
 }
 
-export def "test validate-item-update-input rejects missing item_id" [] {
-  use ../utils.nu validate-item-update-input
+export def "test validate-task-update-input rejects missing task_id" [] {
+  use ../utils.nu validate-task-update-input
 
-  let result = validate-item-update-input {list_id: "123"}
+  let result = validate-task-update-input {list_id: "123"}
   assert (not $result.valid)
-  assert ($result.error | str contains "item_id")
+  assert ($result.error | str contains "task_id")
 }
 
 # --- Note Validation ---

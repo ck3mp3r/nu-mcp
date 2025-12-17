@@ -172,8 +172,8 @@ export def format-search-results [notes: list] {
   ["Search Results:" ...$items] | str join (char newline)
 }
 
-# Format item creation response
-export def format-item-created [result: record] {
+# Format task creation response
+export def format-task-created [result: record] {
   let priority_str = if $result.priority != null {
     $" | Priority: ($result.priority)"
   } else {
@@ -181,7 +181,7 @@ export def format-item-created [result: record] {
   }
 
   [
-    $"✓ Todo item added"
+    $"✓ Task added"
     $"  ID: ($result.id)"
     $"  Content: ($result.content)"
     $"  Status: ($result.status)($priority_str)"
@@ -197,11 +197,11 @@ export def format-item-updated [field: string item_id: int value: any] {
   ] | str join (char newline)
 }
 
-# Format item completion response
-export def format-item-completed [item_id: int] {
+# Format task completion response
+export def format-task-completed [task_id: int] {
   [
-    $"✓ Item marked as complete"
-    $"  ID: ($item_id)"
+    $"✓ Task marked as complete"
+    $"  ID: ($task_id)"
   ] | str join (char newline)
 }
 
