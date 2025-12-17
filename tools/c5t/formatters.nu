@@ -488,7 +488,7 @@ export def format-summary [summary: record] {
   if ($summary.in_progress | length) > 0 {
     $lines = ($lines | append "## In Progress")
     for task in $summary.in_progress {
-      let priority_marker = if $task.priority >= 4 { "🔥 " } else { "" }
+      let priority_marker = if $task.priority != null and $task.priority >= 4 { "🔥 " } else { "" }
       $lines = ($lines | append $"• ($priority_marker)($task.content) [($task.list_name)]")
     }
     $lines = ($lines | append "")

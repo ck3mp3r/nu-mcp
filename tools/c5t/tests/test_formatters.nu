@@ -121,7 +121,10 @@ export def "test format-summary formats output" [] {
       cancelled_total: 0
     }
     active_lists: [{name: "Project Alpha" total_count: 10 in_progress_count: 2 todo_count: 3}]
-    in_progress: [{content: "Working on X" priority: 5 list_name: "Alpha"}]
+    in_progress: [
+      {content: "Working on X" priority: 5 list_name: "Alpha"}
+      {content: "Task with null priority" priority: null list_name: "Alpha"}
+    ]
     high_priority: []
     recently_completed: []
   }
@@ -130,6 +133,8 @@ export def "test format-summary formats output" [] {
 
   assert ($output | str contains "Active Lists: 2")
   assert ($output | str contains "Project Alpha")
+  assert ($output | str contains "Working on X")
+  assert ($output | str contains "Task with null priority")
 }
 
 # Test that tasks are sorted by priority (P1 first, nulls last)
