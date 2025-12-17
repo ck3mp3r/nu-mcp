@@ -246,21 +246,21 @@ export def format-item-completed-with-archive [
   ] | str join (char newline)
 }
 
-# Format list of items as markdown
-export def format-items-table [list: record items: list] {
+# Format list of tasks as markdown
+export def format-tasks-table [list: record tasks: list] {
   mut lines = [
     $"# ($list.name)"
     $"**List ID:** ($list.id)"
     ""
   ]
 
-  if ($items | is-empty) {
-    $lines = ($lines | append "No items.")
+  if ($tasks | is-empty) {
+    $lines = ($lines | append "No tasks.")
     return ($lines | str join (char newline))
   }
 
   # Group by status
-  let grouped = $items | group-by status
+  let grouped = $tasks | group-by status
 
   let status_order = [
     {status: "in_progress" label: "In Progress" emoji: "🔄"}
@@ -278,9 +278,9 @@ export def format-items-table [list: record items: list] {
       let status_items = $with_priority | append $without_priority
       $lines = ($lines | append $"## ($entry.emoji) ($entry.label)")
       $lines = ($lines | append "")
-      for item in $status_items {
-        let priority = if $item.priority != null { $" [P($item.priority)]" } else { "" }
-        $lines = ($lines | append $"- **\(($item.id)\)**($priority) ($item.content)")
+      for task in $status_items {
+        let priority = if $task.priority != null { $" [P($task.priority)]" } else { "" }
+        $lines = ($lines | append $"- **\(($task.id)\)**($priority) ($task.content)")
       }
       $lines = ($lines | append "")
     }
@@ -463,7 +463,7 @@ export def format-summary [summary: record] {
 
   $lines = ($lines | append "## Overview")
   $lines = ($lines | append $"• Active Lists: ($stats.active_lists)")
-  $lines = ($lines | append $"• Total Items: ($stats.total_items)")
+  $lines = ($lines | append $"• Total Tasks: ($stats.total_tasks)")
   $lines = ($lines | append "")
 
   $lines = ($lines | append "### By Status")
@@ -479,31 +479,31 @@ export def format-summary [summary: record] {
   if ($summary.active_lists | length) > 0 {
     $lines = ($lines | append "## Active Lists")
     for list in $summary.active_lists {
-      $lines = ($lines | append $"• ($list.name) - ($list.total_count) items \(($list.in_progress_count) in progress, ($list.todo_count) todo\)")
+      $lines = ($lines | append $"• ($list.name) - ($list.total_count) tasks \(($list.in_progress_count) in progress, ($list.todo_count) todo\)")
     }
     $lines = ($lines | append "")
   }
 
-  # In Progress Items
+  # In Progress Tasks
   if ($summary.in_progress | length) > 0 {
     $lines = ($lines | append "## In Progress")
-    for item in $summary.in_progress {
-      let priority_marker = if $item.priority >= 4 { "🔥 " } else { "" }
-      $lines = ($lines | append $"• ($priority_marker)($item.content) [($item.list_name)]")
+    for task in $summary.in_progress {
+      let priority_marker = if $task.priority >= 4 { "🔥 " } else { "" }
+      $lines = ($lines | append $"• ($priority_marker)($task.content) [($task.list_name)]")
     }
     $lines = ($lines | append "")
   } else {
     $lines = ($lines | append "## In Progress")
-    $lines = ($lines | append "No items in progress")
+    $lines = ($lines | append "No tasks in progress")
     $lines = ($lines | append "")
   }
 
   # High Priority Next Steps
   if ($summary.high_priority | length) > 0 {
     $lines = ($lines | append "## High Priority (P4-P5)")
-    for item in $summary.high_priority {
-      let status_emoji = if $item.status == "todo" { "📝" } else { "📋" }
-      $lines = ($lines | append $"• ($status_emoji) P($item.priority): ($item.content) [($item.list_name)]")
+    for task in $summary.high_priority {
+      let status_emoji = if $task.status == "todo" { "📝" } else { "📋" }
+      $lines = ($lines | append $"• ($status_emoji) P($task.priority): ($task.content) [($task.list_name)]")
     }
     $lines = ($lines | append "")
   }
@@ -512,8 +512,8 @@ export def format-summary [summary: record] {
   if ($summary.recently_completed | length) > 0 {
     $lines = ($lines | append "## Recently Completed")
     let show_count = if ($summary.recently_completed | length) > 5 { 5 } else { ($summary.recently_completed | length) }
-    for item in ($summary.recently_completed | first $show_count) {
-      $lines = ($lines | append $"• ✅ ($item.content) [($item.list_name)]")
+    for task in ($summary.recently_completed | first $show_count) {
+      $lines = ($lines | append $"• ✅ ($task.content) [($task.list_name)]")
     }
     $lines = ($lines | append "")
   }

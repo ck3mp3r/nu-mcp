@@ -15,7 +15,7 @@ def "main list-tools" [] {
   [
     {
       name: "upsert_list"
-      description: "Create or update a todo list. Omit list_id to create new, provide list_id to update. Supports name, description, tags, and progress notes. Repository must be registered first with upsert_repo."
+      description: "Create or update a task list. Omit list_id to create new, provide list_id to update. Supports name, description, tags, and progress notes. Repository must be registered first with upsert_repo."
       input_schema: {
         type: "object"
         properties: {
@@ -29,7 +29,7 @@ def "main list-tools" [] {
           }
           name: {
             type: "string"
-            description: "Name of the todo list (required for new lists)"
+            description: "Name of the task list (required for new lists)"
           }
           description: {
             type: "string"
@@ -71,21 +71,21 @@ def "main list-tools" [] {
     }
     {
       name: "upsert_item"
-      description: "Create or update a todo item. Omit item_id to create new, provide item_id to update. Can set content, priority, status in one call. Auto-timestamps on status changes."
+      description: "Create or update a task item. Omit item_id to create new, provide item_id to update. Can set content, priority, status in one call. Auto-timestamps on status changes."
       input_schema: {
         type: "object"
         properties: {
           list_id: {
             type: "integer"
-            description: "ID of the todo list"
+            description: "ID of the task list"
           }
           item_id: {
             type: "integer"
-            description: "ID of item to update (omit to create new)"
+            description: "ID of task to update (omit to create new)"
           }
           content: {
             type: "string"
-            description: "Description of the todo item (required for new items)"
+            description: "Description of the task (required for new tasks)"
           }
           priority: {
             type: "integer"
@@ -95,7 +95,7 @@ def "main list-tools" [] {
           }
           status: {
             type: "string"
-            description: "Status (defaults to 'backlog' for new items)"
+            description: "Status (defaults to 'backlog' for new tasks)"
             enum: ["backlog" "todo" "in_progress" "review" "done" "cancelled"]
           }
         }
@@ -105,17 +105,17 @@ def "main list-tools" [] {
 
     {
       name: "complete_item"
-      description: "Mark item as complete (status='done'). Sets completed_at timestamp. Auto-archives list when this completes the last item."
+      description: "Mark task as complete (status='done'). Sets completed_at timestamp."
       input_schema: {
         type: "object"
         properties: {
           list_id: {
             type: "integer"
-            description: "ID of the todo list containing the item"
+            description: "ID of the task list containing the task"
           }
           item_id: {
             type: "integer"
-            description: "ID of the item to complete"
+            description: "ID of the task to complete"
           }
         }
         required: ["list_id" "item_id"]
@@ -123,17 +123,17 @@ def "main list-tools" [] {
     }
     {
       name: "delete_item"
-      description: "Remove a todo item from a list permanently."
+      description: "Remove a task from a list permanently."
       input_schema: {
         type: "object"
         properties: {
           list_id: {
             type: "integer"
-            description: "ID of the todo list containing the item"
+            description: "ID of the task list containing the task"
           }
           item_id: {
             type: "integer"
-            description: "ID of the item to delete"
+            description: "ID of the task to delete"
           }
         }
         required: ["list_id" "item_id"]
@@ -142,17 +142,17 @@ def "main list-tools" [] {
 
     {
       name: "delete_list"
-      description: "Remove a todo list. Use force=true to delete list with items, otherwise fails if list has items."
+      description: "Remove a task list. Use force=true to delete list with tasks, otherwise fails if list has tasks."
       input_schema: {
         type: "object"
         properties: {
           list_id: {
             type: "integer"
-            description: "ID of the todo list to delete"
+            description: "ID of the task list to delete"
           }
           force: {
             type: "boolean"
-            description: "If true, delete list even if it has items (default: false)"
+            description: "If true, delete list even if it has tasks (default: false)"
           }
         }
         required: ["list_id"]
@@ -175,21 +175,21 @@ def "main list-tools" [] {
 
     {
       name: "move_item"
-      description: "Move a todo item from one list to another."
+      description: "Move a task from one list to another."
       input_schema: {
         type: "object"
         properties: {
           source_list_id: {
             type: "integer"
-            description: "ID of the list containing the item"
+            description: "ID of the list containing the task"
           }
           item_id: {
             type: "integer"
-            description: "ID of the item to move"
+            description: "ID of the task to move"
           }
           target_list_id: {
             type: "integer"
-            description: "ID of the list to move the item to"
+            description: "ID of the list to move the task to"
           }
         }
         required: ["source_list_id" "item_id" "target_list_id"]
@@ -198,27 +198,13 @@ def "main list-tools" [] {
 
     {
       name: "get_list"
-      description: "SHOW TO USER. Get list metadata (name, description, tags, status) without items."
+      description: "SHOW TO USER. Get list metadata (name, description, tags, status) without tasks."
       input_schema: {
         type: "object"
         properties: {
           list_id: {
             type: "integer"
-            description: "ID of the todo list"
-          }
-        }
-        required: ["list_id"]
-      }
-    }
-    {
-      name: "archive_list"
-      description: "Manually archive a list (creates archive note). Works even if items aren't all complete."
-      input_schema: {
-        type: "object"
-        properties: {
-          list_id: {
-            type: "integer"
-            description: "ID of the todo list to archive"
+            description: "ID of the task list"
           }
         }
         required: ["list_id"]
@@ -226,7 +212,7 @@ def "main list-tools" [] {
     }
     {
       name: "export_data"
-      description: "Export all c5t data (lists, items, notes) as JSON backup file. Saves to ~/.local/share/c5t/backups/ by default."
+      description: "Export all c5t data (lists, tasks, notes) as JSON backup file. Saves to ~/.local/share/c5t/backups/ by default."
       input_schema: {
         type: "object"
         properties: {
@@ -261,13 +247,13 @@ def "main list-tools" [] {
     }
     {
       name: "list_items"
-      description: "SHOW TO USER. View all todos with status, priority, and timestamps. Filter by status if needed."
+      description: "SHOW TO USER. View all tasks with status, priority, and timestamps. Filter by status if needed."
       input_schema: {
         type: "object"
         properties: {
           list_id: {
             type: "integer"
-            description: "ID of the todo list"
+            description: "ID of the task list"
           }
           status: {
             type: "string"
@@ -286,7 +272,7 @@ def "main list-tools" [] {
         properties: {
           list_id: {
             type: "integer"
-            description: "ID of the todo list"
+            description: "ID of the task list"
           }
         }
         required: ["list_id"]
@@ -336,7 +322,7 @@ def "main list-tools" [] {
           }
           note_type: {
             type: "string"
-            description: "Filter by note type: 'manual' (user-created notes), 'archived_todo' (completed todo lists) (optional)"
+            description: "Filter by note type: 'manual' (user-created notes), 'archived_todo' (completed task lists) (optional)"
             enum: ["manual" "archived_todo"]
           }
           limit: {
@@ -371,7 +357,7 @@ def "main list-tools" [] {
     }
     {
       name: "search"
-      description: "SHOW TO USER. Find past work instantly. Searches all notes and archived todos with boolean operators (AND, OR, NOT)."
+      description: "SHOW TO USER. Find past work instantly. Searches all notes and archived tasks with boolean operators (AND, OR, NOT)."
       input_schema: {
         type: "object"
         properties: {
@@ -404,7 +390,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_summary"
-      description: "SHOW TO USER. Quick status overview: active lists, in-progress items, priorities. Perfect for session start. For detailed context, check notes tagged 'session'."
+      description: "SHOW TO USER. Quick status overview: active lists, in-progress tasks, priorities. Perfect for session start. For detailed context, check notes tagged 'session'."
       input_schema: {
         type: "object"
         properties: {
@@ -483,18 +469,28 @@ def "main call-tool" [
       let repo_id = if "repo_id" in $parsed_args { $parsed_args.repo_id } else { null }
 
       let result = if $all_repos {
-        get-active-lists $tag_filter --all-repos
+        get-task-lists --status "active" --all-repos
       } else if $repo_id != null {
-        get-active-lists $tag_filter --repo-id $repo_id
+        get-task-lists --status "active" --repo-id $repo_id
       } else {
-        get-active-lists $tag_filter
+        get-task-lists --status "active"
       }
 
       if not $result.success {
         return $result.error
       }
 
-      format-active-lists $result.lists
+      # Apply tag filter if provided
+      let filtered = if $tag_filter != null and ($tag_filter | is-not-empty) {
+        $result.lists | where {|list|
+          let list_tags = $list.tags
+          $tag_filter | any {|tag| $tag in $list_tags }
+        }
+      } else {
+        $result.lists
+      }
+
+      format-active-lists $filtered
     }
 
     "upsert_item" => {
@@ -503,7 +499,7 @@ def "main call-tool" [
       }
 
       let list_id = $parsed_args.list_id
-      let item_id = if "item_id" in $parsed_args { $parsed_args.item_id } else { null }
+      let task_id = if "item_id" in $parsed_args { $parsed_args.item_id } else { null }
       let content = if "content" in $parsed_args { $parsed_args.content } else { null }
       let priority = if "priority" in $parsed_args { $parsed_args.priority } else { null }
       let status = if "status" in $parsed_args { $parsed_args.status } else { null }
@@ -524,7 +520,7 @@ def "main call-tool" [
         }
       }
 
-      let result = upsert-item $list_id $item_id $content $priority $status
+      let result = upsert-task $list_id $task_id $content $priority $status
 
       if not $result.success {
         return $result.error
@@ -532,12 +528,10 @@ def "main call-tool" [
 
       if $result.created {
         format-item-created $result
-      } else if $result.archived {
-        format-item-updated-with-archive "item" $result.item.id "updated" $result.note_id
       } else {
         $"✓ Item updated
-  ID: ($result.item.id)
-  Content: ($result.item.content)"
+  ID: ($result.task.id)
+  Content: ($result.task.content)"
       }
     }
 
@@ -548,24 +542,20 @@ def "main call-tool" [
       }
 
       let list_id = $parsed_args.list_id
-      let item_id = $parsed_args.item_id
+      let task_id = $parsed_args.item_id
 
-      # Check if item exists
-      if not (item-exists $list_id $item_id) {
-        return $"Error: Item not found: ($item_id)"
+      # Check if task exists
+      if not (task-exists $list_id $task_id) {
+        return $"Error: Task not found: ($task_id)"
       }
 
-      let result = update-item-status $list_id $item_id "done"
+      let result = complete-task $list_id $task_id
 
       if not $result.success {
         return $result.error
       }
 
-      if $result.archived {
-        format-item-completed-with-archive $item_id $result.note_id
-      } else {
-        format-item-completed $item_id
-      }
+      format-item-completed $task_id
     }
 
     "delete_item" => {
@@ -575,15 +565,15 @@ def "main call-tool" [
       }
 
       let list_id = $parsed_args.list_id
-      let item_id = $parsed_args.item_id
+      let task_id = $parsed_args.item_id
 
-      let result = delete-item $list_id $item_id
+      let result = delete-task $list_id $task_id
 
       if not $result.success {
         return $result.error
       }
 
-      $"✓ Item deleted \(ID: ($item_id)\)"
+      $"✓ Task deleted \(ID: ($task_id)\)"
     }
 
     "delete_list" => {
@@ -601,7 +591,7 @@ def "main call-tool" [
       }
 
       if $force {
-        $"✓ List and all items deleted \(ID: ($list_id)\)"
+        $"✓ List and all tasks deleted \(ID: ($list_id)\)"
       } else {
         $"✓ List deleted \(ID: ($list_id)\)"
       }
@@ -637,16 +627,16 @@ def "main call-tool" [
       }
 
       let source_list_id = $parsed_args.source_list_id
-      let item_id = $parsed_args.item_id
+      let task_id = $parsed_args.item_id
       let target_list_id = $parsed_args.target_list_id
 
-      let result = move-item $source_list_id $item_id $target_list_id
+      let result = move-task $source_list_id $task_id $target_list_id
 
       if not $result.success {
         return $result.error
       }
 
-      $"✓ Item moved \(ID: ($item_id)\)
+      $"✓ Task moved \(ID: ($task_id)\)
   From list: ($source_list_id)
   To list: ($target_list_id)"
     }
@@ -665,23 +655,6 @@ def "main call-tool" [
       }
 
       format-list-detail $result.list
-    }
-
-    "archive_list" => {
-      if "list_id" not-in $parsed_args {
-        return "Error: Missing required field: 'list_id'"
-      }
-
-      let list_id = $parsed_args.list_id
-
-      let result = archive-list-manual $list_id
-
-      if not $result.success {
-        return $result.error
-      }
-
-      $"✓ List archived \(ID: ($list_id)\)
-  Archive note created \(Note ID: ($result.note_id)\)"
     }
 
     "export_data" => {
@@ -710,8 +683,9 @@ def "main call-tool" [
       $result.data | to json --indent 2 | save -f $filepath
 
       $"✓ Backup saved to ($filepath)
+  Repos: ($result.data.repos | length)
   Lists: ($result.data.lists | length)
-  Items: ($result.data.items | length)
+  Tasks: ($result.data.tasks | length)
   Notes: ($result.data.notes | length)"
     }
 
@@ -747,8 +721,9 @@ Use list_backups to see available backup files."
       }
 
       $"✓ Data restored from ($filepath)
+  Repos: ($result.imported.repos)
   Lists: ($result.imported.lists)
-  Items: ($result.imported.items)
+  Tasks: ($result.imported.tasks)
   Notes: ($result.imported.notes)"
     }
 
@@ -798,13 +773,13 @@ Use list_backups to see available backup files."
         }
       }
 
-      let result = get-list-with-items $list_id $status_filter
+      let result = get-list-with-tasks $list_id $status_filter
 
       if not $result.success {
         return $result.error
       }
 
-      format-items-table $result.list $result.items
+      format-tasks-table $result.list $result.tasks
     }
 
     "list_active_items" => {
@@ -814,13 +789,13 @@ Use list_backups to see available backup files."
 
       let list_id = $parsed_args.list_id
 
-      let result = get-list-with-items $list_id "active"
+      let result = get-list-with-tasks $list_id "active"
 
       if not $result.success {
         return $result.error
       }
 
-      format-items-table $result.list $result.items
+      format-tasks-table $result.list $result.tasks
     }
 
     "upsert_note" => {

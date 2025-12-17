@@ -112,7 +112,7 @@ export def "test format-summary formats output" [] {
   let summary = {
     stats: {
       active_lists: 2
-      total_items: 15
+      total_tasks: 15
       backlog_total: 5
       todo_total: 4
       in_progress_total: 3
@@ -132,32 +132,32 @@ export def "test format-summary formats output" [] {
   assert ($output | str contains "Project Alpha")
 }
 
-# Test that items are sorted by priority (P1 first, nulls last)
-export def "test format-items-table sorts by priority" [] {
-  use ../formatters.nu format-items-table
+# Test that tasks are sorted by priority (P1 first, nulls last)
+export def "test format-tasks-table sorts by priority" [] {
+  use ../formatters.nu format-tasks-table
 
   let list = {id: 1 name: "Test List"}
-  let items = [
+  let tasks = [
     {id: 3 content: "No priority" status: "todo" priority: null started_at: null completed_at: null}
-    {id: 1 content: "P3 item" status: "todo" priority: 3 started_at: null completed_at: null}
-    {id: 2 content: "P1 item" status: "todo" priority: 1 started_at: null completed_at: null}
-    {id: 4 content: "P2 item" status: "todo" priority: 2 started_at: null completed_at: null}
+    {id: 1 content: "P3 task" status: "todo" priority: 3 started_at: null completed_at: null}
+    {id: 2 content: "P1 task" status: "todo" priority: 1 started_at: null completed_at: null}
+    {id: 4 content: "P2 task" status: "todo" priority: 2 started_at: null completed_at: null}
   ]
 
-  let output = format-items-table $list $items
+  let output = format-tasks-table $list $tasks
 
   # P1 should appear before P2, P2 before P3, P3 before null
-  let p1_pos = $output | str index-of "P1 item"
-  let p2_pos = $output | str index-of "P2 item"
-  let p3_pos = $output | str index-of "P3 item"
+  let p1_pos = $output | str index-of "P1 task"
+  let p2_pos = $output | str index-of "P2 task"
+  let p3_pos = $output | str index-of "P3 task"
   let no_priority_pos = $output | str index-of "No priority"
 
   assert ($p1_pos < $p2_pos) "P1 should come before P2"
   assert ($p2_pos < $p3_pos) "P2 should come before P3"
-  assert ($p3_pos < $no_priority_pos) "P3 should come before items without priority"
+  assert ($p3_pos < $no_priority_pos) "P3 should come before tasks without priority"
 }
 
-# Test that format-items-list also sorts by priority
+# Test that format-items-list also sorts by priority (legacy formatter)
 export def "test format-items-list sorts by priority" [] {
   use ../formatters.nu format-items-list
 
