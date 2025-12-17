@@ -23,6 +23,10 @@ def "main list-tools" [] {
             type: "integer"
             description: "ID of list to update (omit to create new)"
           }
+          repo_id: {
+            type: "integer"
+            description: "Repository ID to create list in (optional, defaults to current directory's repo)"
+          }
           name: {
             type: "string"
             description: "Name of the todo list (required for new lists)"
@@ -53,6 +57,10 @@ def "main list-tools" [] {
             type: "array"
             items: {type: "string"}
             description: "Filter lists by tags - shows lists with ANY of these tags (optional)"
+          }
+          repo_id: {
+            type: "integer"
+            description: "Repository ID to list from (optional, defaults to current directory's repo)"
           }
           all_repos: {
             type: "boolean"
@@ -295,6 +303,10 @@ def "main list-tools" [] {
             type: "integer"
             description: "ID of note to update (omit to create new)"
           }
+          repo_id: {
+            type: "integer"
+            description: "Repository ID to create note in (optional, defaults to current directory's repo)"
+          }
           title: {
             type: "string"
             description: "Title of the note (required for new notes)"
@@ -331,6 +343,10 @@ def "main list-tools" [] {
             type: "integer"
             description: "Maximum number of notes to return (optional, default: all)"
             minimum: 1
+          }
+          repo_id: {
+            type: "integer"
+            description: "Repository ID to list notes from (optional, defaults to current directory's repo)"
           }
           all_repos: {
             type: "boolean"
@@ -374,6 +390,10 @@ def "main list-tools" [] {
             minimum: 1
             default: 10
           }
+          repo_id: {
+            type: "integer"
+            description: "Repository ID to search in (optional, defaults to current directory's repo)"
+          }
           all_repos: {
             type: "boolean"
             description: "If true, search notes from all repositories instead of just current directory (optional, default: false)"
@@ -388,6 +408,10 @@ def "main list-tools" [] {
       input_schema: {
         type: "object"
         properties: {
+          repo_id: {
+            type: "integer"
+            description: "Repository ID to get summary for (optional, defaults to current directory's repo)"
+          }
           all_repos: {
             type: "boolean"
             description: "If true, show summary from all repositories instead of just current directory (optional, default: false)"
@@ -436,8 +460,9 @@ def "main call-tool" [
       let description = if "description" in $parsed_args { $parsed_args.description } else { null }
       let tags = if "tags" in $parsed_args { $parsed_args.tags } else { null }
       let notes = if "notes" in $parsed_args { $parsed_args.notes } else { null }
+      let repo_id = if "repo_id" in $parsed_args { $parsed_args.repo_id } else { null }
 
-      let result = upsert-list $list_id $name $description $tags $notes
+      let result = upsert-list $list_id $name $description $tags $notes $repo_id
 
       if not $result.success {
         return $result.error
@@ -455,9 +480,12 @@ def "main call-tool" [
     "list_active" => {
       let tag_filter = if "tags" in $parsed_args { $parsed_args.tags } else { null }
       let all_repos = if "all_repos" in $parsed_args { $parsed_args.all_repos } else { false }
+      let repo_id = if "repo_id" in $parsed_args { $parsed_args.repo_id } else { null }
 
       let result = if $all_repos {
         get-active-lists $tag_filter --all-repos
+      } else if $repo_id != null {
+        get-active-lists $tag_filter --repo-id $repo_id
       } else {
         get-active-lists $tag_filter
       }
@@ -800,8 +828,9 @@ Use list_backups to see available backup files."
       let title = if "title" in $parsed_args { $parsed_args.title } else { null }
       let content = if "content" in $parsed_args { $parsed_args.content } else { null }
       let tags = if "tags" in $parsed_args { $parsed_args.tags } else { null }
+      let repo_id = if "repo_id" in $parsed_args { $parsed_args.repo_id } else { null }
 
-      let result = upsert-note $note_id $title $content $tags
+      let result = upsert-note $note_id $title $content $tags $repo_id
 
       if not $result.success {
         return $result.error
@@ -821,9 +850,12 @@ Use list_backups to see available backup files."
       let note_type = if "note_type" in $parsed_args { $parsed_args.note_type } else { null }
       let limit = if "limit" in $parsed_args { $parsed_args.limit } else { null }
       let all_repos = if "all_repos" in $parsed_args { $parsed_args.all_repos } else { false }
+      let repo_id = if "repo_id" in $parsed_args { $parsed_args.repo_id } else { null }
 
       let result = if $all_repos {
         get-notes $tag_filter $note_type $limit --all-repos
+      } else if $repo_id != null {
+        get-notes $tag_filter $note_type $limit --repo-id $repo_id
       } else {
         get-notes $tag_filter $note_type $limit
       }
@@ -860,9 +892,12 @@ Use list_backups to see available backup files."
       let tag_filter = if "tags" in $parsed_args { $parsed_args.tags } else { [] }
       let limit = if "limit" in $parsed_args { $parsed_args.limit } else { 10 }
       let all_repos = if "all_repos" in $parsed_args { $parsed_args.all_repos } else { false }
+      let repo_id = if "repo_id" in $parsed_args { $parsed_args.repo_id } else { null }
 
       let result = if $all_repos {
         search-notes $query --limit $limit --tags $tag_filter --all-repos
+      } else if $repo_id != null {
+        search-notes $query --limit $limit --tags $tag_filter --repo-id $repo_id
       } else {
         search-notes $query --limit $limit --tags $tag_filter
       }
@@ -876,9 +911,12 @@ Use list_backups to see available backup files."
 
     "get_summary" => {
       let all_repos = if "all_repos" in $parsed_args { $parsed_args.all_repos } else { false }
+      let repo_id = if "repo_id" in $parsed_args { $parsed_args.repo_id } else { null }
 
       let result = if $all_repos {
         get-summary --all-repos
+      } else if $repo_id != null {
+        get-summary --repo-id $repo_id
       } else {
         get-summary
       }
