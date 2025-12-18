@@ -71,7 +71,7 @@ def "main list-tools" [] {
     }
     {
       name: "upsert_task"
-      description: "Create or update a task. Omit task_id to create new, provide task_id to update. Can set content, priority, status in one call. Auto-timestamps on status changes."
+      description: "Create or update a task. Omit task_id to create new, provide task_id to update. Can set content, priority, status in one call. Auto-timestamps on status changes. Use parent_id to create subtasks."
       input_schema: {
         type: "object"
         properties: {
@@ -82,6 +82,10 @@ def "main list-tools" [] {
           task_id: {
             type: "integer"
             description: "ID of task to update (omit to create new)"
+          }
+          parent_id: {
+            type: "integer"
+            description: "ID of parent task (optional, for creating subtasks)"
           }
           content: {
             type: "string"
@@ -193,6 +197,25 @@ def "main list-tools" [] {
           }
         }
         required: ["source_list_id" "task_id" "target_list_id"]
+      }
+    }
+
+    {
+      name: "get_subtasks"
+      description: "Get all subtasks for a parent task."
+      input_schema: {
+        type: "object"
+        properties: {
+          list_id: {
+            type: "integer"
+            description: "ID of the task list"
+          }
+          parent_id: {
+            type: "integer"
+            description: "ID of the parent task"
+          }
+        }
+        required: ["list_id" "parent_id"]
       }
     }
 
@@ -489,6 +512,7 @@ def "main call-tool" [
       let content = if "content" in $parsed_args { $parsed_args.content } else { null }
       let priority = if "priority" in $parsed_args { $parsed_args.priority } else { null }
       let status = if "status" in $parsed_args { $parsed_args.status } else { null }
+      let parent_id = if "parent_id" in $parsed_args { $parsed_args.parent_id } else { null }
 
       # Validate priority if provided
       if $priority != null {
@@ -506,7 +530,7 @@ def "main call-tool" [
         }
       }
 
-      let result = upsert-task $list_id $task_id $content $priority $status
+      let result = upsert-task $list_id $task_id $content $priority $status $parent_id
 
       if not $result.success {
         return $result.error
@@ -625,6 +649,31 @@ def "main call-tool" [
       $"✓ Task moved \(ID: ($task_id)\)
   From list: ($source_list_id)
   To list: ($target_list_id)"
+    }
+
+    "get_subtasks" => {
+      if "list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'list_id'"
+      }
+
+      if "parent_id" not-in $parsed_args {
+        return "Error: Missing required field: 'parent_id'"
+      }
+
+      let list_id = $parsed_args.list_id
+      let parent_id = $parsed_args.parent_id
+
+      let result = get-subtasks $list_id $parent_id
+
+      if not $result.success {
+        return $result.error
+      }
+
+      if ($result.tasks | is-empty) {
+        return "No subtasks found."
+      }
+
+      format-subtasks-list $parent_id $result.tasks
     }
 
     "get_task_list" => {

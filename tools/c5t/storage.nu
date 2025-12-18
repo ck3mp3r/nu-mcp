@@ -935,6 +935,7 @@ export def upsert-task [
   content?: string
   priority?: int
   status?: string
+  parent_id?: int
 ] {
   let db_path = get-db-path
 
@@ -1031,7 +1032,12 @@ export def upsert-task [
       }
     }
 
-    let result = add-task $list_id $content $priority $status
+    # Use add-subtask if parent_id is provided, otherwise add-task
+    let result = if $parent_id != null {
+      add-subtask $list_id $parent_id $content $priority $status
+    } else {
+      add-task $list_id $content $priority $status
+    }
 
     if not $result.success {
       return $result
@@ -1046,12 +1052,14 @@ export def upsert-task [
       content: $content
       priority: $priority
       status: ($status | default "backlog")
+      parent_id: $parent_id
       task: {
         id: $result.id
         list_id: $list_id
         content: $content
         priority: $priority
         status: ($status | default "backlog")
+        parent_id: $parent_id
       }
     }
   }

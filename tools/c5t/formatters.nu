@@ -209,39 +209,6 @@ export def format-notes-updated [list_id: int] {
   ] | str join (char newline)
 }
 
-# Format item update with auto-archive
-export def format-item-updated-with-archive [
-  field: string
-  item_id: int
-  value: any
-  note_id: int
-] {
-  [
-    $"✓ Item ($field) updated"
-    $"  ID: ($item_id)"
-    $"  New ($field): ($value)"
-    ""
-    $"🗃️  List auto-archived!"
-    $"  All items completed - list has been archived as a note"
-    $"  Note ID: ($note_id)"
-  ] | str join (char newline)
-}
-
-# Format item completion with auto-archive
-export def format-item-completed-with-archive [
-  item_id: int
-  note_id: int
-] {
-  [
-    $"✓ Item marked as complete"
-    $"  ID: ($item_id)"
-    ""
-    $"🗃️  List auto-archived!"
-    $"  All items completed - list has been archived as a note"
-    $"  Note ID: ($note_id)"
-  ] | str join (char newline)
-}
-
 # Format list of tasks as markdown table
 # Format list of tasks as nushell table
 export def format-tasks-table [list: record tasks: list] {
@@ -251,8 +218,12 @@ export def format-tasks-table [list: record tasks: list] {
     return ($output + "No tasks.")
   }
 
-  # Group by status
-  let grouped = $tasks | group-by status
+  # Separate root tasks from subtasks
+  let root_tasks = $tasks | where parent_id == null
+  let subtasks = $tasks | where parent_id != null
+
+  # Group root tasks by status
+  let grouped = $root_tasks | group-by status
 
   let status_order = [
     {status: "in_progress" label: "In Progress" emoji: "🔄"}
@@ -271,7 +242,16 @@ export def format-tasks-table [list: record tasks: list] {
 
       let table_data = $status_items | each {|task|
           let priority = if $task.priority != null { $task.priority } else { "-" }
-          {ID: $task.id P: $priority Content: $task.content}
+
+          # Get subtasks for this task
+          let task_subtasks = $subtasks | where parent_id == $task.id
+          let subtask_indicator = if ($task_subtasks | is-not-empty) {
+            $" \(($task_subtasks | length) subtasks\)"
+          } else {
+            ""
+          }
+
+          {ID: $task.id P: $priority Content: ($task.content + $subtask_indicator)}
         }
 
       $output = $output + $"## ($entry.emoji) ($entry.label)\n\n"
