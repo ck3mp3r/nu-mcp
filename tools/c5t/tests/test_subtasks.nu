@@ -65,3 +65,18 @@ export def "test list_tasks status excludes active magic value" [] {
   let status_enum = $tool.input_schema.properties.status.items.enum
   assert ("active" not-in $status_enum)
 }
+
+# Integration test: get_subtasks tool can be called without error
+export def "test get_subtasks tool executes" [] {
+  # Call with non-existent IDs - should return "No subtasks" message, not crash
+  let output = nu tools/c5t/mod.nu call-tool get_subtasks '{"list_id": 99999, "parent_id": 99999}'
+  assert ($output | str contains "No subtasks")
+}
+
+# Integration test: list_tasks tool can be called without error  
+export def "test list_tasks tool executes" [] {
+  # Call with non-existent ID - should return error or empty, not crash
+  let output = nu tools/c5t/mod.nu call-tool list_tasks '{"list_id": 99999}'
+  # Just verify it doesn't crash - output will be error or empty
+  assert (($output | str length) > 0)
+}

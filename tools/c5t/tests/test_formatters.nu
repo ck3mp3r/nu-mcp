@@ -120,7 +120,7 @@ export def "test format-summary formats output" [] {
       done_total: 2
       cancelled_total: 0
     }
-    active_lists: [{name: "Project Alpha" total_count: 10 in_progress_count: 2 todo_count: 3}]
+    active_lists: [{name: "Project Alpha" total_count: 10 backlog_count: 5 todo_count: 3 in_progress_count: 2 review_count: 0 done_count: 0 cancelled_count: 0}]
     in_progress: [
       {content: "Working on X" priority: 5 list_name: "Alpha"}
       {content: "Task with null priority" priority: null list_name: "Alpha"}
@@ -144,10 +144,10 @@ export def "test format-tasks-table sorts by priority" [] {
 
   let list = {id: 1 name: "Test List"}
   let tasks = [
-    {id: 3 content: "No priority" status: "todo" priority: null started_at: null completed_at: null}
-    {id: 1 content: "P3 task" status: "todo" priority: 3 started_at: null completed_at: null}
-    {id: 2 content: "P1 task" status: "todo" priority: 1 started_at: null completed_at: null}
-    {id: 4 content: "P2 task" status: "todo" priority: 2 started_at: null completed_at: null}
+    {id: 3 content: "No priority" status: "todo" priority: null started_at: null completed_at: null parent_id: null}
+    {id: 1 content: "P3 task" status: "todo" priority: 3 started_at: null completed_at: null parent_id: null}
+    {id: 2 content: "P1 task" status: "todo" priority: 1 started_at: null completed_at: null parent_id: null}
+    {id: 4 content: "P2 task" status: "todo" priority: 2 started_at: null completed_at: null parent_id: null}
   ]
 
   let output = format-tasks-table $list $tasks

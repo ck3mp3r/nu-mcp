@@ -296,6 +296,27 @@ export def format-tasks-table [list: record tasks: list] {
   $output + ($table_data | table --index false | into string)
 }
 
+# Format subtasks list
+export def format-subtasks-list [parent_id: int tasks: list] {
+  if ($tasks | is-empty) {
+    return $"No subtasks found for parent task ($parent_id)."
+  }
+
+  let header = $"# Subtasks for Task ($parent_id)\n\n"
+
+  let table_data = $tasks | each {|task|
+      let priority_str = if $task.priority != null {
+        $"P($task.priority)"
+      } else {
+        "-"
+      }
+
+      {ID: $task.id P: $priority_str Content: $task.content S: (status-emoji $task.status)}
+    }
+
+  $header + ($table_data | table --index false | into string)
+}
+
 # Format list with items (legacy bullet format)
 export def format-items-list [list: record items: list] {
   if ($items | is-empty) {
