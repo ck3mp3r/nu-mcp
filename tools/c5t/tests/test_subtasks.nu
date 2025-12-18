@@ -25,24 +25,22 @@ export def "test list_tasks includes subtasks" [] {
   assert ($tool.name == "list_tasks")
 }
 
-# Test get_subtasks tool exists in schema
-export def "test get_subtasks tool exists" [] {
+# Test get_subtasks tool does NOT exist (removed in favor of list_tasks with parent_id)
+export def "test get_subtasks tool removed" [] {
   let output = nu tools/c5t/mod.nu list-tools
   let tools = $output | from json
   let names = $tools | get name
 
-  assert ("get_subtasks" in $names)
+  assert ("get_subtasks" not-in $names)
 }
 
-# Test get_subtasks schema has required parameters
-export def "test get_subtasks schema has required params" [] {
+# Test list_tasks schema has parent_id parameter
+export def "test list_tasks schema has parent_id" [] {
   let output = nu tools/c5t/mod.nu list-tools
   let tools = $output | from json
-  let tool = $tools | where name == "get_subtasks" | first
+  let tool = $tools | where name == "list_tasks" | first
 
-  assert ("list_id" in ($tool.input_schema.properties | columns))
   assert ("parent_id" in ($tool.input_schema.properties | columns))
-  assert ($tool.input_schema.properties.list_id.type == "integer")
   assert ($tool.input_schema.properties.parent_id.type == "integer")
 }
 
@@ -66,10 +64,10 @@ export def "test list_tasks status excludes active magic value" [] {
   assert ("active" not-in $status_enum)
 }
 
-# Integration test: get_subtasks tool can be called without error
-export def "test get_subtasks tool executes" [] {
+# Integration test: list_tasks with parent_id returns subtasks
+export def "test list_tasks with parent_id executes" [] {
   # Call with non-existent IDs - should return "No subtasks" message, not crash
-  let output = nu tools/c5t/mod.nu call-tool get_subtasks '{"list_id": 99999, "parent_id": 99999}'
+  let output = nu tools/c5t/mod.nu call-tool list_tasks '{"list_id": 99999, "parent_id": 99999}'
   assert ($output | str contains "No subtasks")
 }
 

@@ -201,25 +201,6 @@ def "main list-tools" [] {
     }
 
     {
-      name: "get_subtasks"
-      description: "Get all subtasks for a parent task."
-      input_schema: {
-        type: "object"
-        properties: {
-          list_id: {
-            type: "integer"
-            description: "ID of the task list"
-          }
-          parent_id: {
-            type: "integer"
-            description: "ID of the parent task"
-          }
-        }
-        required: ["list_id" "parent_id"]
-      }
-    }
-
-    {
       name: "get_task_list"
       description: "get_task_list returns list metadata that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
@@ -270,7 +251,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_tasks"
-      description: "DISPLAY OUTPUT TO USER. View tasks grouped by status. Default shows all. Filter to specific status or use 'active' to exclude done/cancelled."
+      description: "DISPLAY OUTPUT TO USER. View tasks grouped by status. Default shows all. Filter to specific status. Use parent_id to list subtasks of a specific task."
       input_schema: {
         type: "object"
         properties: {
@@ -285,6 +266,10 @@ def "main list-tools" [] {
               enum: ["backlog" "todo" "in_progress" "review" "done" "cancelled"]
             }
             description: "Filter to specific statuses. Examples: ['done'], ['backlog', 'todo'], ['in_progress', 'review']"
+          }
+          parent_id: {
+            type: "integer"
+            description: "Filter to subtasks of a specific parent task. When provided, only subtasks of this parent are returned."
           }
         }
         required: ["list_id"]
@@ -654,31 +639,6 @@ def "main call-tool" [
   To list: ($target_list_id)"
     }
 
-    "get_subtasks" => {
-      if "list_id" not-in $parsed_args {
-        return "Error: Missing required field: 'list_id'"
-      }
-
-      if "parent_id" not-in $parsed_args {
-        return "Error: Missing required field: 'parent_id'"
-      }
-
-      let list_id = $parsed_args.list_id
-      let parent_id = $parsed_args.parent_id
-
-      let result = get-subtasks $list_id $parent_id
-
-      if not $result.success {
-        return $result.error
-      }
-
-      if ($result.tasks | is-empty) {
-        return "No subtasks found."
-      }
-
-      format-subtasks-list $parent_id $result.tasks
-    }
-
     "get_task_list" => {
       if "list_id" not-in $parsed_args {
         return "Error: Missing required field: 'list_id'"
@@ -802,6 +762,7 @@ Use list_backups to see available backup files."
 
       let list_id = $parsed_args.list_id
       let status_filter = if "status" in $parsed_args { $parsed_args.status } else { null }
+      let parent_id = if "parent_id" in $parsed_args { $parsed_args.parent_id } else { null }
 
       # Validate each status if array provided
       if $status_filter != null {
@@ -811,6 +772,18 @@ Use list_backups to see available backup files."
             return $status_validation.error
           }
         }
+      }
+
+      # If parent_id provided, get subtasks instead
+      if $parent_id != null {
+        let result = get-subtasks $list_id $parent_id
+        if not $result.success {
+          return $result.error
+        }
+        if ($result.tasks | is-empty) {
+          return $"No subtasks found for parent task ($parent_id)."
+        }
+        return (format-subtasks-list $parent_id $result.tasks)
       }
 
       let result = get-list-with-tasks $list_id $status_filter

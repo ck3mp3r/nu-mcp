@@ -82,7 +82,7 @@ upsert_task {"list_id": 1, "parent_id": 1, "content": "Implement login endpoint"
 upsert_task {"list_id": 1, "parent_id": 1, "content": "Add password hashing"}
 
 # View all subtasks for a parent task
-get_subtasks {"list_id": 1, "parent_id": 1}
+list_tasks {"list_id": 1, "parent_id": 1}
 
 # List tasks shows subtask count
 list_tasks {"list_id": 1}
@@ -93,7 +93,7 @@ list_tasks {"list_id": 1}
 - Subtasks inherit the same list as their parent
 - Subtasks can have their own priority and status
 - Parent tasks show subtask count in task lists
-- Use `get_subtasks` to view all subtasks for a specific parent
+- Use `list_tasks` with `parent_id` to view subtasks for a specific parent
 
 ## Notes Workflow
 
@@ -194,8 +194,7 @@ Last updated: [timestamp]
 - `get_task_list` - Get list metadata without tasks
 - `delete_task_list` - Remove a list (use force=true if has tasks)
 - `upsert_task` - Create or update a task (omit task_id to create, provide to update). Can set content, priority, status, parent_id for subtasks.
-- `list_tasks` - View list with tasks grouped by status (shows subtask count for parent tasks)
-- `get_subtasks` - Get all subtasks for a parent task
+- `list_tasks` - View tasks grouped by status (shows subtask count). Use `parent_id` param to list subtasks.
 - `complete_task` - Mark task done (shortcut for status='done')
 - `delete_task` - Remove a task
 - `move_task` - Move task to another list
