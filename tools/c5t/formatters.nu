@@ -282,8 +282,8 @@ export def format-tasks-table [list: record tasks: list] {
       let without_priority = $status_tasks | where priority == null
       let sorted = $with_priority | append $without_priority
 
-      # Add group header row
-      $table_rows = ($table_rows | append {ID: $"**($entry.label)**" P: "" Content: ""})
+      # Add group header row with divider
+      $table_rows = ($table_rows | append {ID: $"**($entry.label)**" P: "---" Content: "---"})
 
       # Add task rows
       for task in $sorted {
