@@ -45,3 +45,23 @@ export def "test get_subtasks schema has required params" [] {
   assert ($tool.input_schema.properties.list_id.type == "integer")
   assert ($tool.input_schema.properties.parent_id.type == "integer")
 }
+
+# Test list_tasks status is array type
+export def "test list_tasks status accepts array" [] {
+  let output = nu tools/c5t/mod.nu list-tools
+  let tools = $output | from json
+  let tool = $tools | where name == "list_tasks" | first
+
+  assert ("status" in ($tool.input_schema.properties | columns))
+  assert ($tool.input_schema.properties.status.type == "array")
+}
+
+# Test list_tasks status enum does not include 'active'
+export def "test list_tasks status excludes active magic value" [] {
+  let output = nu tools/c5t/mod.nu list-tools
+  let tools = $output | from json
+  let tool = $tools | where name == "list_tasks" | first
+
+  let status_enum = $tool.input_schema.properties.status.items.enum
+  assert ("active" not-in $status_enum)
+}

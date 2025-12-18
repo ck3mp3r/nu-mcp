@@ -1138,7 +1138,7 @@ export def move-task [
 # Get a list with its tasks
 export def get-list-with-tasks [
   list_id: int
-  status_filter?: string
+  status_filter?: list
 ] {
   let db_path = init-database
 
@@ -1164,17 +1164,23 @@ export def get-list-with-tasks [
 
   let list = $list_result.data | first | upsert tags (parse-tags ($list_result.data | first | get tags))
 
-  # Get tasks with optional status filter
-  let tasks_sql = if $status_filter != null and $status_filter == "active" {
-    "SELECT id, list_id, parent_id, content, status, priority, created_at, started_at, completed_at 
-      FROM task 
-      WHERE list_id = ? AND status NOT IN ('done', 'cancelled') 
-      ORDER BY priority DESC NULLS LAST, created_at ASC"
-  } else if $status_filter != null {
+  # Get tasks with optional status filter (array of statuses)
+  let tasks_sql = if $status_filter != null and ($status_filter | is-not-empty) {
+    let status_list = $status_filter | each {|s| $"'($s)'" } | str join ", "
     $"SELECT id, list_id, parent_id, content, status, priority, created_at, started_at, completed_at 
       FROM task 
-      WHERE list_id = ? AND status = '($status_filter)' 
-      ORDER BY priority DESC NULLS LAST, created_at ASC"
+      WHERE list_id = ? AND status IN \(($status_list)\) 
+      ORDER BY 
+        CASE status 
+          WHEN 'backlog' THEN 1 
+          WHEN 'todo' THEN 2 
+          WHEN 'in_progress' THEN 3 
+          WHEN 'review' THEN 4 
+          WHEN 'done' THEN 5 
+          WHEN 'cancelled' THEN 6 
+        END,
+        priority DESC NULLS LAST, 
+        created_at ASC"
   } else {
     "SELECT id, list_id, parent_id, content, status, priority, created_at, started_at, completed_at 
       FROM task 

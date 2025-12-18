@@ -1,8 +1,28 @@
 # Output formatting functions for c5t tool
 
-# Helper: Convert list to nushell table string (removes index column)
-def to-nu-table [] {
-  $in | table --index false | into string
+# Helper: Convert list of records to markdown table
+def to-markdown-table [] {
+  let data = $in
+
+  if ($data | is-empty) {
+    return ""
+  }
+
+  let columns = $data | first | columns
+
+  # Header row
+  let header = "| " + ($columns | str join " | ") + " |"
+
+  # Separator row
+  let separator = "| " + ($columns | each { "---" } | str join " | ") + " |"
+
+  # Data rows
+  let rows = $data | each {|row|
+      let values = $columns | each {|col| $row | get $col | into string }
+      "| " + ($values | str join " | ") + " |"
+    }
+
+  [$header $separator ...$rows] | str join "\n"
 }
 
 # Format a todo list creation response
@@ -27,7 +47,7 @@ export def format-list-created [result: record] {
   ] | str join (char newline)
 }
 
-# Format active task lists as nushell table
+# Format active task lists as markdown table
 export def format-active-lists [lists: list] {
   if ($lists | is-empty) {
     return "No active task lists found."
@@ -51,7 +71,7 @@ export def format-active-lists [lists: list] {
       {ID: $list.id Name: $list.name Tags: $tags_str Description: $desc}
     }
 
-  $header + ($table_data | to-nu-table)
+  $header + ($table_data | to-markdown-table)
 }
 
 # Format list metadata detail
@@ -147,7 +167,7 @@ export def format-notes-list [notes: list] {
   ["Notes:" ...$items] | str join (char newline)
 }
 
-# Format search results as nushell table
+# Format search results as markdown table
 export def format-search-results [notes: list] {
   if ($notes | is-empty) {
     return "No results found."
@@ -165,7 +185,7 @@ export def format-search-results [notes: list] {
       {ID: $note.id Type: $type_emoji Title: $note.title}
     }
 
-  $header + ($table_data | to-nu-table)
+  $header + ($table_data | to-markdown-table)
 }
 
 # Format task creation response
@@ -230,6 +250,8 @@ export def format-tasks-table [list: record tasks: list] {
     {status: "todo" label: "To Do" emoji: "📝"}
     {status: "backlog" label: "Backlog" emoji: "📋"}
     {status: "review" label: "Review" emoji: "👀"}
+    {status: "done" label: "Done" emoji: "✅"}
+    {status: "cancelled" label: "Cancelled" emoji: "❌"}
   ]
 
   for entry in $status_order {
@@ -240,22 +262,28 @@ export def format-tasks-table [list: record tasks: list] {
       let without_priority = $raw_items | where priority == null
       let status_items = $with_priority | append $without_priority
 
-      let table_data = $status_items | each {|task|
-          let priority = if $task.priority != null { $task.priority } else { "-" }
+      $output = $output + $"## ($entry.emoji) ($entry.label)\n\n"
 
-          # Get subtasks for this task
-          let task_subtasks = $subtasks | where parent_id == $task.id
-          let subtask_indicator = if ($task_subtasks | is-not-empty) {
-            $" \(($task_subtasks | length) subtasks\)"
-          } else {
-            ""
-          }
-
-          {ID: $task.id P: $priority Content: ($task.content + $subtask_indicator)}
+      for task in $status_items {
+        let priority_str = if $task.priority != null {
+          $"P($task.priority) "
+        } else {
+          ""
         }
 
-      $output = $output + $"## ($entry.emoji) ($entry.label)\n\n"
-      $output = $output + ($table_data | to-nu-table) + "\n\n"
+        # Get subtasks for this task
+        let task_subtasks = $subtasks | where parent_id == $task.id
+        let subtask_indicator = if ($task_subtasks | is-not-empty) {
+          $" \(($task_subtasks | length) subtasks\)"
+        } else {
+          ""
+        }
+
+        $output = $output + $"- ($priority_str)($task.content)($subtask_indicator)\n"
+        $output = $output + $"  ID: ($task.id)\n"
+      }
+
+      $output = $output + "\n"
     }
   }
 
@@ -360,7 +388,7 @@ export def format-note-created-manual [result: record] {
   $lines_with_created | str join (char newline)
 }
 
-# Format list of notes as nushell table
+# Format list of notes as markdown table
 export def format-notes-list-detailed [notes: list] {
   if ($notes | is-empty) {
     return "No notes found."
@@ -384,7 +412,7 @@ export def format-notes-list-detailed [notes: list] {
       {ID: $note.id Type: $type_emoji Title: $note.title Tags: $tags_str}
     }
 
-  $header + ($table_data | to-nu-table)
+  $header + ($table_data | to-markdown-table)
 }
 
 # Format detailed note view
@@ -408,7 +436,7 @@ export def format-note-detail [note: record] {
 }
 
 # Format comprehensive summary/overview
-# Format summary as nushell tables
+# Format summary as markdown tables
 export def format-summary [summary: record] {
   mut output = "# C5T Summary\n\n"
 
@@ -427,52 +455,61 @@ export def format-summary [summary: record] {
     {Status: "✅ Done" Count: $stats.done_total}
     {Status: "❌ Cancelled" Count: $stats.cancelled_total}
   ]
-  $output = $output + ($status_data | to-nu-table) + "\n\n"
+  $output = $output + ($status_data | to-markdown-table) + "\n\n"
 
   # Active Lists table
   if ($summary.active_lists | length) > 0 {
     $output = $output + "## Active Lists\n\n"
     let lists_data = $summary.active_lists | each {|list|
-        {Name: $list.name Total: $list.total_count "In Progress": $list.in_progress_count Todo: $list.todo_count}
+        {
+          Name: $list.name
+          Total: $list.total_count
+          Backlog: $list.backlog_count
+          Todo: $list.todo_count
+          "In Progress": $list.in_progress_count
+          Review: $list.review_count
+          Done: $list.done_count
+          Cancelled: $list.cancelled_count
+        }
       }
-    $output = $output + ($lists_data | to-nu-table) + "\n\n"
+    $output = $output + ($lists_data | to-markdown-table) + "\n\n"
   }
 
-  # In Progress table
+  # In Progress - use bullet list for task content
   $output = $output + "## In Progress\n\n"
   if ($summary.in_progress | length) > 0 {
-    let in_progress_data = $summary.in_progress | each {|task|
-        let p = if $task.priority != null { $task.priority } else { "-" }
-        {P: $p Task: $task.content List: $task.list_name}
-      }
-    $output = $output + ($in_progress_data | to-nu-table) + "\n\n"
+    for task in $summary.in_progress {
+      let p = if $task.priority != null { $"P($task.priority)" } else { "" }
+      $output = $output + $"- ($p) ($task.content) *\(($task.list_name)\)*\n"
+    }
+    $output = $output + "\n"
   } else {
     $output = $output + "No tasks in progress.\n\n"
   }
 
-  # High Priority table
+  # High Priority - use bullet list for task content
   if ($summary.high_priority | length) > 0 {
     $output = $output + "## High Priority\n\n"
-    let high_priority_data = $summary.high_priority | each {|task|
-        {P: $task.priority Task: $task.content List: $task.list_name}
-      }
-    $output = $output + ($high_priority_data | to-nu-table) + "\n\n"
+    for task in $summary.high_priority {
+      $output = $output + $"- P($task.priority) ($task.content) *\(($task.list_name)\)*\n"
+    }
+    $output = $output + "\n"
   }
 
-  # Recently Completed table
+  # Recently Completed - use bullet list for task content
   if ($summary.recently_completed | length) > 0 {
     $output = $output + "## Recently Completed\n\n"
     let show_count = [($summary.recently_completed | length) 5] | math min
-    let completed_data = $summary.recently_completed | first $show_count | each {|task|
-        {Task: $task.content List: $task.list_name}
-      }
-    $output = $output + ($completed_data | to-nu-table) + "\n"
+    for task in ($summary.recently_completed | first $show_count) {
+      $output = $output + $"- ($task.content) *\(($task.list_name)\)*\n"
+    }
+    $output = $output + "\n"
   }
 
   $output | str trim
 }
 
-# Format list of repositories as nushell table
+# Format list of repositories as markdown table
 export def format-repos-list [repos: list] {
   if ($repos | is-empty) {
     return "No repositories found."
@@ -484,5 +521,5 @@ export def format-repos-list [repos: list] {
       {ID: $repo.id Remote: $repo.remote Path: $repo.path}
     }
 
-  $header + ($table_data | to-nu-table)
+  $header + ($table_data | to-markdown-table)
 }

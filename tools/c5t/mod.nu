@@ -270,7 +270,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_tasks"
-      description: "list_tasks returns tabular data that MUST be displayed directly to the user in your response - never summarize or omit this output."
+      description: "DISPLAY OUTPUT TO USER. View tasks grouped by status. Default shows all. Filter to specific status or use 'active' to exclude done/cancelled."
       input_schema: {
         type: "object"
         properties: {
@@ -279,9 +279,12 @@ def "main list-tools" [] {
             description: "ID of the task list"
           }
           status: {
-            type: "string"
-            description: "Filter by status (optional, or use 'active' to exclude done/cancelled)"
-            enum: ["backlog" "todo" "in_progress" "review" "done" "cancelled" "active"]
+            type: "array"
+            items: {
+              type: "string"
+              enum: ["backlog" "todo" "in_progress" "review" "done" "cancelled"]
+            }
+            description: "Filter to specific statuses. Examples: ['done'], ['backlog', 'todo'], ['in_progress', 'review']"
           }
         }
         required: ["list_id"]
@@ -399,7 +402,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_summary"
-      description: "get_summary returns a status overview that MUST be displayed directly to the user in your response - never summarize or omit this output."
+      description: "DISPLAY OUTPUT TO USER. Quick status overview of active work across lists."
       input_schema: {
         type: "object"
         properties: {
@@ -800,11 +803,13 @@ Use list_backups to see available backup files."
       let list_id = $parsed_args.list_id
       let status_filter = if "status" in $parsed_args { $parsed_args.status } else { null }
 
-      # Validate status if provided
-      if $status_filter != null and $status_filter != "active" {
-        let status_validation = validate-status $status_filter
-        if not $status_validation.valid {
-          return $status_validation.error
+      # Validate each status if array provided
+      if $status_filter != null {
+        for status in $status_filter {
+          let status_validation = validate-status $status
+          if not $status_validation.valid {
+            return $status_validation.error
+          }
         }
       }
 
