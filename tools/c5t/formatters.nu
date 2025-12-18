@@ -237,7 +237,20 @@ export def format-notes-updated [list_id: int] {
   ] | str join (char newline)
 }
 
-# Format list of tasks as markdown table grouped by status
+# Helper: Get status emoji
+def status-emoji [status: string] {
+  match $status {
+    "in_progress" => "🔄"
+    "todo" => "📝"
+    "backlog" => "📋"
+    "review" => "👀"
+    "done" => "✅"
+    "cancelled" => "❌"
+    _ => "❓"
+  }
+}
+
+# Format list of tasks as markdown table with status icons
 export def format-tasks-table [list: record tasks: list] {
   mut output = $"# ($list.name)\n**List ID:** ($list.id)\n\n"
 
@@ -249,54 +262,38 @@ export def format-tasks-table [list: record tasks: list] {
   let root_tasks = $tasks | where parent_id == null
   let subtasks = $tasks | where parent_id != null
 
-  # Group root tasks by status
-  let grouped = $root_tasks | group-by status
+  # Sort: by status order, then by priority within each status
+  let status_order = ["in_progress" "todo" "backlog" "review" "done" "cancelled"]
 
-  let status_order = [
-    {status: "in_progress" label: "In Progress" emoji: "🔄"}
-    {status: "todo" label: "To Do" emoji: "📝"}
-    {status: "backlog" label: "Backlog" emoji: "📋"}
-    {status: "review" label: "Review" emoji: "👀"}
-    {status: "done" label: "Done" emoji: "✅"}
-    {status: "cancelled" label: "Cancelled" emoji: "❌"}
-  ]
+  let sorted_tasks = $status_order | each {|status|
+      let status_tasks = $root_tasks | where status == $status
+      let with_priority = $status_tasks | where priority != null | sort-by priority
+      let without_priority = $status_tasks | where priority == null
+      $with_priority | append $without_priority
+    } | flatten
 
-  for entry in $status_order {
-    if $entry.status in $grouped {
-      # Sort by priority (P1 first, nulls last)
-      let raw_items = $grouped | get $entry.status
-      let with_priority = $raw_items | where priority != null | sort-by priority
-      let without_priority = $raw_items | where priority == null
-      let status_items = $with_priority | append $without_priority
+  # Build table data
+  let table_data = $sorted_tasks | each {|task|
+      let priority_str = if $task.priority != null {
+        $"P($task.priority)"
+      } else {
+        "-"
+      }
 
-      $output = $output + $"## ($entry.emoji) ($entry.label)\n\n"
+      # Get subtasks for this task
+      let task_subtasks = $subtasks | where parent_id == $task.id
+      let subtask_indicator = if ($task_subtasks | is-not-empty) {
+        $" \(($task_subtasks | length) subtasks\)"
+      } else {
+        ""
+      }
 
-      # Build table data
-      let table_data = $status_items | each {|task|
-          let priority_str = if $task.priority != null {
-            $"P($task.priority)"
-          } else {
-            "-"
-          }
+      let content_wrapped = $"($task.content)($subtask_indicator)" | wrap-words 10
 
-          # Get subtasks for this task
-          let task_subtasks = $subtasks | where parent_id == $task.id
-          let subtask_indicator = if ($task_subtasks | is-not-empty) {
-            $" \(($task_subtasks | length) subtasks\)"
-          } else {
-            ""
-          }
-
-          let content_wrapped = $"($task.content)($subtask_indicator)" | wrap-words 10
-
-          {ID: $task.id P: $priority_str Content: $content_wrapped}
-        }
-
-      $output = $output + ($table_data | to-markdown-table) + "\n\n"
+      {ID: $task.id S: (status-emoji $task.status) P: $priority_str Content: $content_wrapped}
     }
-  }
 
-  $output | str trim
+  $output + ($table_data | to-markdown-table)
 }
 
 # Format list with items (legacy bullet format)
