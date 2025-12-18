@@ -1,5 +1,13 @@
 # Output formatting functions for c5t tool
 
+# Helper: Add line break after every N words
+def wrap-words [words_per_line: int = 10] {
+  let text = $in
+  let words = $text | split row " "
+  let chunks = $words | chunks $words_per_line
+  $chunks | each {|chunk| $chunk | str join " " } | str join (char newline)
+}
+
 # Format a todo list creation response
 export def format-list-created [result: record] {
   let tags_str = if $result.tags != null and ($result.tags | is-not-empty) {
@@ -22,45 +30,31 @@ export def format-list-created [result: record] {
   ] | str join (char newline)
 }
 
-# Format active todo lists
+# Format active task lists as markdown table
 export def format-active-lists [lists: list] {
   if ($lists | is-empty) {
-    return "No active todo lists found."
+    return "No active task lists found."
   }
 
-  let items = $lists | each {|list|
+  let header = $"# Active Task Lists \(($lists | length)\)\n\n"
+
+  let table_data = $lists | each {|list|
       let tags_str = if ($list.tags | is-not-empty) {
         $list.tags | str join ", "
       } else {
-        "none"
+        "-"
       }
 
       let desc = if $list.description != null and $list.description != "" {
-        $"\n    ($list.description)"
+        $list.description | str substring 0..50
       } else {
-        ""
+        "-"
       }
 
-      let notes = if $list.notes != null and $list.notes != "" {
-        $"\n    Notes: ($list.notes)"
-      } else {
-        ""
-      }
-
-      [
-        $"  • ($list.name)"
-        $"    ID: ($list.id) | Tags: ($tags_str)"
-        $desc
-        $notes
-      ] | str join (char newline)
+      {ID: $list.id Name: $list.name Tags: $tags_str Description: $desc}
     }
 
-  let count = $lists | length
-  [
-    $"Active Todo Lists: ($count)"
-    ""
-    ...$items
-  ] | str join (char newline)
+  $header + ($table_data | table --index false | into string)
 }
 
 # Format list metadata detail
@@ -156,24 +150,29 @@ export def format-notes-list [notes: list] {
   ["Notes:" ...$items] | str join (char newline)
 }
 
-# Format search results
+# Format search results as markdown table
 export def format-search-results [notes: list] {
   if ($notes | is-empty) {
     return "No results found."
   }
 
-  let items = $notes | each {|note|
-      [
-        $"- ($note.title) [ID: ($note.id)]"
-        $"  Type: ($note.note_type) | Created: ($note.created_at)"
-      ] | str join (char newline)
+  let header = $"# Search Results \(($notes | length)\)\n\n"
+
+  let table_data = $notes | each {|note|
+      let type_emoji = match $note.note_type {
+        "manual" => "📝"
+        "archived_todo" => "🗃️"
+        _ => "📄"
+      }
+
+      {ID: $note.id Type: $type_emoji Title: $note.title}
     }
 
-  ["Search Results:" ...$items] | str join (char newline)
+  $header + ($table_data | table --index false | into string)
 }
 
-# Format item creation response
-export def format-item-created [result: record] {
+# Format task creation response
+export def format-task-created [result: record] {
   let priority_str = if $result.priority != null {
     $" | Priority: ($result.priority)"
   } else {
@@ -181,7 +180,7 @@ export def format-item-created [result: record] {
   }
 
   [
-    $"✓ Todo item added"
+    $"✓ Task added"
     $"  ID: ($result.id)"
     $"  Content: ($result.content)"
     $"  Status: ($result.status)($priority_str)"
@@ -197,11 +196,11 @@ export def format-item-updated [field: string item_id: int value: any] {
   ] | str join (char newline)
 }
 
-# Format item completion response
-export def format-item-completed [item_id: int] {
+# Format task completion response
+export def format-task-completed [task_id: int] {
   [
-    $"✓ Item marked as complete"
-    $"  ID: ($item_id)"
+    $"✓ Task marked as complete"
+    $"  ID: ($task_id)"
   ] | str join (char newline)
 }
 
@@ -213,80 +212,84 @@ export def format-notes-updated [list_id: int] {
   ] | str join (char newline)
 }
 
-# Format item update with auto-archive
-export def format-item-updated-with-archive [
-  field: string
-  item_id: int
-  value: any
-  note_id: int
-] {
-  [
-    $"✓ Item ($field) updated"
-    $"  ID: ($item_id)"
-    $"  New ($field): ($value)"
-    ""
-    $"🗃️  List auto-archived!"
-    $"  All items completed - list has been archived as a note"
-    $"  Note ID: ($note_id)"
-  ] | str join (char newline)
+# Helper: Get status emoji
+def status-emoji [status: string] {
+  match $status {
+    "in_progress" => "🔄"
+    "todo" => "📝"
+    "backlog" => "📋"
+    "review" => "👀"
+    "done" => "✅"
+    "cancelled" => "❌"
+    _ => "❓"
+  }
 }
 
-# Format item completion with auto-archive
-export def format-item-completed-with-archive [
-  item_id: int
-  note_id: int
-] {
-  [
-    $"✓ Item marked as complete"
-    $"  ID: ($item_id)"
-    ""
-    $"🗃️  List auto-archived!"
-    $"  All items completed - list has been archived as a note"
-    $"  Note ID: ($note_id)"
-  ] | str join (char newline)
-}
+# Format list of tasks as markdown table with status icons, sorted by status
+export def format-tasks-table [list: record tasks: list] {
+  mut output = $"# ($list.name)\n**List ID:** ($list.id)\n\n"
 
-# Format list of items as markdown
-export def format-items-table [list: record items: list] {
-  mut lines = [
-    $"# ($list.name)"
-    $"**List ID:** ($list.id)"
-    ""
-  ]
-
-  if ($items | is-empty) {
-    $lines = ($lines | append "No items.")
-    return ($lines | str join (char newline))
+  if ($tasks | is-empty) {
+    return ($output + "No tasks.")
   }
 
-  # Group by status
-  let grouped = $items | group-by status
+  # Separate root tasks from subtasks
+  let root_tasks = $tasks | where parent_id == null
+  let subtasks = $tasks | where parent_id != null
 
-  let status_order = [
-    {status: "in_progress" label: "In Progress" emoji: "🔄"}
-    {status: "todo" label: "To Do" emoji: "📝"}
-    {status: "backlog" label: "Backlog" emoji: "📋"}
-    {status: "review" label: "Review" emoji: "👀"}
-  ]
+  # Sort by status order, then by priority within each status
+  let status_order = ["in_progress" "todo" "backlog" "review" "done" "cancelled"]
 
-  for entry in $status_order {
-    if $entry.status in $grouped {
-      # Sort by priority (P1 first, nulls last)
-      let raw_items = $grouped | get $entry.status
-      let with_priority = $raw_items | where priority != null | sort-by priority
-      let without_priority = $raw_items | where priority == null
-      let status_items = $with_priority | append $without_priority
-      $lines = ($lines | append $"## ($entry.emoji) ($entry.label)")
-      $lines = ($lines | append "")
-      for item in $status_items {
-        let priority = if $item.priority != null { $" [P($item.priority)]" } else { "" }
-        $lines = ($lines | append $"- **\(($item.id)\)**($priority) ($item.content)")
+  let sorted_tasks = $status_order | each {|status|
+      let status_tasks = $root_tasks | where status == $status
+      let with_priority = $status_tasks | where priority != null | sort-by priority
+      let without_priority = $status_tasks | where priority == null
+      $with_priority | append $without_priority
+    } | flatten
+
+  # Build table data
+  let table_data = $sorted_tasks | each {|task|
+      let priority_str = if $task.priority != null {
+        $"P($task.priority)"
+      } else {
+        "-"
       }
-      $lines = ($lines | append "")
+
+      # Get subtasks for this task
+      let task_subtasks = $subtasks | where parent_id == $task.id
+      let subtask_indicator = if ($task_subtasks | is-not-empty) {
+        $" \(($task_subtasks | length) subtasks\)"
+      } else {
+        ""
+      }
+
+      let content_wrapped = $"($task.content)($subtask_indicator)" | wrap-words 10
+
+      {ID: $task.id P: $priority_str Content: $content_wrapped S: (status-emoji $task.status)}
     }
+
+  $output + ($table_data | table --index false | into string)
+}
+
+# Format subtasks list
+export def format-subtasks-list [parent_id: int tasks: list] {
+  if ($tasks | is-empty) {
+    return $"No subtasks found for parent task ($parent_id)."
   }
 
-  $lines | str join (char newline)
+  let header = $"# Subtasks for Task ($parent_id)\n\n"
+
+  let table_data = $tasks | each {|task|
+      let priority_str = if $task.priority != null {
+        $"P($task.priority)"
+      } else {
+        "-"
+      }
+
+      {ID: $task.id P: $priority_str Content: $task.content S: (status-emoji $task.status)}
+    }
+
+  $header + ($table_data | table --index false | into string)
 }
 
 # Format list with items (legacy bullet format)
@@ -347,8 +350,7 @@ export def format-items-list [list: record items: list] {
           ""
         }
 
-        $output_lines = ($output_lines | append $"  • ($item.content)($priority_str)($time_info)")
-        $output_lines = ($output_lines | append $"    ID: ($item.id)")
+        $output_lines = ($output_lines | append $"  • \(($item.id)\)($priority_str) ($item.content)($time_info)")
       }
 
       $output_lines = ($output_lines | append "")
@@ -387,17 +389,19 @@ export def format-note-created-manual [result: record] {
   $lines_with_created | str join (char newline)
 }
 
-# Format list of notes with detailed info
+# Format list of notes as markdown table
 export def format-notes-list-detailed [notes: list] {
   if ($notes | is-empty) {
     return "No notes found."
   }
 
-  let items = $notes | each {|note|
+  let header = $"# Notes \(($notes | length)\)\n\n"
+
+  let table_data = $notes | each {|note|
       let tags_str = if ($note.tags | is-not-empty) {
         $note.tags | str join ", "
       } else {
-        "none"
+        "-"
       }
 
       let type_emoji = match $note.note_type {
@@ -406,22 +410,10 @@ export def format-notes-list-detailed [notes: list] {
         _ => "📄"
       }
 
-      let content_preview = $note.content | str substring 0..100 | str replace --all (char newline) " "
-
-      [
-        $"  ($type_emoji) ($note.title)"
-        $"    ID: ($note.id) | Type: ($note.note_type) | Tags: ($tags_str)"
-        $"    Created: ($note.created_at)"
-        $"    Preview: ($content_preview)..."
-      ] | str join (char newline)
+      {ID: $note.id Type: $type_emoji Title: $note.title Tags: $tags_str}
     }
 
-  let count = $notes | length
-  [
-    $"Notes: ($count)"
-    ""
-    ...$items
-  ] | str join (char newline)
+  $header + ($table_data | table --index false | into string)
 }
 
 # Format detailed note view
@@ -445,104 +437,90 @@ export def format-note-detail [note: record] {
 }
 
 # Format comprehensive summary/overview
+# Format summary as markdown tables
 export def format-summary [summary: record] {
-  mut lines = []
+  mut output = "# C5T Summary\n\n"
 
-  # Header
-  $lines = ($lines | append "# C5T Summary")
-  $lines = ($lines | append "")
-
-  # Stats overview
   let stats = $summary.stats
   if $stats.active_lists == 0 {
-    $lines = ($lines | append "## Status")
-    $lines = ($lines | append "No active lists")
-    $lines = ($lines | append "")
-    return ($lines | str join (char newline))
+    return ($output + "No active lists.")
   }
 
-  $lines = ($lines | append "## Overview")
-  $lines = ($lines | append $"• Active Lists: ($stats.active_lists)")
-  $lines = ($lines | append $"• Total Items: ($stats.total_items)")
-  $lines = ($lines | append "")
+  # Stats table
+  $output = $output + "## Status\n\n"
+  let status_data = [
+    {Status: "📋 Backlog" Count: $stats.backlog_total}
+    {Status: "📝 Todo" Count: $stats.todo_total}
+    {Status: "🔄 In Progress" Count: $stats.in_progress_total}
+    {Status: "👀 Review" Count: $stats.review_total}
+    {Status: "✅ Done" Count: $stats.done_total}
+    {Status: "❌ Cancelled" Count: $stats.cancelled_total}
+  ]
+  $output = $output + ($status_data | table --index false | into string) + "\n\n"
 
-  $lines = ($lines | append "### By Status")
-  $lines = ($lines | append $"• 📋 Backlog: ($stats.backlog_total)")
-  $lines = ($lines | append $"• 📝 Todo: ($stats.todo_total)")
-  $lines = ($lines | append $"• 🔄 In Progress: ($stats.in_progress_total)")
-  $lines = ($lines | append $"• 👀 Review: ($stats.review_total)")
-  $lines = ($lines | append $"• ✅ Done: ($stats.done_total)")
-  $lines = ($lines | append $"• ❌ Cancelled: ($stats.cancelled_total)")
-  $lines = ($lines | append "")
-
-  # Active Lists
+  # Active Lists table
   if ($summary.active_lists | length) > 0 {
-    $lines = ($lines | append "## Active Lists")
-    for list in $summary.active_lists {
-      $lines = ($lines | append $"• ($list.name) - ($list.total_count) items \(($list.in_progress_count) in progress, ($list.todo_count) todo\)")
-    }
-    $lines = ($lines | append "")
+    $output = $output + "## Active Lists\n\n"
+    let lists_data = $summary.active_lists | each {|list|
+        {
+          Name: $list.name
+          Total: $list.total_count
+          Backlog: $list.backlog_count
+          Todo: $list.todo_count
+          "In Progress": $list.in_progress_count
+          Review: $list.review_count
+          Done: $list.done_count
+          Cancelled: $list.cancelled_count
+        }
+      }
+    $output = $output + ($lists_data | table --index false | into string) + "\n\n"
   }
 
-  # In Progress Items
+  # In Progress - use bullet list for task content
+  $output = $output + "## In Progress\n\n"
   if ($summary.in_progress | length) > 0 {
-    $lines = ($lines | append "## In Progress")
-    for item in $summary.in_progress {
-      let priority_marker = if $item.priority >= 4 { "🔥 " } else { "" }
-      $lines = ($lines | append $"• ($priority_marker)($item.content) [($item.list_name)]")
+    for task in $summary.in_progress {
+      let p = if $task.priority != null { $"P($task.priority)" } else { "" }
+      $output = $output + $"- ($p) ($task.content) *\(($task.list_name)\)*\n"
     }
-    $lines = ($lines | append "")
+    $output = $output + "\n"
   } else {
-    $lines = ($lines | append "## In Progress")
-    $lines = ($lines | append "No items in progress")
-    $lines = ($lines | append "")
+    $output = $output + "No tasks in progress.\n\n"
   }
 
-  # High Priority Next Steps
+  # High Priority - use bullet list for task content
   if ($summary.high_priority | length) > 0 {
-    $lines = ($lines | append "## High Priority (P4-P5)")
-    for item in $summary.high_priority {
-      let status_emoji = if $item.status == "todo" { "📝" } else { "📋" }
-      $lines = ($lines | append $"• ($status_emoji) P($item.priority): ($item.content) [($item.list_name)]")
+    $output = $output + "## High Priority\n\n"
+    for task in $summary.high_priority {
+      $output = $output + $"- P($task.priority) ($task.content) *\(($task.list_name)\)*\n"
     }
-    $lines = ($lines | append "")
+    $output = $output + "\n"
   }
 
-  # Recently Completed
+  # Recently Completed - use bullet list for task content
   if ($summary.recently_completed | length) > 0 {
-    $lines = ($lines | append "## Recently Completed")
-    let show_count = if ($summary.recently_completed | length) > 5 { 5 } else { ($summary.recently_completed | length) }
-    for item in ($summary.recently_completed | first $show_count) {
-      $lines = ($lines | append $"• ✅ ($item.content) [($item.list_name)]")
+    $output = $output + "## Recently Completed\n\n"
+    let show_count = [($summary.recently_completed | length) 5] | math min
+    for task in ($summary.recently_completed | first $show_count) {
+      $output = $output + $"- ($task.content) *\(($task.list_name)\)*\n"
     }
-    $lines = ($lines | append "")
+    $output = $output + "\n"
   }
 
-  # Session context tip
-  $lines = ($lines | append "---")
-  $lines = ($lines | append "💡 For detailed session context, check `c5t_list_notes {\"tags\": [\"session\"]}`")
-
-  $lines | str join (char newline)
+  $output | str trim
 }
 
-# Format list of repositories
+# Format list of repositories as markdown table
 export def format-repos-list [repos: list] {
   if ($repos | is-empty) {
     return "No repositories found."
   }
 
-  let items = $repos | each {|repo|
-      [
-        $"  • ($repo.remote)"
-        $"    ID: ($repo.id) | Path: ($repo.path)"
-        $"    Last accessed: ($repo.last_accessed_at)"
-      ] | str join (char newline)
+  let header = $"# Repositories \(($repos | length)\)\n\n"
+
+  let table_data = $repos | each {|repo|
+      {ID: $repo.id Remote: $repo.remote Path: $repo.path}
     }
 
-  let count = $repos | length
-  [
-    $"Known Repositories: ($count)"
-    ""
-    ...$items
-  ] | str join (char newline)
+  $header + ($table_data | table --index false | into string)
 }

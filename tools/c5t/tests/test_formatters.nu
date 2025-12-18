@@ -112,7 +112,7 @@ export def "test format-summary formats output" [] {
   let summary = {
     stats: {
       active_lists: 2
-      total_items: 15
+      total_tasks: 15
       backlog_total: 5
       todo_total: 4
       in_progress_total: 3
@@ -120,44 +120,50 @@ export def "test format-summary formats output" [] {
       done_total: 2
       cancelled_total: 0
     }
-    active_lists: [{name: "Project Alpha" total_count: 10 in_progress_count: 2 todo_count: 3}]
-    in_progress: [{content: "Working on X" priority: 5 list_name: "Alpha"}]
+    active_lists: [{name: "Project Alpha" total_count: 10 backlog_count: 5 todo_count: 3 in_progress_count: 2 review_count: 0 done_count: 0 cancelled_count: 0}]
+    in_progress: [
+      {content: "Working on X" priority: 5 list_name: "Alpha"}
+      {content: "Task with null priority" priority: null list_name: "Alpha"}
+    ]
     high_priority: []
     recently_completed: []
   }
 
   let output = format-summary $summary
 
-  assert ($output | str contains "Active Lists: 2")
+  # Check key content is present (now in table format)
+  assert ($output | str contains "Active Lists")
   assert ($output | str contains "Project Alpha")
+  assert ($output | str contains "Working on X")
+  assert ($output | str contains "Task with null priority")
 }
 
-# Test that items are sorted by priority (P1 first, nulls last)
-export def "test format-items-table sorts by priority" [] {
-  use ../formatters.nu format-items-table
+# Test that tasks are sorted by priority (P1 first, nulls last)
+export def "test format-tasks-table sorts by priority" [] {
+  use ../formatters.nu format-tasks-table
 
   let list = {id: 1 name: "Test List"}
-  let items = [
-    {id: 3 content: "No priority" status: "todo" priority: null started_at: null completed_at: null}
-    {id: 1 content: "P3 item" status: "todo" priority: 3 started_at: null completed_at: null}
-    {id: 2 content: "P1 item" status: "todo" priority: 1 started_at: null completed_at: null}
-    {id: 4 content: "P2 item" status: "todo" priority: 2 started_at: null completed_at: null}
+  let tasks = [
+    {id: 3 content: "No priority" status: "todo" priority: null started_at: null completed_at: null parent_id: null}
+    {id: 1 content: "P3 task" status: "todo" priority: 3 started_at: null completed_at: null parent_id: null}
+    {id: 2 content: "P1 task" status: "todo" priority: 1 started_at: null completed_at: null parent_id: null}
+    {id: 4 content: "P2 task" status: "todo" priority: 2 started_at: null completed_at: null parent_id: null}
   ]
 
-  let output = format-items-table $list $items
+  let output = format-tasks-table $list $tasks
 
   # P1 should appear before P2, P2 before P3, P3 before null
-  let p1_pos = $output | str index-of "P1 item"
-  let p2_pos = $output | str index-of "P2 item"
-  let p3_pos = $output | str index-of "P3 item"
+  let p1_pos = $output | str index-of "P1 task"
+  let p2_pos = $output | str index-of "P2 task"
+  let p3_pos = $output | str index-of "P3 task"
   let no_priority_pos = $output | str index-of "No priority"
 
   assert ($p1_pos < $p2_pos) "P1 should come before P2"
   assert ($p2_pos < $p3_pos) "P2 should come before P3"
-  assert ($p3_pos < $no_priority_pos) "P3 should come before items without priority"
+  assert ($p3_pos < $no_priority_pos) "P3 should come before tasks without priority"
 }
 
-# Test that format-items-list also sorts by priority
+# Test that format-items-list also sorts by priority (legacy formatter)
 export def "test format-items-list sorts by priority" [] {
   use ../formatters.nu format-items-list
 

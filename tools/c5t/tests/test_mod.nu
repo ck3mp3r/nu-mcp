@@ -17,10 +17,10 @@ export def "test list-tools has expected tools" [] {
   let names = $tools | get name
 
   # Check key tools exist
-  assert ("upsert_list" in $names)
-  assert ("upsert_item" in $names)
+  assert ("upsert_task_list" in $names)
+  assert ("upsert_task" in $names)
   assert ("upsert_note" in $names)
-  assert ("list_active" in $names)
+  assert ("list_task_lists" in $names)
   assert ("get_summary" in $names)
   assert ("search" in $names)
   assert ("list_repos" in $names)
@@ -33,8 +33,8 @@ export def "test call-tool rejects unknown tool" [] {
   assert ($output.stderr | str contains "Unknown tool")
 }
 
-export def "test upsert_list validates input" [] {
-  let output = nu -c "source tools/c5t/mod.nu; main call-tool 'upsert_list' '{}'"
+export def "test upsert_task_list validates input" [] {
+  let output = nu -c "source tools/c5t/mod.nu; main call-tool 'upsert_task_list' '{}'"
 
   assert ($output | str contains "required")
 }
@@ -44,9 +44,9 @@ export def "test schema has correct types" [] {
   let tools = $output | from json
 
   # Check ID fields are integers
-  let upsert_item = $tools | where name == "upsert_item" | first
-  assert ($upsert_item.input_schema.properties.list_id.type == "integer")
-  assert ($upsert_item.input_schema.properties.item_id.type == "integer")
+  let upsert_task = $tools | where name == "upsert_task" | first
+  assert ($upsert_task.input_schema.properties.list_id.type == "integer")
+  assert ($upsert_task.input_schema.properties.task_id.type == "integer")
 }
 
 # Test get_summary returns formatted output
@@ -63,11 +63,11 @@ export def "test get_summary returns output" [] {
 
 # --- repo_id parameter tests ---
 
-# Test upsert_list schema has repo_id parameter
-export def "test upsert_list schema has repo_id" [] {
+# Test upsert_task_list schema has repo_id parameter
+export def "test upsert_task_list schema has repo_id" [] {
   let output = nu tools/c5t/mod.nu list-tools
   let tools = $output | from json
-  let tool = $tools | where name == "upsert_list" | first
+  let tool = $tools | where name == "upsert_task_list" | first
 
   assert ("repo_id" in ($tool.input_schema.properties | columns))
   assert ($tool.input_schema.properties.repo_id.type == "integer")
@@ -83,11 +83,11 @@ export def "test upsert_note schema has repo_id" [] {
   assert ($tool.input_schema.properties.repo_id.type == "integer")
 }
 
-# Test list_active schema has repo_id parameter
-export def "test list_active schema has repo_id" [] {
+# Test list_task_lists schema has repo_id parameter
+export def "test list_task_lists schema has repo_id" [] {
   let output = nu tools/c5t/mod.nu list-tools
   let tools = $output | from json
-  let tool = $tools | where name == "list_active" | first
+  let tool = $tools | where name == "list_task_lists" | first
 
   assert ("repo_id" in ($tool.input_schema.properties | columns))
   assert ($tool.input_schema.properties.repo_id.type == "integer")

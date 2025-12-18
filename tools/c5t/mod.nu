@@ -14,8 +14,8 @@ def "main list-tools" [] {
 
   [
     {
-      name: "upsert_list"
-      description: "Create or update a todo list. Omit list_id to create new, provide list_id to update. Supports name, description, tags, and progress notes. Repository must be registered first with upsert_repo."
+      name: "upsert_task_list"
+      description: "Create or update a task list. Omit list_id to create new, provide list_id to update. Supports name, description, tags, and progress notes. Repository must be registered first with upsert_repo."
       input_schema: {
         type: "object"
         properties: {
@@ -29,7 +29,7 @@ def "main list-tools" [] {
           }
           name: {
             type: "string"
-            description: "Name of the todo list (required for new lists)"
+            description: "Name of the task list (required for new lists)"
           }
           description: {
             type: "string"
@@ -48,8 +48,8 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "list_active"
-      description: "SHOW TO USER. See all your active work at a glance."
+      name: "list_task_lists"
+      description: "list_task_lists returns tabular data that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {
@@ -70,22 +70,26 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "upsert_item"
-      description: "Create or update a todo item. Omit item_id to create new, provide item_id to update. Can set content, priority, status in one call. Auto-timestamps on status changes."
+      name: "upsert_task"
+      description: "Create or update a task. Omit task_id to create new, provide task_id to update. Can set content, priority, status in one call. Auto-timestamps on status changes. Use parent_id to create subtasks."
       input_schema: {
         type: "object"
         properties: {
           list_id: {
             type: "integer"
-            description: "ID of the todo list"
+            description: "ID of the task list"
           }
-          item_id: {
+          task_id: {
             type: "integer"
-            description: "ID of item to update (omit to create new)"
+            description: "ID of task to update (omit to create new)"
+          }
+          parent_id: {
+            type: "integer"
+            description: "ID of parent task (optional, for creating subtasks)"
           }
           content: {
             type: "string"
-            description: "Description of the todo item (required for new items)"
+            description: "Description of the task (required for new tasks)"
           }
           priority: {
             type: "integer"
@@ -95,7 +99,7 @@ def "main list-tools" [] {
           }
           status: {
             type: "string"
-            description: "Status (defaults to 'backlog' for new items)"
+            description: "Status (defaults to 'backlog' for new tasks)"
             enum: ["backlog" "todo" "in_progress" "review" "done" "cancelled"]
           }
         }
@@ -104,55 +108,55 @@ def "main list-tools" [] {
     }
 
     {
-      name: "complete_item"
-      description: "Mark item as complete (status='done'). Sets completed_at timestamp. Auto-archives list when this completes the last item."
+      name: "complete_task"
+      description: "Mark task as complete (status='done'). Sets completed_at timestamp."
       input_schema: {
         type: "object"
         properties: {
           list_id: {
             type: "integer"
-            description: "ID of the todo list containing the item"
+            description: "ID of the task list containing the task"
           }
-          item_id: {
+          task_id: {
             type: "integer"
-            description: "ID of the item to complete"
+            description: "ID of the task to complete"
           }
         }
-        required: ["list_id" "item_id"]
+        required: ["list_id" "task_id"]
       }
     }
     {
-      name: "delete_item"
-      description: "Remove a todo item from a list permanently."
+      name: "delete_task"
+      description: "Remove a task from a list permanently."
       input_schema: {
         type: "object"
         properties: {
           list_id: {
             type: "integer"
-            description: "ID of the todo list containing the item"
+            description: "ID of the task list containing the task"
           }
-          item_id: {
+          task_id: {
             type: "integer"
-            description: "ID of the item to delete"
+            description: "ID of the task to delete"
           }
         }
-        required: ["list_id" "item_id"]
+        required: ["list_id" "task_id"]
       }
     }
 
     {
-      name: "delete_list"
-      description: "Remove a todo list. Use force=true to delete list with items, otherwise fails if list has items."
+      name: "delete_task_list"
+      description: "Remove a task list. Use force=true to delete list with tasks, otherwise fails if list has tasks."
       input_schema: {
         type: "object"
         properties: {
           list_id: {
             type: "integer"
-            description: "ID of the todo list to delete"
+            description: "ID of the task list to delete"
           }
           force: {
             type: "boolean"
-            description: "If true, delete list even if it has items (default: false)"
+            description: "If true, delete list even if it has tasks (default: false)"
           }
         }
         required: ["list_id"]
@@ -174,51 +178,37 @@ def "main list-tools" [] {
     }
 
     {
-      name: "move_item"
-      description: "Move a todo item from one list to another."
+      name: "move_task"
+      description: "Move a task from one list to another."
       input_schema: {
         type: "object"
         properties: {
           source_list_id: {
             type: "integer"
-            description: "ID of the list containing the item"
+            description: "ID of the list containing the task"
           }
-          item_id: {
+          task_id: {
             type: "integer"
-            description: "ID of the item to move"
+            description: "ID of the task to move"
           }
           target_list_id: {
             type: "integer"
-            description: "ID of the list to move the item to"
+            description: "ID of the list to move the task to"
           }
         }
-        required: ["source_list_id" "item_id" "target_list_id"]
+        required: ["source_list_id" "task_id" "target_list_id"]
       }
     }
 
     {
-      name: "get_list"
-      description: "SHOW TO USER. Get list metadata (name, description, tags, status) without items."
+      name: "get_task_list"
+      description: "get_task_list returns list metadata that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {
           list_id: {
             type: "integer"
-            description: "ID of the todo list"
-          }
-        }
-        required: ["list_id"]
-      }
-    }
-    {
-      name: "archive_list"
-      description: "Manually archive a list (creates archive note). Works even if items aren't all complete."
-      input_schema: {
-        type: "object"
-        properties: {
-          list_id: {
-            type: "integer"
-            description: "ID of the todo list to archive"
+            description: "ID of the task list"
           }
         }
         required: ["list_id"]
@@ -226,7 +216,7 @@ def "main list-tools" [] {
     }
     {
       name: "export_data"
-      description: "Export all c5t data (lists, items, notes) as JSON backup file. Saves to ~/.local/share/c5t/backups/ by default."
+      description: "Export all c5t data (lists, tasks, notes) as JSON backup file. Saves to ~/.local/share/c5t/backups/ by default."
       input_schema: {
         type: "object"
         properties: {
@@ -253,40 +243,33 @@ def "main list-tools" [] {
     }
     {
       name: "list_backups"
-      description: "SHOW TO USER. List available backup files."
+      description: "list_backups returns backup file list that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {}
       }
     }
     {
-      name: "list_items"
-      description: "SHOW TO USER. View all todos with status, priority, and timestamps. Filter by status if needed."
+      name: "list_tasks"
+      description: "DISPLAY OUTPUT TO USER. View tasks grouped by status. Default shows all. Filter to specific status. Use parent_id to list subtasks of a specific task."
       input_schema: {
         type: "object"
         properties: {
           list_id: {
             type: "integer"
-            description: "ID of the todo list"
+            description: "ID of the task list"
           }
           status: {
-            type: "string"
-            description: "Filter by status (optional, or use 'active' to exclude done/cancelled)"
-            enum: ["backlog" "todo" "in_progress" "review" "done" "cancelled" "active"]
+            type: "array"
+            items: {
+              type: "string"
+              enum: ["backlog" "todo" "in_progress" "review" "done" "cancelled"]
+            }
+            description: "Filter to specific statuses. Examples: ['done'], ['backlog', 'todo'], ['in_progress', 'review']"
           }
-        }
-        required: ["list_id"]
-      }
-    }
-    {
-      name: "list_active_items"
-      description: "SHOW TO USER. See what's left to do (excludes completed/cancelled)."
-      input_schema: {
-        type: "object"
-        properties: {
-          list_id: {
+          parent_id: {
             type: "integer"
-            description: "ID of the todo list"
+            description: "Filter to subtasks of a specific parent task. When provided, only subtasks of this parent are returned."
           }
         }
         required: ["list_id"]
@@ -325,7 +308,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_notes"
-      description: "SHOW TO USER. Browse all saved notes and archived work. Filter by tags or type. Lost context? Look for notes tagged 'session'."
+      description: "list_notes returns tabular data that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {
@@ -336,7 +319,7 @@ def "main list-tools" [] {
           }
           note_type: {
             type: "string"
-            description: "Filter by note type: 'manual' (user-created notes), 'archived_todo' (completed todo lists) (optional)"
+            description: "Filter by note type: 'manual' (user-created notes), 'archived_todo' (completed task lists) (optional)"
             enum: ["manual" "archived_todo"]
           }
           limit: {
@@ -357,7 +340,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_note"
-      description: "SHOW TO USER. Retrieve a saved note or archived list."
+      description: "get_note returns note content that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {
@@ -371,7 +354,7 @@ def "main list-tools" [] {
     }
     {
       name: "search"
-      description: "SHOW TO USER. Find past work instantly. Searches all notes and archived todos with boolean operators (AND, OR, NOT)."
+      description: "search returns tabular results that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {
@@ -404,7 +387,7 @@ def "main list-tools" [] {
     }
     {
       name: "get_summary"
-      description: "SHOW TO USER. Quick status overview: active lists, in-progress items, priorities. Perfect for session start. For detailed context, check notes tagged 'session'."
+      description: "DISPLAY OUTPUT TO USER. Quick status overview of active work across lists."
       input_schema: {
         type: "object"
         properties: {
@@ -421,7 +404,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_repos"
-      description: "SHOW TO USER. List all known repositories that have c5t data."
+      description: "list_repos returns tabular data that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {}
@@ -454,7 +437,7 @@ def "main call-tool" [
   }
 
   match $tool_name {
-    "upsert_list" => {
+    "upsert_task_list" => {
       let list_id = if "list_id" in $parsed_args { $parsed_args.list_id } else { null }
       let name = if "name" in $parsed_args { $parsed_args.name } else { null }
       let description = if "description" in $parsed_args { $parsed_args.description } else { null }
@@ -471,42 +454,53 @@ def "main call-tool" [
       if $result.created {
         format-list-created $result
       } else {
-        $"✓ List updated
+        $"✓ Task list updated
   ID: ($result.list.id)
   Name: ($result.list.name)"
       }
     }
 
-    "list_active" => {
+    "list_task_lists" => {
       let tag_filter = if "tags" in $parsed_args { $parsed_args.tags } else { null }
       let all_repos = if "all_repos" in $parsed_args { $parsed_args.all_repos } else { false }
       let repo_id = if "repo_id" in $parsed_args { $parsed_args.repo_id } else { null }
 
       let result = if $all_repos {
-        get-active-lists $tag_filter --all-repos
+        get-task-lists --status "active" --all-repos
       } else if $repo_id != null {
-        get-active-lists $tag_filter --repo-id $repo_id
+        get-task-lists --status "active" --repo-id $repo_id
       } else {
-        get-active-lists $tag_filter
+        get-task-lists --status "active"
       }
 
       if not $result.success {
         return $result.error
       }
 
-      format-active-lists $result.lists
+      # Apply tag filter if provided
+      let filtered = if $tag_filter != null and ($tag_filter | is-not-empty) {
+        $result.lists | where {|list|
+          let list_tags = $list.tags
+          $tag_filter | any {|tag| $tag in $list_tags }
+        }
+      } else {
+        $result.lists
+      }
+
+      format-active-lists $filtered
     }
 
-    "upsert_item" => {
+    "upsert_task" => {
       if "list_id" not-in $parsed_args {
         return "Error: Missing required field: 'list_id'"
       }
 
       let list_id = $parsed_args.list_id
-      let item_id = if "item_id" in $parsed_args { $parsed_args.item_id } else { null }
+      let task_id = if "task_id" in $parsed_args { $parsed_args.task_id } else { null }
       let content = if "content" in $parsed_args { $parsed_args.content } else { null }
       let priority = if "priority" in $parsed_args { $parsed_args.priority } else { null }
       let status = if "status" in $parsed_args { $parsed_args.status } else { null }
+      let parent_id = if "parent_id" in $parsed_args { $parsed_args.parent_id } else { null }
 
       # Validate priority if provided
       if $priority != null {
@@ -524,69 +518,63 @@ def "main call-tool" [
         }
       }
 
-      let result = upsert-item $list_id $item_id $content $priority $status
+      let result = upsert-task $list_id $task_id $content $priority $status $parent_id
 
       if not $result.success {
         return $result.error
       }
 
       if $result.created {
-        format-item-created $result
-      } else if $result.archived {
-        format-item-updated-with-archive "item" $result.item.id "updated" $result.note_id
+        format-task-created $result
       } else {
-        $"✓ Item updated
-  ID: ($result.item.id)
-  Content: ($result.item.content)"
+        $"✓ Task updated
+  ID: ($result.task.id)
+  Content: ($result.task.content)"
       }
     }
 
-    "complete_item" => {
-      let validation = validate-item-update-input $parsed_args
+    "complete_task" => {
+      let validation = validate-task-update-input $parsed_args
       if not $validation.valid {
         return $validation.error
       }
 
       let list_id = $parsed_args.list_id
-      let item_id = $parsed_args.item_id
+      let task_id = $parsed_args.task_id
 
-      # Check if item exists
-      if not (item-exists $list_id $item_id) {
-        return $"Error: Item not found: ($item_id)"
+      # Check if task exists
+      if not (task-exists $list_id $task_id) {
+        return $"Error: Task not found: ($task_id)"
       }
 
-      let result = update-item-status $list_id $item_id "done"
+      let result = complete-task $list_id $task_id
 
       if not $result.success {
         return $result.error
       }
 
-      if $result.archived {
-        format-item-completed-with-archive $item_id $result.note_id
-      } else {
-        format-item-completed $item_id
-      }
+      format-task-completed $task_id
     }
 
-    "delete_item" => {
-      let validation = validate-item-update-input $parsed_args
+    "delete_task" => {
+      let validation = validate-task-update-input $parsed_args
       if not $validation.valid {
         return $validation.error
       }
 
       let list_id = $parsed_args.list_id
-      let item_id = $parsed_args.item_id
+      let task_id = $parsed_args.task_id
 
-      let result = delete-item $list_id $item_id
+      let result = delete-task $list_id $task_id
 
       if not $result.success {
         return $result.error
       }
 
-      $"✓ Item deleted \(ID: ($item_id)\)"
+      $"✓ Task deleted \(ID: ($task_id)\)"
     }
 
-    "delete_list" => {
+    "delete_task_list" => {
       if "list_id" not-in $parsed_args {
         return "Error: Missing required field: 'list_id'"
       }
@@ -601,9 +589,9 @@ def "main call-tool" [
       }
 
       if $force {
-        $"✓ List and all items deleted \(ID: ($list_id)\)"
+        $"✓ Task list and all tasks deleted \(ID: ($list_id)\)"
       } else {
-        $"✓ List deleted \(ID: ($list_id)\)"
+        $"✓ Task list deleted \(ID: ($list_id)\)"
       }
     }
 
@@ -623,13 +611,13 @@ def "main call-tool" [
       $"✓ Note deleted \(ID: ($note_id)\)"
     }
 
-    "move_item" => {
+    "move_task" => {
       if "source_list_id" not-in $parsed_args {
         return "Error: Missing required field: 'source_list_id'"
       }
 
-      if "item_id" not-in $parsed_args {
-        return "Error: Missing required field: 'item_id'"
+      if "task_id" not-in $parsed_args {
+        return "Error: Missing required field: 'task_id'"
       }
 
       if "target_list_id" not-in $parsed_args {
@@ -637,21 +625,21 @@ def "main call-tool" [
       }
 
       let source_list_id = $parsed_args.source_list_id
-      let item_id = $parsed_args.item_id
+      let task_id = $parsed_args.task_id
       let target_list_id = $parsed_args.target_list_id
 
-      let result = move-item $source_list_id $item_id $target_list_id
+      let result = move-task $source_list_id $task_id $target_list_id
 
       if not $result.success {
         return $result.error
       }
 
-      $"✓ Item moved \(ID: ($item_id)\)
+      $"✓ Task moved \(ID: ($task_id)\)
   From list: ($source_list_id)
   To list: ($target_list_id)"
     }
 
-    "get_list" => {
+    "get_task_list" => {
       if "list_id" not-in $parsed_args {
         return "Error: Missing required field: 'list_id'"
       }
@@ -665,23 +653,6 @@ def "main call-tool" [
       }
 
       format-list-detail $result.list
-    }
-
-    "archive_list" => {
-      if "list_id" not-in $parsed_args {
-        return "Error: Missing required field: 'list_id'"
-      }
-
-      let list_id = $parsed_args.list_id
-
-      let result = archive-list-manual $list_id
-
-      if not $result.success {
-        return $result.error
-      }
-
-      $"✓ List archived \(ID: ($list_id)\)
-  Archive note created \(Note ID: ($result.note_id)\)"
     }
 
     "export_data" => {
@@ -710,8 +681,9 @@ def "main call-tool" [
       $result.data | to json --indent 2 | save -f $filepath
 
       $"✓ Backup saved to ($filepath)
+  Repos: ($result.data.repos | length)
   Lists: ($result.data.lists | length)
-  Items: ($result.data.items | length)
+  Tasks: ($result.data.tasks | length)
   Notes: ($result.data.notes | length)"
     }
 
@@ -747,8 +719,9 @@ Use list_backups to see available backup files."
       }
 
       $"✓ Data restored from ($filepath)
+  Repos: ($result.imported.repos)
   Lists: ($result.imported.lists)
-  Items: ($result.imported.items)
+  Tasks: ($result.imported.tasks)
   Notes: ($result.imported.notes)"
     }
 
@@ -782,45 +755,44 @@ Use list_backups to see available backup files."
       [...$lines ...$file_lines "" "Use import_data with filename to restore."] | str join (char newline)
     }
 
-    "list_items" => {
+    "list_tasks" => {
       if "list_id" not-in $parsed_args {
         return "Error: Missing required field: 'list_id'"
       }
 
       let list_id = $parsed_args.list_id
       let status_filter = if "status" in $parsed_args { $parsed_args.status } else { null }
+      let parent_id = if "parent_id" in $parsed_args { $parsed_args.parent_id } else { null }
 
-      # Validate status if provided
-      if $status_filter != null and $status_filter != "active" {
-        let status_validation = validate-status $status_filter
-        if not $status_validation.valid {
-          return $status_validation.error
+      # Validate each status if array provided
+      if $status_filter != null {
+        for status in $status_filter {
+          let status_validation = validate-status $status
+          if not $status_validation.valid {
+            return $status_validation.error
+          }
         }
       }
 
-      let result = get-list-with-items $list_id $status_filter
+      # If parent_id provided, get subtasks instead
+      if $parent_id != null {
+        let result = get-subtasks $list_id $parent_id
+        if not $result.success {
+          return $result.error
+        }
+        if ($result.tasks | is-empty) {
+          return $"No subtasks found for parent task ($parent_id)."
+        }
+        return (format-subtasks-list $parent_id $result.tasks)
+      }
+
+      let result = get-list-with-tasks $list_id $status_filter
 
       if not $result.success {
         return $result.error
       }
 
-      format-items-table $result.list $result.items
-    }
-
-    "list_active_items" => {
-      if "list_id" not-in $parsed_args {
-        return "Error: Missing required field: 'list_id'"
-      }
-
-      let list_id = $parsed_args.list_id
-
-      let result = get-list-with-items $list_id "active"
-
-      if not $result.success {
-        return $result.error
-      }
-
-      format-items-table $result.list $result.items
+      format-tasks-table $result.list $result.tasks
     }
 
     "upsert_note" => {

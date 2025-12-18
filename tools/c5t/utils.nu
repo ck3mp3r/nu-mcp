@@ -166,8 +166,8 @@ export def validate-priority [priority: int] {
   }
 }
 
-# Validate item update input
-export def validate-item-update-input [args: record] {
+# Validate task update input
+export def validate-task-update-input [args: record] {
   if "list_id" not-in $args {
     return {
       valid: false
@@ -175,10 +175,10 @@ export def validate-item-update-input [args: record] {
     }
   }
 
-  if "item_id" not-in $args {
+  if "task_id" not-in $args {
     return {
       valid: false
-      error: "Missing required field: 'item_id'"
+      error: "Missing required field: 'task_id'"
     }
   }
 

@@ -58,16 +58,42 @@ c5t_update_item_status {"list_id": 1, "item_id": 1, "status": "done"}
 
 # Add progress notes
 c5t_update_notes {"list_id": 1, "notes": "## Progress\n\nCompleted research"}
-
-# When all items done → auto-archives as note
 ```
 
 **Statuses**: `backlog`, `todo`, `in_progress`, `review`, `done`, `cancelled`
 
 **Timestamps** (auto-managed):
-- `created_at`: Set when item is created
-- `started_at`: Set when item moves to `in_progress` status
-- `completed_at`: Set when item moves to `done` or `cancelled` status
+- `created_at`: Set when task is created
+- `started_at`: Set when task moves to `in_progress` status
+- `completed_at`: Set when task moves to `done` or `cancelled` status
+
+## Subtasks
+
+Break down complex tasks into smaller pieces:
+
+```bash
+# Create a parent task
+upsert_task {"list_id": 1, "content": "Implement authentication"}
+# → ID: 1
+
+# Create subtasks with parent_id
+upsert_task {"list_id": 1, "parent_id": 1, "content": "Research JWT libraries"}
+upsert_task {"list_id": 1, "parent_id": 1, "content": "Implement login endpoint"}
+upsert_task {"list_id": 1, "parent_id": 1, "content": "Add password hashing"}
+
+# View all subtasks for a parent task
+list_tasks {"list_id": 1, "parent_id": 1}
+
+# List tasks shows subtask count
+list_tasks {"list_id": 1}
+# → Parent tasks show "(3 subtasks)" indicator
+```
+
+**Notes:**
+- Subtasks inherit the same list as their parent
+- Subtasks can have their own priority and status
+- Parent tasks show subtask count in task lists
+- Use `list_tasks` with `parent_id` to view subtasks for a specific parent
 
 ## Notes Workflow
 
@@ -100,7 +126,7 @@ c5t_search {"query": "auth*"}  # Prefix matching
 c5t_search {"query": "api", "tags": ["backend"]}  # With tag filter
 ```
 
-**Note Types**: `manual`, `archived_todo`
+**Note Types**: `manual`
 
 ## Session Notes Pattern
 
@@ -162,18 +188,16 @@ Last updated: [timestamp]
 
 ## All Available Tools
 
-### Todo Lists
-- `c5t_upsert_list` - Create or update a list (omit list_id to create, provide to update). Supports name, description, tags, and progress notes.
-- `c5t_list_active` - List active lists
-- `c5t_get_list` - Get list metadata without items
-- `c5t_delete_list` - Remove a list (use force=true if has items)
-- `c5t_archive_list` - Manually archive a list
-- `c5t_upsert_item` - Create or update an item (omit item_id to create, provide to update). Can set content, priority, status.
-- `c5t_list_items` - View list with items grouped by status
-- `c5t_list_active_items` - View only active items
-- `c5t_complete_item` - Mark item done (shortcut for status='done')
-- `c5t_delete_item` - Remove an item
-- `c5t_move_item` - Move item to another list
+### Task Lists
+- `upsert_task_list` - Create or update a list (omit list_id to create, provide to update). Supports name, description, tags, and progress notes.
+- `list_task_lists` - List active lists
+- `get_task_list` - Get list metadata without tasks
+- `delete_task_list` - Remove a list (use force=true if has tasks)
+- `upsert_task` - Create or update a task (omit task_id to create, provide to update). Can set content, priority, status, parent_id for subtasks.
+- `list_tasks` - View tasks grouped by status (shows subtask count). Use `parent_id` param to list subtasks.
+- `complete_task` - Mark task done (shortcut for status='done')
+- `delete_task` - Remove a task
+- `move_task` - Move task to another list
 
 ### Notes
 - `c5t_upsert_note` - Create or update a note (omit note_id to create, provide to update)
@@ -190,18 +214,6 @@ Last updated: [timestamp]
 - `c5t_list_backups` - List available backup files
 - `c5t_import_data` - Import data from backup file (merge or replace)
 - `c5t_list_repos` - List all known repositories
-
-## Auto-Archive
-
-When all items in a todo list are completed (status `done` or `cancelled`), the list is automatically:
-1. Archived (status changed to `archived`)
-2. Converted to a markdown note with:
-   - List name, description, tags
-   - All completed items with timestamps
-   - Progress notes
-   - Source list ID for reference
-
-Archived notes are searchable and appear in `c5t_list_notes` with type `archived_todo`.
 
 ## Database
 
@@ -263,30 +275,36 @@ c5t_list_repos {}
 
 ```bash
 # 1. Create list for feature work
-c5t_upsert_list {"name": "Auth Feature", "tags": ["backend"]}
+upsert_task_list {"name": "Auth Feature", "tags": ["backend"]}
 # → ID: 1
 
 # 2. Add tasks one at a time as you discover them
-c5t_upsert_item {"list_id": 1, "content": "Research JWT", "priority": 1}
-c5t_upsert_item {"list_id": 1, "content": "Implement login", "priority": 1}
-c5t_upsert_item {"list_id": 1, "content": "Write tests", "priority": 2}
+upsert_task {"list_id": 1, "content": "Research JWT", "priority": 1}
+# → ID: 1
+upsert_task {"list_id": 1, "content": "Implement login", "priority": 1}
+# → ID: 2
+upsert_task {"list_id": 1, "content": "Write tests", "priority": 2}
+# → ID: 3
 
-# 3. Track progress - update status via upsert_item
-c5t_upsert_item {"list_id": 1, "item_id": 1, "status": "done"}
+# 3. Break down complex tasks with subtasks
+upsert_task {"list_id": 1, "parent_id": 2, "content": "Add /login endpoint"}
+upsert_task {"list_id": 1, "parent_id": 2, "content": "Add password validation"}
+
+# 4. Track progress - update status via upsert_task
+upsert_task {"list_id": 1, "task_id": 1, "status": "done"}
 
 # Add progress notes to the list
-c5t_upsert_list {"list_id": 1, "notes": "Decided on jsonwebtoken crate"}
+upsert_task_list {"list_id": 1, "notes": "Decided on jsonwebtoken crate"}
 
-# 4. Complete remaining items one by one
-c5t_complete_item {"list_id": 1, "item_id": 2}
-c5t_complete_item {"list_id": 1, "item_id": 3}
-# → Auto-archives as note when all done
+# 5. Complete remaining tasks
+complete_task {"list_id": 1, "task_id": 2}
+complete_task {"list_id": 1, "task_id": 3}
 
-# 5. Create reference notes
-c5t_upsert_note {"title": "JWT Best Practices", "content": "...", "tags": ["security"]}
+# 6. Create reference notes
+upsert_note {"title": "JWT Best Practices", "content": "...", "tags": ["security"]}
 
-# 6. Search later
-c5t_search {"query": "jwt AND security"}
+# 7. Search later
+search {"query": "jwt AND security"}
 ```
 
 ## Notes
