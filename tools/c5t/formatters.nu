@@ -8,31 +8,6 @@ def wrap-words [words_per_line: int = 10] {
   $chunks | each {|chunk| $chunk | str join " " } | str join (char newline)
 }
 
-# Helper: Convert list of records to markdown table
-def to-markdown-table [] {
-  let data = $in
-
-  if ($data | is-empty) {
-    return ""
-  }
-
-  let columns = $data | first | columns
-
-  # Header row
-  let header = "| " + ($columns | str join " | ") + " |"
-
-  # Separator row
-  let separator = "| " + ($columns | each { "---" } | str join " | ") + " |"
-
-  # Data rows
-  let rows = $data | each {|row|
-      let values = $columns | each {|col| $row | get $col | into string }
-      "| " + ($values | str join " | ") + " |"
-    }
-
-  [$header $separator ...$rows] | str join "\n"
-}
-
 # Format a todo list creation response
 export def format-list-created [result: record] {
   let tags_str = if $result.tags != null and ($result.tags | is-not-empty) {
