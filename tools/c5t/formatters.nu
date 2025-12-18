@@ -279,8 +279,7 @@ export def format-tasks-table [list: record tasks: list] {
           ""
         }
 
-        $output = $output + $"- ($priority_str)($task.content)($subtask_indicator)\n"
-        $output = $output + $"  ID: ($task.id)\n"
+        $output = $output + $"- \(($task.id)\) ($priority_str)($task.content)($subtask_indicator)\n"
       }
 
       $output = $output + "\n"
@@ -348,8 +347,7 @@ export def format-items-list [list: record items: list] {
           ""
         }
 
-        $output_lines = ($output_lines | append $"  • ($item.content)($priority_str)($time_info)")
-        $output_lines = ($output_lines | append $"    ID: ($item.id)")
+        $output_lines = ($output_lines | append $"  • \(($item.id)\)($priority_str) ($item.content)($time_info)")
       }
 
       $output_lines = ($output_lines | append "")
