@@ -1,5 +1,13 @@
 # Output formatting functions for c5t tool
 
+# Helper: Add line break after every N words
+def wrap-words [words_per_line: int = 10] {
+  let text = $in
+  let words = $text | split row " "
+  let chunks = $words | chunks $words_per_line
+  $chunks | each {|chunk| $chunk | str join " " } | str join "<br>"
+}
+
 # Helper: Convert list of records to markdown table
 def to-markdown-table [] {
   let data = $in
@@ -229,8 +237,7 @@ export def format-notes-updated [list_id: int] {
   ] | str join (char newline)
 }
 
-# Format list of tasks as markdown table
-# Format list of tasks as nushell table
+# Format list of tasks as markdown table grouped by status
 export def format-tasks-table [list: record tasks: list] {
   mut output = $"# ($list.name)\n**List ID:** ($list.id)\n\n"
 
@@ -264,25 +271,28 @@ export def format-tasks-table [list: record tasks: list] {
 
       $output = $output + $"## ($entry.emoji) ($entry.label)\n\n"
 
-      for task in $status_items {
-        let priority_str = if $task.priority != null {
-          $"P($task.priority) "
-        } else {
-          ""
+      # Build table data
+      let table_data = $status_items | each {|task|
+          let priority_str = if $task.priority != null {
+            $"P($task.priority)"
+          } else {
+            "-"
+          }
+
+          # Get subtasks for this task
+          let task_subtasks = $subtasks | where parent_id == $task.id
+          let subtask_indicator = if ($task_subtasks | is-not-empty) {
+            $" \(($task_subtasks | length) subtasks\)"
+          } else {
+            ""
+          }
+
+          let content_wrapped = $"($task.content)($subtask_indicator)" | wrap-words 10
+
+          {ID: $task.id P: $priority_str Content: $content_wrapped}
         }
 
-        # Get subtasks for this task
-        let task_subtasks = $subtasks | where parent_id == $task.id
-        let subtask_indicator = if ($task_subtasks | is-not-empty) {
-          $" \(($task_subtasks | length) subtasks\)"
-        } else {
-          ""
-        }
-
-        $output = $output + $"- \(($task.id)\) ($priority_str)($task.content)($subtask_indicator)\n"
-      }
-
-      $output = $output + "\n"
+      $output = $output + ($table_data | to-markdown-table) + "\n\n"
     }
   }
 
