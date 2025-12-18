@@ -5,7 +5,7 @@ def wrap-words [words_per_line: int = 10] {
   let text = $in
   let words = $text | split row " "
   let chunks = $words | chunks $words_per_line
-  $chunks | each {|chunk| $chunk | str join " " } | str join "<br>"
+  $chunks | each {|chunk| $chunk | str join " " } | str join (char newline)
 }
 
 # Helper: Convert list of records to markdown table
@@ -79,7 +79,7 @@ export def format-active-lists [lists: list] {
       {ID: $list.id Name: $list.name Tags: $tags_str Description: $desc}
     }
 
-  $header + ($table_data | to-markdown-table)
+  $header + ($table_data | table --index false | into string)
 }
 
 # Format list metadata detail
@@ -193,7 +193,7 @@ export def format-search-results [notes: list] {
       {ID: $note.id Type: $type_emoji Title: $note.title}
     }
 
-  $header + ($table_data | to-markdown-table)
+  $header + ($table_data | table --index false | into string)
 }
 
 # Format task creation response
@@ -290,10 +290,10 @@ export def format-tasks-table [list: record tasks: list] {
 
       let content_wrapped = $"($task.content)($subtask_indicator)" | wrap-words 10
 
-      {ID: $task.id S: (status-emoji $task.status) P: $priority_str Content: $content_wrapped}
+      {ID: $task.id P: $priority_str Content: $content_wrapped S: (status-emoji $task.status)}
     }
 
-  $output + ($table_data | to-markdown-table)
+  $output + ($table_data | table --index false | into string)
 }
 
 # Format list with items (legacy bullet format)
@@ -417,7 +417,7 @@ export def format-notes-list-detailed [notes: list] {
       {ID: $note.id Type: $type_emoji Title: $note.title Tags: $tags_str}
     }
 
-  $header + ($table_data | to-markdown-table)
+  $header + ($table_data | table --index false | into string)
 }
 
 # Format detailed note view
@@ -460,7 +460,7 @@ export def format-summary [summary: record] {
     {Status: "✅ Done" Count: $stats.done_total}
     {Status: "❌ Cancelled" Count: $stats.cancelled_total}
   ]
-  $output = $output + ($status_data | to-markdown-table) + "\n\n"
+  $output = $output + ($status_data | table --index false | into string) + "\n\n"
 
   # Active Lists table
   if ($summary.active_lists | length) > 0 {
@@ -477,7 +477,7 @@ export def format-summary [summary: record] {
           Cancelled: $list.cancelled_count
         }
       }
-    $output = $output + ($lists_data | to-markdown-table) + "\n\n"
+    $output = $output + ($lists_data | table --index false | into string) + "\n\n"
   }
 
   # In Progress - use bullet list for task content
@@ -526,5 +526,5 @@ export def format-repos-list [repos: list] {
       {ID: $repo.id Remote: $repo.remote Path: $repo.path}
     }
 
-  $header + ($table_data | to-markdown-table)
+  $header + ($table_data | table --index false | into string)
 }
