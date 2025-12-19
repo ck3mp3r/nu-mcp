@@ -1974,6 +1974,7 @@ export def export-data [] {
 export def import-data [
   data: record
 ] {
+  use utils.nu [ generate-id ]
   let db_path = get-db-path
 
   # Validate v2.0 format - must have repos
@@ -2022,19 +2023,19 @@ export def import-data [
 
   # Import repos
   for repo in $data.repos {
-    let sql = "INSERT INTO repo (remote, path, created_at, last_accessed_at) 
-               VALUES (?, ?, ?, ?) 
-               RETURNING id"
+    let new_id = generate-id
+    let sql = "INSERT INTO repo (id, remote, path, created_at, last_accessed_at) 
+               VALUES (?, ?, ?, ?, ?)"
     let params = [
+      $new_id
       $repo.remote
       ($repo.path? | default null)
       ($repo.created_at? | default (date now | format date "%Y-%m-%dT%H:%M:%S"))
       ($repo.last_accessed_at? | default (date now | format date "%Y-%m-%dT%H:%M:%S"))
     ]
 
-    let result = query-sql $db_path $sql $params
-    if $result.success and ($result.data | is-not-empty) {
-      let new_id = $result.data | first | get id
+    let result = execute-sql $db_path $sql $params
+    if $result.success {
       $repo_id_map = ($repo_id_map | upsert ($repo.id | into string) $new_id)
       $imported_repos = $imported_repos + 1
     }
@@ -2049,11 +2050,12 @@ export def import-data [
       continue
     }
 
+    let new_id = generate-id
     let tags_json = if $list.tags != null { $list.tags } else { null }
-    let sql = "INSERT INTO task_list (repo_id, name, description, notes, tags, status, created_at, updated_at, archived_at) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) 
-               RETURNING id"
+    let sql = "INSERT INTO task_list (id, repo_id, name, description, notes, tags, status, created_at, updated_at, archived_at) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     let params = [
+      $new_id
       $new_repo_id
       $list.name
       ($list.description? | default null)
@@ -2065,9 +2067,8 @@ export def import-data [
       ($list.archived_at? | default null)
     ]
 
-    let result = query-sql $db_path $sql $params
-    if $result.success and ($result.data | is-not-empty) {
-      let new_id = $result.data | first | get id
+    let result = execute-sql $db_path $sql $params
+    if $result.success {
       $list_id_map = ($list_id_map | upsert ($list.id | into string) $new_id)
       $imported_lists = $imported_lists + 1
     }
@@ -2086,10 +2087,11 @@ export def import-data [
       continue
     }
 
-    let sql = "INSERT INTO task (list_id, parent_id, content, status, priority, created_at, started_at, completed_at) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-               RETURNING id"
+    let new_id = generate-id
+    let sql = "INSERT INTO task (id, list_id, parent_id, content, status, priority, created_at, started_at, completed_at) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
     let params = [
+      $new_id
       $new_list_id
       null
       $task.content
@@ -2100,9 +2102,8 @@ export def import-data [
       ($task.completed_at? | default null)
     ]
 
-    let result = query-sql $db_path $sql $params
-    if $result.success and ($result.data | is-not-empty) {
-      let new_id = $result.data | first | get id
+    let result = execute-sql $db_path $sql $params
+    if $result.success {
       $task_id_map = ($task_id_map | upsert ($task.id | into string) $new_id)
       $imported_tasks = $imported_tasks + 1
     }
@@ -2128,9 +2129,11 @@ export def import-data [
       continue
     }
 
-    let sql = "INSERT INTO task (list_id, parent_id, content, status, priority, created_at, started_at, completed_at) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    let new_id = generate-id
+    let sql = "INSERT INTO task (id, list_id, parent_id, content, status, priority, created_at, started_at, completed_at) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
     let params = [
+      $new_id
       $new_list_id
       $new_parent_id
       $task.content
@@ -2156,10 +2159,12 @@ export def import-data [
       continue
     }
 
+    let new_id = generate-id
     let tags_json = if ($note.tags? | default null) != null { $note.tags } else { null }
-    let sql = "INSERT INTO note (repo_id, title, content, tags, note_type, created_at, updated_at) 
-               VALUES (?, ?, ?, ?, ?, ?, ?)"
+    let sql = "INSERT INTO note (id, repo_id, title, content, tags, note_type, created_at, updated_at) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     let params = [
+      $new_id
       $new_repo_id
       $note.title
       $note.content

@@ -86,13 +86,18 @@ CREATE TRIGGER IF NOT EXISTS note_ai AFTER INSERT ON note BEGIN
     VALUES (new.rowid, new.title, new.content);
 END;
 
-CREATE TRIGGER IF NOT EXISTS note_au AFTER UPDATE ON note BEGIN
-    UPDATE note_fts SET title = new.title, content = new.content 
-    WHERE rowid = new.rowid;
+-- Only sync FTS when title or content actually changes (not just updated_at)
+CREATE TRIGGER IF NOT EXISTS note_au AFTER UPDATE ON note 
+WHEN old.title != new.title OR old.content != new.content BEGIN
+    INSERT INTO note_fts(note_fts, rowid, title, content) 
+    VALUES('delete', old.rowid, old.title, old.content);
+    INSERT INTO note_fts(rowid, title, content) 
+    VALUES (new.rowid, new.title, new.content);
 END;
 
 CREATE TRIGGER IF NOT EXISTS note_ad AFTER DELETE ON note BEGIN
-    DELETE FROM note_fts WHERE rowid = old.rowid;
+    INSERT INTO note_fts(note_fts, rowid, title, content) 
+    VALUES('delete', old.rowid, old.title, old.content);
 END;
 
 -- Auto-update timestamp triggers

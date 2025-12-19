@@ -72,15 +72,14 @@ export def "test repo rejects invalid ID length" [] {
   with-test-db {
     let db_path = init-database
 
-    # Try to insert with wrong length ID - should fail
-    let result = try {
-      open $db_path | query db "INSERT INTO repo (id, remote) VALUES ('abc', 'github:test/repo')"
-      {success: true}
-    } catch {
-      {success: false}
-    }
+    # Try to insert with wrong length ID - CHECK constraint should prevent it
+    # Note: Nushell's query db doesn't throw on CHECK constraint violations,
+    # so we verify the row wasn't inserted instead of catching an error
+    open $db_path | query db "INSERT INTO repo (id, remote) VALUES ('abc', 'github:test/repo')"
 
-    assert (not $result.success) "Should reject ID with wrong length"
+    # Verify the row was NOT inserted (CHECK constraint worked)
+    let count = open $db_path | query db "SELECT COUNT(*) as cnt FROM repo" | get cnt.0
+    assert ($count == 0) "Should reject ID with wrong length - row count should be 0"
   }
 }
 
