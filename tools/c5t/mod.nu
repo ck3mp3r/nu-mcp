@@ -20,11 +20,11 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of list to update (omit to create new)"
           }
           repo_id: {
-            type: "integer"
+            type: "string"
             description: "Repository ID to create list in (optional, defaults to current directory's repo)"
           }
           name: {
@@ -59,7 +59,7 @@ def "main list-tools" [] {
             description: "Filter lists by tags - shows lists with ANY of these tags (optional)"
           }
           repo_id: {
-            type: "integer"
+            type: "string"
             description: "Repository ID to list from (optional, defaults to current directory's repo)"
           }
           all_repos: {
@@ -76,15 +76,15 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task list"
           }
           task_id: {
-            type: "integer"
+            type: "string"
             description: "ID of task to update (omit to create new)"
           }
           parent_id: {
-            type: "integer"
+            type: "string"
             description: "ID of parent task (optional, for creating subtasks)"
           }
           content: {
@@ -114,11 +114,11 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task list containing the task"
           }
           task_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task to complete"
           }
         }
@@ -132,11 +132,11 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task list containing the task"
           }
           task_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task to delete"
           }
         }
@@ -151,7 +151,7 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task list to delete"
           }
           force: {
@@ -169,7 +169,7 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           note_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the note to delete"
           }
         }
@@ -184,15 +184,15 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           source_list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the list containing the task"
           }
           task_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task to move"
           }
           target_list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the list to move the task to"
           }
         }
@@ -207,7 +207,7 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task list"
           }
         }
@@ -256,7 +256,7 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task list"
           }
           status: {
@@ -268,7 +268,7 @@ def "main list-tools" [] {
             description: "Filter to specific statuses. Examples: ['done'], ['backlog', 'todo'], ['in_progress', 'review']"
           }
           parent_id: {
-            type: "integer"
+            type: "string"
             description: "Filter to subtasks of a specific parent task. When provided, only subtasks of this parent are returned."
           }
         }
@@ -283,11 +283,11 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           note_id: {
-            type: "integer"
+            type: "string"
             description: "ID of note to update (omit to create new)"
           }
           repo_id: {
-            type: "integer"
+            type: "string"
             description: "Repository ID to create note in (optional, defaults to current directory's repo)"
           }
           title: {
@@ -328,7 +328,7 @@ def "main list-tools" [] {
             minimum: 1
           }
           repo_id: {
-            type: "integer"
+            type: "string"
             description: "Repository ID to list notes from (optional, defaults to current directory's repo)"
           }
           all_repos: {
@@ -345,7 +345,7 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           note_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the note to retrieve (from list_notes or search results)"
           }
         }
@@ -374,7 +374,7 @@ def "main list-tools" [] {
             default: 10
           }
           repo_id: {
-            type: "integer"
+            type: "string"
             description: "Repository ID to search in (optional, defaults to current directory's repo)"
           }
           all_repos: {
@@ -392,7 +392,7 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           repo_id: {
-            type: "integer"
+            type: "string"
             description: "Repository ID to get summary for (optional, defaults to current directory's repo)"
           }
           all_repos: {

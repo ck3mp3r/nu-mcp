@@ -43,10 +43,10 @@ export def "test schema has correct types" [] {
   let output = nu -c "source tools/c5t/mod.nu; main list-tools"
   let tools = $output | from json
 
-  # Check ID fields are integers
+  # Check ID fields are strings (8-char hex IDs)
   let upsert_task = $tools | where name == "upsert_task" | first
-  assert ($upsert_task.input_schema.properties.list_id.type == "integer")
-  assert ($upsert_task.input_schema.properties.task_id.type == "integer")
+  assert ($upsert_task.input_schema.properties.list_id.type == "string")
+  assert ($upsert_task.input_schema.properties.task_id.type == "string")
 }
 
 # Test get_summary returns formatted output
@@ -70,7 +70,7 @@ export def "test upsert_task_list schema has repo_id" [] {
   let tool = $tools | where name == "upsert_task_list" | first
 
   assert ("repo_id" in ($tool.input_schema.properties | columns))
-  assert ($tool.input_schema.properties.repo_id.type == "integer")
+  assert ($tool.input_schema.properties.repo_id.type == "string")
 }
 
 # Test upsert_note schema has repo_id parameter
@@ -80,7 +80,7 @@ export def "test upsert_note schema has repo_id" [] {
   let tool = $tools | where name == "upsert_note" | first
 
   assert ("repo_id" in ($tool.input_schema.properties | columns))
-  assert ($tool.input_schema.properties.repo_id.type == "integer")
+  assert ($tool.input_schema.properties.repo_id.type == "string")
 }
 
 # Test list_task_lists schema has repo_id parameter
@@ -90,7 +90,7 @@ export def "test list_task_lists schema has repo_id" [] {
   let tool = $tools | where name == "list_task_lists" | first
 
   assert ("repo_id" in ($tool.input_schema.properties | columns))
-  assert ($tool.input_schema.properties.repo_id.type == "integer")
+  assert ($tool.input_schema.properties.repo_id.type == "string")
 }
 
 # Test list_notes schema has repo_id parameter
@@ -100,7 +100,7 @@ export def "test list_notes schema has repo_id" [] {
   let tool = $tools | where name == "list_notes" | first
 
   assert ("repo_id" in ($tool.input_schema.properties | columns))
-  assert ($tool.input_schema.properties.repo_id.type == "integer")
+  assert ($tool.input_schema.properties.repo_id.type == "string")
 }
 
 # Test search schema has repo_id parameter
@@ -110,7 +110,7 @@ export def "test search schema has repo_id" [] {
   let tool = $tools | where name == "search" | first
 
   assert ("repo_id" in ($tool.input_schema.properties | columns))
-  assert ($tool.input_schema.properties.repo_id.type == "integer")
+  assert ($tool.input_schema.properties.repo_id.type == "string")
 }
 
 # Test get_summary schema has repo_id parameter
@@ -120,5 +120,5 @@ export def "test get_summary schema has repo_id" [] {
   let tool = $tools | where name == "get_summary" | first
 
   assert ("repo_id" in ($tool.input_schema.properties | columns))
-  assert ($tool.input_schema.properties.repo_id.type == "integer")
+  assert ($tool.input_schema.properties.repo_id.type == "string")
 }

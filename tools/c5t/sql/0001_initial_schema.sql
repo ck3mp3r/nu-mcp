@@ -1,10 +1,11 @@
--- c5t Database Schema
+-- c5t Database Schema v2
 -- SQLite database for context/memory management across LLM sessions
 -- Single database with repository isolation
+-- Uses 8-character hex TEXT primary keys for sync support
 
 -- Repository table - isolates data by git repository
 CREATE TABLE IF NOT EXISTS repo (
-    id INTEGER PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) == 8),
     remote TEXT UNIQUE NOT NULL,        -- e.g. "github:ck3mp3r/nu-mcp"
     path TEXT,                          -- local absolute path (last known)
     created_at TEXT DEFAULT (datetime('now')),
@@ -13,8 +14,8 @@ CREATE TABLE IF NOT EXISTS repo (
 
 -- Task List table - tracks collections of work items
 CREATE TABLE IF NOT EXISTS task_list (
-    id INTEGER PRIMARY KEY,
-    repo_id INTEGER NOT NULL,
+    id TEXT PRIMARY KEY CHECK(length(id) == 8),
+    repo_id TEXT NOT NULL CHECK(length(repo_id) == 8),
     name TEXT NOT NULL,
     description TEXT,
     notes TEXT,
@@ -28,9 +29,9 @@ CREATE TABLE IF NOT EXISTS task_list (
 
 -- Task table - individual work items within lists (supports subtasks via parent_id)
 CREATE TABLE IF NOT EXISTS task (
-    id INTEGER PRIMARY KEY,
-    list_id INTEGER NOT NULL,
-    parent_id INTEGER,  -- NULL = root task, otherwise FK to task.id for subtasks
+    id TEXT PRIMARY KEY CHECK(length(id) == 8),
+    list_id TEXT NOT NULL CHECK(length(list_id) == 8),
+    parent_id TEXT CHECK(parent_id IS NULL OR length(parent_id) == 8),  -- NULL = root task, otherwise FK to task.id for subtasks
     content TEXT NOT NULL,
     status TEXT DEFAULT 'backlog' CHECK(status IN ('backlog', 'todo', 'in_progress', 'review', 'done', 'cancelled')),
     priority INTEGER CHECK(priority BETWEEN 1 AND 5 OR priority IS NULL),
@@ -43,8 +44,8 @@ CREATE TABLE IF NOT EXISTS task (
 
 -- Note table - persistent markdown notes
 CREATE TABLE IF NOT EXISTS note (
-    id INTEGER PRIMARY KEY,
-    repo_id INTEGER NOT NULL,
+    id TEXT PRIMARY KEY CHECK(length(id) == 8),
+    repo_id TEXT NOT NULL CHECK(length(repo_id) == 8),
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     tags TEXT,  -- JSON array
@@ -70,26 +71,28 @@ CREATE INDEX IF NOT EXISTS idx_note_type ON note(note_type);
 CREATE INDEX IF NOT EXISTS idx_note_repo_type ON note(repo_id, note_type);
 
 -- Full-text search virtual table for notes
+-- Uses implicit rowid from note table (SQLite provides rowid even with TEXT PK)
 CREATE VIRTUAL TABLE IF NOT EXISTS note_fts USING fts5(
     title,
     content,
     content='note',
-    content_rowid='id'
+    content_rowid='rowid'
 );
 
 -- FTS sync triggers - keep full-text index in sync with note table
+-- Uses implicit rowid column (not the TEXT id column)
 CREATE TRIGGER IF NOT EXISTS note_ai AFTER INSERT ON note BEGIN
     INSERT INTO note_fts(rowid, title, content) 
-    VALUES (new.id, new.title, new.content);
+    VALUES (new.rowid, new.title, new.content);
 END;
 
 CREATE TRIGGER IF NOT EXISTS note_au AFTER UPDATE ON note BEGIN
     UPDATE note_fts SET title = new.title, content = new.content 
-    WHERE rowid = new.id;
+    WHERE rowid = new.rowid;
 END;
 
 CREATE TRIGGER IF NOT EXISTS note_ad AFTER DELETE ON note BEGIN
-    DELETE FROM note_fts WHERE rowid = old.id;
+    DELETE FROM note_fts WHERE rowid = old.rowid;
 END;
 
 -- Auto-update timestamp triggers
