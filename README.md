@@ -33,6 +33,7 @@ Combine both core command execution and extension tools.
 
 The `tools/` directory contains a growing catalog of useful MCP tools:
 
+- **c5t** (`tools/c5t/`) - **[EXPERIMENTAL]** Context/memory management across LLM sessions with git-backed sync
 - **Kubernetes** (`tools/k8s/`) - Complete kubectl/Helm interface with 22 tools and three-tier safety model
 - **ArgoCD** (`tools/argocd/`) - ArgoCD application and resource management via HTTP API
 - **Weather** (`tools/weather/`) - Current weather and forecasts using Open-Meteo API
