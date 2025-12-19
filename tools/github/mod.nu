@@ -3,6 +3,7 @@
 
 use utils.nu *
 use workflows.nu *
+use prs.nu *
 
 # Default main command
 def main [] {
@@ -297,19 +298,47 @@ def "main call-tool" [
       run-workflow $workflow --path $path --ref $ref --inputs $inputs | to json
     }
     "list_prs" => {
-      error make {msg: "list_prs not yet implemented"}
+      let path = get-optional $parsed_args "path" null
+      let state = get-optional $parsed_args "state" null
+      let author = get-optional $parsed_args "author" null
+      let base = get-optional $parsed_args "base" null
+      let limit = get-optional $parsed_args "limit" null
+      list-prs --path $path --state $state --author $author --base $base --limit $limit
     }
     "get_pr" => {
-      error make {msg: "get_pr not yet implemented"}
+      let number = $parsed_args | get number
+      let path = get-optional $parsed_args "path" null
+      get-pr $number --path $path
     }
     "get_pr_checks" => {
-      error make {msg: "get_pr_checks not yet implemented"}
+      let number = $parsed_args | get number
+      let path = get-optional $parsed_args "path" null
+      get-pr-checks $number --path $path
     }
     "create_pr" => {
-      error make {msg: "create_pr not yet implemented"}
+      let title = $parsed_args | get title
+      let path = get-optional $parsed_args "path" null
+      let body = get-optional $parsed_args "body" null
+      let base = get-optional $parsed_args "base" null
+      let head = get-optional $parsed_args "head" null
+      let draft = get-optional $parsed_args "draft" false
+      let labels = get-optional $parsed_args "labels" []
+      let reviewers = get-optional $parsed_args "reviewers" []
+      if $draft {
+        create-pr $title --path $path --body $body --base $base --head $head --draft --labels $labels --reviewers $reviewers
+      } else {
+        create-pr $title --path $path --body $body --base $base --head $head --labels $labels --reviewers $reviewers
+      }
     }
     "update_pr" => {
-      error make {msg: "update_pr not yet implemented"}
+      let number = $parsed_args | get number
+      let path = get-optional $parsed_args "path" null
+      let title = get-optional $parsed_args "title" null
+      let body = get-optional $parsed_args "body" null
+      let add_labels = get-optional $parsed_args "add_labels" []
+      let remove_labels = get-optional $parsed_args "remove_labels" []
+      let add_reviewers = get-optional $parsed_args "add_reviewers" []
+      update-pr $number --path $path --title $title --body $body --add-labels $add_labels --remove-labels $remove_labels --add-reviewers $add_reviewers
     }
     _ => {
       error make {msg: $"Unknown tool: ($tool_name)"}
