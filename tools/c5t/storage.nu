@@ -289,7 +289,7 @@ export def execute-sql [db_path: string sql: string params: list = []] {
   }
 }
 
-def query-sql [db_path: string sql: string params: list = []] {
+export def query-sql [db_path: string sql: string params: list = []] {
   try {
     let result = run-query-db $db_path $sql $params
     {success: true data: $result}
