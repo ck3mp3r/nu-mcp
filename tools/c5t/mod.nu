@@ -44,6 +44,10 @@ def "main list-tools" [] {
             type: "string"
             description: "Progress notes, decisions, or context for this list (markdown supported)"
           }
+          external_ref: {
+            type: "string"
+            description: "External reference ID such as Jira ticket or GitHub issue (e.g., 'PROJ-123', 'GH-456') (optional)"
+          }
         }
       }
     }
@@ -438,14 +442,28 @@ def "main call-tool" [
 
   match $tool_name {
     "upsert_task_list" => {
+      # Required positional params - validate at MCP level
+      let name = if "name" in $parsed_args { $parsed_args.name } else { "" }
+      let description = if "description" in $parsed_args { $parsed_args.description } else { "" }
+
+      # Resolve repo_id - use provided or get from CWD
+      let repo_id = if "repo_id" in $parsed_args and $parsed_args.repo_id != null {
+        $parsed_args.repo_id
+      } else {
+        let repo_result = get-current-repo-id
+        if not $repo_result.success {
+          return $repo_result.error
+        }
+        $repo_result.repo_id
+      }
+
+      # Optional flag params
       let list_id = if "list_id" in $parsed_args { $parsed_args.list_id } else { null }
-      let name = if "name" in $parsed_args { $parsed_args.name } else { null }
-      let description = if "description" in $parsed_args { $parsed_args.description } else { null }
       let tags = if "tags" in $parsed_args { $parsed_args.tags } else { null }
       let notes = if "notes" in $parsed_args { $parsed_args.notes } else { null }
-      let repo_id = if "repo_id" in $parsed_args { $parsed_args.repo_id } else { null }
+      let external_ref = if "external_ref" in $parsed_args { $parsed_args.external_ref } else { null }
 
-      let result = upsert-list $list_id $name $description $tags $notes $repo_id
+      let result = upsert-list $name $description $repo_id --list-id $list_id --tags $tags --notes $notes --external-ref $external_ref
 
       if not $result.success {
         return $result.error
@@ -491,34 +509,35 @@ def "main call-tool" [
     }
 
     "upsert_task" => {
+      # Required positional params - validate at MCP level
       if "list_id" not-in $parsed_args {
         return "Error: Missing required field: 'list_id'"
       }
-
       let list_id = $parsed_args.list_id
+
+      # Content is required for create, but for update we might want to keep existing
+      # For hybrid pattern, content is always required positional
+      let content = if "content" in $parsed_args { $parsed_args.content } else { "" }
+
+      # Optional flag params with defaults
       let task_id = if "task_id" in $parsed_args { $parsed_args.task_id } else { null }
-      let content = if "content" in $parsed_args { $parsed_args.content } else { null }
-      let priority = if "priority" in $parsed_args { $parsed_args.priority } else { null }
-      let status = if "status" in $parsed_args { $parsed_args.status } else { null }
+      let priority = if "priority" in $parsed_args { $parsed_args.priority } else { 3 }
+      let status = if "status" in $parsed_args { $parsed_args.status } else { "backlog" }
       let parent_id = if "parent_id" in $parsed_args { $parsed_args.parent_id } else { null }
 
-      # Validate priority if provided
-      if $priority != null {
-        let priority_validation = validate-priority $priority
-        if not $priority_validation.valid {
-          return $priority_validation.error
-        }
+      # Validate priority
+      let priority_validation = validate-priority $priority
+      if not $priority_validation.valid {
+        return $priority_validation.error
       }
 
-      # Validate status if provided
-      if $status != null {
-        let status_validation = validate-status $status
-        if not $status_validation.valid {
-          return $status_validation.error
-        }
+      # Validate status
+      let status_validation = validate-status $status
+      if not $status_validation.valid {
+        return $status_validation.error
       }
 
-      let result = upsert-task $list_id $task_id $content $priority $status $parent_id
+      let result = upsert-task $list_id $content --task-id $task_id --priority $priority --status $status --parent-id $parent_id
 
       if not $result.success {
         return $result.error
@@ -796,13 +815,26 @@ Use list_backups to see available backup files."
     }
 
     "upsert_note" => {
-      let note_id = if "note_id" in $parsed_args { $parsed_args.note_id } else { null }
-      let title = if "title" in $parsed_args { $parsed_args.title } else { null }
-      let content = if "content" in $parsed_args { $parsed_args.content } else { null }
-      let tags = if "tags" in $parsed_args { $parsed_args.tags } else { null }
-      let repo_id = if "repo_id" in $parsed_args { $parsed_args.repo_id } else { null }
+      # Required positional params
+      let title = if "title" in $parsed_args { $parsed_args.title } else { "" }
+      let content = if "content" in $parsed_args { $parsed_args.content } else { "" }
 
-      let result = upsert-note $note_id $title $content $tags $repo_id
+      # Resolve repo_id - use provided or get from CWD
+      let repo_id = if "repo_id" in $parsed_args and $parsed_args.repo_id != null {
+        $parsed_args.repo_id
+      } else {
+        let repo_result = get-current-repo-id
+        if not $repo_result.success {
+          return $repo_result.error
+        }
+        $repo_result.repo_id
+      }
+
+      # Optional flag params
+      let note_id = if "note_id" in $parsed_args { $parsed_args.note_id } else { null }
+      let tags = if "tags" in $parsed_args { $parsed_args.tags } else { null }
+
+      let result = upsert-note $title $content $repo_id --note-id $note_id --tags $tags
 
       if not $result.success {
         return $result.error

@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS task_list (
     description TEXT,
     notes TEXT,
     tags TEXT,  -- JSON array
+    external_ref TEXT,  -- Optional external reference (Jira ticket, GitHub issue, etc.)
     status TEXT DEFAULT 'active' CHECK(status IN ('active', 'archived')),
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),

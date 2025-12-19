@@ -33,10 +33,20 @@ export def "test call-tool rejects unknown tool" [] {
   assert ($output.stderr | str contains "Unknown tool")
 }
 
+# This test validates that empty input returns an error about required fields
+# Uses temp database to avoid touching real data
 export def "test upsert_task_list validates input" [] {
-  let output = nu -c "source tools/c5t/mod.nu; main call-tool 'upsert_task_list' '{}'"
+  use test_helpers.nu *
 
-  assert ($output | str contains "required")
+  with-test-db {
+    use ../storage.nu [ upsert-list init-database ]
+
+    # Test that empty name fails validation
+    let result = upsert-list "" "" "fake-repo-id"
+
+    assert (not $result.success)
+    assert ($result.error | str contains "empty")
+  }
 }
 
 export def "test schema has correct types" [] {

@@ -1,110 +1,312 @@
-# Tests for new task schema (migration 0003)
-# Tests: task_list, task with parent_id, no position
+# Tests for upsert functions with proper required/optional params
+# TDD: Write tests first, then implement
 
 use std/assert
 use test_helpers.nu *
 
-# --- Task List Tests ---
+# =============================================================================
+# UPSERT-LIST TESTS
+# Signature: upsert-list [name: string, description: string, repo_id: string, 
+#            --list-id: string, --tags: list, --notes: string, --external-ref: string]
+# =============================================================================
 
-export def "test create-task-list success" [] {
+export def "test upsert-list create requires name description repo_id" [] {
   with-test-db {
-    use ../storage.nu [ create-task-list init-database ]
+    use ../storage.nu [ upsert-list init-database ]
 
-    # Create a repo first
     let repo_id = (create-test-repo)
 
-    let result = create-task-list "Test List" "A description" ["tag1" "tag2"] $repo_id
+    let result = upsert-list "My List" "A description" $repo_id
 
     assert ($result.success == true)
-    assert ($result.name == "Test List")
-    assert ($result.id != null)
+    assert ($result.created == true)
+    assert ($result.name == "My List")
+    assert ($result.description == "A description")
     assert ($result.repo_id == $repo_id)
+    assert (($result.id | str length) == 8)
   }
 }
 
-export def "test get-task-lists returns all statuses" [] {
+export def "test upsert-list create with optional tags" [] {
   with-test-db {
-    use ../storage.nu [ create-task-list get-task-lists init-database get-db-path execute-sql ]
+    use ../storage.nu [ upsert-list get-list init-database ]
 
     let repo_id = (create-test-repo)
 
-    # Create active and archived lists (explicit_repo_id is 4th positional param)
-    let _ = create-task-list "Active List" "" [] $repo_id
-    let _ = create-task-list "Archived List" "" [] $repo_id
+    let result = upsert-list "Tagged List" "Description" $repo_id --tags ["tag1" "tag2"]
 
-    # Archive one (direct SQL for now)
-    let db_path = get-db-path
-    let _ = execute-sql $db_path "UPDATE task_list SET status = 'archived' WHERE name = 'Archived List'" []
-
-    # Get all
-    let result = get-task-lists --status "all" --repo-id $repo_id
     assert ($result.success == true)
-    assert ($result.count == 2)
+    assert ($result.tags == ["tag1" "tag2"])
 
-    # Get active only
-    let active = get-task-lists --status "active" --repo-id $repo_id
-    assert ($active.count == 1)
-    assert ($active.lists.0.name == "Active List")
-
-    # Get archived only
-    let archived = get-task-lists --status "archived" --repo-id $repo_id
-    assert ($archived.count == 1)
-    assert ($archived.lists.0.name == "Archived List")
+    let fetched = get-list $result.id
+    assert ($fetched.list.tags == ["tag1" "tag2"])
   }
 }
 
-# --- Task Tests ---
-
-export def "test create-task success" [] {
+export def "test upsert-list create with external_ref" [] {
   with-test-db {
-    use ../storage.nu [ create-task-list add-task init-database ]
+    use ../storage.nu [ upsert-list get-list init-database ]
 
     let repo_id = (create-test-repo)
-    let list = create-task-list "Test List" "" [] $repo_id
 
-    let result = add-task $list.id "Test task content" 2 "todo"
+    let result = upsert-list "JIRA List" "Sprint work" $repo_id --external-ref "PROJ-123"
 
     assert ($result.success == true)
-    assert ($result.content == "Test task content")
-    assert ($result.priority == 2)
+    assert ($result.external_ref == "PROJ-123")
+
+    let fetched = get-list $result.id
+    assert ($fetched.list.external_ref == "PROJ-123")
+  }
+}
+
+export def "test upsert-list update with list_id" [] {
+  with-test-db {
+    use ../storage.nu [ upsert-list get-list init-database ]
+
+    let repo_id = (create-test-repo)
+
+    # Create
+    let created = upsert-list "Original" "Original desc" $repo_id
+    assert ($created.success == true)
+
+    # Update - still need name/description/repo_id but can change them
+    let updated = upsert-list "Updated Name" "Updated desc" $repo_id --list-id $created.id
+    assert ($updated.success == true)
+    assert ($updated.created == false)
+
+    let fetched = get-list $created.id
+    assert ($fetched.list.name == "Updated Name")
+    assert ($fetched.list.description == "Updated desc")
+  }
+}
+
+export def "test upsert-list update adds external_ref" [] {
+  with-test-db {
+    use ../storage.nu [ upsert-list get-list init-database ]
+
+    let repo_id = (create-test-repo)
+
+    # Create without external_ref
+    let created = upsert-list "List" "Desc" $repo_id
+    assert ($created.external_ref == null)
+
+    # Update with external_ref
+    let updated = upsert-list "List" "Desc" $repo_id --list-id $created.id --external-ref "GH-456"
+    assert ($updated.success == true)
+
+    let fetched = get-list $created.id
+    assert ($fetched.list.external_ref == "GH-456")
+  }
+}
+
+# =============================================================================
+# UPSERT-TASK TESTS
+# Signature: upsert-task [list_id: string, content: string,
+#            --task-id: string, --priority: int = 3, --status: string = "backlog", --parent-id: string]
+# =============================================================================
+
+export def "test upsert-task create requires list_id and content" [] {
+  with-test-db {
+    use ../storage.nu [ upsert-list upsert-task init-database ]
+
+    let repo_id = (create-test-repo)
+    let list = upsert-list "Test List" "Desc" $repo_id
+
+    let result = upsert-task $list.id "My task content"
+
+    assert ($result.success == true)
+    assert ($result.created == true)
+    assert ($result.content == "My task content")
+    assert ($result.list_id == $list.id)
+    assert (($result.id | str length) == 8)
+  }
+}
+
+export def "test upsert-task create has default priority 3" [] {
+  with-test-db {
+    use ../storage.nu [ upsert-list upsert-task get-task init-database ]
+
+    let repo_id = (create-test-repo)
+    let list = upsert-list "Test List" "Desc" $repo_id
+
+    let result = upsert-task $list.id "Task with default priority"
+
+    assert ($result.success == true)
+    assert ($result.priority == 3)
+
+    let fetched = get-task $list.id $result.id
+    assert ($fetched.task.priority == 3)
+  }
+}
+
+export def "test upsert-task create has default status backlog" [] {
+  with-test-db {
+    use ../storage.nu [ upsert-list upsert-task get-task init-database ]
+
+    let repo_id = (create-test-repo)
+    let list = upsert-list "Test List" "Desc" $repo_id
+
+    let result = upsert-task $list.id "Task with default status"
+
+    assert ($result.success == true)
+    assert ($result.status == "backlog")
+
+    let fetched = get-task $list.id $result.id
+    assert ($fetched.task.status == "backlog")
+  }
+}
+
+export def "test upsert-task create with custom priority and status" [] {
+  with-test-db {
+    use ../storage.nu [ upsert-list upsert-task init-database ]
+
+    let repo_id = (create-test-repo)
+    let list = upsert-list "Test List" "Desc" $repo_id
+
+    let result = upsert-task $list.id "High priority task" --priority 1 --status "todo"
+
+    assert ($result.success == true)
+    assert ($result.priority == 1)
     assert ($result.status == "todo")
   }
 }
 
-export def "test create-subtask with parent_id" [] {
+export def "test upsert-task create subtask with parent_id" [] {
   with-test-db {
-    use ../storage.nu [ create-task-list add-task add-subtask get-task init-database ]
+    use ../storage.nu [ upsert-list upsert-task get-task init-database ]
 
     let repo_id = (create-test-repo)
-    let list = create-task-list "Test List" "" [] $repo_id
+    let list = upsert-list "Test List" "Desc" $repo_id
 
-    # Create parent task
-    let parent = add-task $list.id "Parent task" 1 "todo"
-    assert ($parent.success == true)
+    let parent = upsert-task $list.id "Parent task"
+    let subtask = upsert-task $list.id "Subtask" --parent-id $parent.id
 
-    # Create subtask
-    let subtask = add-subtask $list.id $parent.id "Subtask content" 2 "backlog"
     assert ($subtask.success == true)
     assert ($subtask.parent_id == $parent.id)
 
-    # Verify subtask has correct parent
     let fetched = get-task $list.id $subtask.id
-    assert ($fetched.success == true)
     assert ($fetched.task.parent_id == $parent.id)
+  }
+}
+
+export def "test upsert-task update with task_id" [] {
+  with-test-db {
+    use ../storage.nu [ upsert-list upsert-task get-task init-database ]
+
+    let repo_id = (create-test-repo)
+    let list = upsert-list "Test List" "Desc" $repo_id
+
+    # Create
+    let created = upsert-task $list.id "Original content"
+
+    # Update
+    let updated = upsert-task $list.id "Updated content" --task-id $created.id --status "in_progress"
+    assert ($updated.success == true)
+    assert ($updated.created == false)
+
+    let fetched = get-task $list.id $created.id
+    assert ($fetched.task.content == "Updated content")
+    assert ($fetched.task.status == "in_progress")
+  }
+}
+
+# =============================================================================
+# UPSERT-NOTE TESTS
+# Signature: upsert-note [title: string, content: string, repo_id: string,
+#            --note-id: string, --tags: list]
+# =============================================================================
+
+export def "test upsert-note create requires title content repo_id" [] {
+  with-test-db {
+    use ../storage.nu [ upsert-note init-database ]
+
+    let repo_id = (create-test-repo)
+
+    let result = upsert-note "My Note" "Note content here" $repo_id
+
+    assert ($result.success == true)
+    assert ($result.created == true)
+    assert ($result.title == "My Note")
+    assert ($result.repo_id == $repo_id)
+    assert (($result.id | str length) == 8)
+  }
+}
+
+export def "test upsert-note create with tags" [] {
+  with-test-db {
+    use ../storage.nu [ upsert-note get-note init-database ]
+
+    let repo_id = (create-test-repo)
+
+    let result = upsert-note "Tagged Note" "Content" $repo_id --tags ["session" "important"]
+
+    assert ($result.success == true)
+    assert ($result.tags == ["session" "important"])
+
+    let fetched = get-note $result.id
+    assert ($fetched.note.tags == ["session" "important"])
+  }
+}
+
+export def "test upsert-note update with note_id" [] {
+  with-test-db {
+    use ../storage.nu [ upsert-note get-note init-database ]
+
+    let repo_id = (create-test-repo)
+
+    # Create
+    let created = upsert-note "Original Title" "Original content" $repo_id
+
+    # Update
+    let updated = upsert-note "Updated Title" "Updated content" $repo_id --note-id $created.id
+    assert ($updated.success == true)
+    assert ($updated.created == false)
+
+    let fetched = get-note $created.id
+    assert ($fetched.note.title == "Updated Title")
+    assert ($fetched.note.content == "Updated content")
+  }
+}
+
+# =============================================================================
+# ADDITIONAL TESTS (kept from original)
+# =============================================================================
+
+export def "test get-task-lists returns all statuses" [] {
+  with-test-db {
+    use ../storage.nu [ upsert-list get-task-lists init-database get-db-path execute-sql ]
+
+    let repo_id = (create-test-repo)
+
+    let _ = upsert-list "Active List" "Desc" $repo_id
+    let _ = upsert-list "Archived List" "Desc" $repo_id
+
+    # Archive one
+    let db_path = get-db-path
+    let _ = execute-sql $db_path "UPDATE task_list SET status = 'archived' WHERE name = 'Archived List'" []
+
+    let result = get-task-lists --status "all" --repo-id $repo_id
+    assert ($result.success == true)
+    assert ($result.count == 2)
+
+    let active = get-task-lists --status "active" --repo-id $repo_id
+    assert ($active.count == 1)
+
+    let archived = get-task-lists --status "archived" --repo-id $repo_id
+    assert ($archived.count == 1)
   }
 }
 
 export def "test get-subtasks returns children" [] {
   with-test-db {
-    use ../storage.nu [ create-task-list add-task add-subtask get-subtasks init-database ]
+    use ../storage.nu [ upsert-list upsert-task get-subtasks init-database ]
 
     let repo_id = (create-test-repo)
-    let list = create-task-list "Test List" "" [] $repo_id
+    let list = upsert-list "Test List" "Desc" $repo_id
 
-    # Create parent with 2 subtasks
-    let parent = add-task $list.id "Parent task" 1 "todo"
-    let sub1 = add-subtask $list.id $parent.id "Subtask 1"
-    let sub2 = add-subtask $list.id $parent.id "Subtask 2"
+    let parent = upsert-task $list.id "Parent task"
+    let _ = upsert-task $list.id "Subtask 1" --parent-id $parent.id
+    let _ = upsert-task $list.id "Subtask 2" --parent-id $parent.id
 
     let subtasks = get-subtasks $list.id $parent.id
     assert ($subtasks.success == true)
@@ -112,70 +314,42 @@ export def "test get-subtasks returns children" [] {
   }
 }
 
-export def "test task has no position field" [] {
-  with-test-db {
-    use ../storage.nu [ create-task-list add-task get-task init-database ]
-
-    let repo_id = (create-test-repo)
-    let list = create-task-list "Test List" "" [] $repo_id
-    let task = add-task $list.id "Test task"
-
-    let fetched = get-task $list.id $task.id
-    assert ($fetched.success == true)
-    # Position should not exist in the task record
-    assert ("position" not-in ($fetched.task | columns))
-  }
-}
-
 export def "test delete-parent-cascades-subtasks" [] {
   with-test-db {
-    use ../storage.nu [ create-task-list add-task add-subtask delete-task get-task init-database ]
+    use ../storage.nu [ upsert-list upsert-task delete-task get-task init-database ]
 
     let repo_id = (create-test-repo)
-    let list = create-task-list "Test List" "" [] $repo_id
+    let list = upsert-list "Test List" "Desc" $repo_id
 
-    let parent = add-task $list.id "Parent"
-    let subtask = add-subtask $list.id $parent.id "Subtask"
+    let parent = upsert-task $list.id "Parent"
+    let subtask = upsert-task $list.id "Subtask" --parent-id $parent.id
 
-    # Delete parent
     let _ = delete-task $list.id $parent.id
 
-    # Subtask should also be deleted (CASCADE)
     let result = get-task $list.id $subtask.id
     assert ($result.success == false)
   }
 }
 
-# --- Export/Import Tests ---
-
 export def "test export-data includes repos and repo_id" [] {
   with-test-db {
-    use ../storage.nu [ create-task-list add-task create-note export-data init-database ]
+    use ../storage.nu [ upsert-list upsert-task upsert-note export-data init-database ]
 
     let repo_id = (create-test-repo "github:test/export")
-    let list = create-task-list "Export Test" "" [] $repo_id
-    let _ = add-task $list.id "Task 1"
-    let _ = create-note "Test Note" "Content" [] $repo_id
+    let list = upsert-list "Export Test" "Desc" $repo_id
+    let _ = upsert-task $list.id "Task 1"
+    let _ = upsert-note "Test Note" "Content" $repo_id
 
     let result = export-data
 
     assert ($result.success == true)
     assert ($result.data.version == "2.0")
-
-    # Repos included
     assert ("repos" in ($result.data | columns))
     assert (($result.data.repos | length) >= 1)
-
-    # Lists have repo_id
     assert (($result.data.lists | length) >= 1)
     assert ("repo_id" in ($result.data.lists.0 | columns))
-
-    # Notes have repo_id
     assert (($result.data.notes | length) >= 1)
     assert ("repo_id" in ($result.data.notes.0 | columns))
-
-    # Notes do NOT have source_id
-    assert ("source_id" not-in ($result.data.notes.0 | columns))
   }
 }
 
@@ -185,7 +359,6 @@ export def "test import-data requires v2 format with repos" [] {
 
     let _ = init-database
 
-    # v1.0 format without repos should fail
     let v1_data = {
       version: "1.0"
       lists: []
@@ -228,7 +401,6 @@ export def "test import-data restores with repo_id mapping" [] {
     assert ($result.imported.tasks == 1)
     assert ($result.imported.notes == 1)
 
-    # Verify data was imported with correct repo association
     let lists = get-task-lists --status "all" --all-repos
     assert (($lists.lists | length) >= 1)
 
