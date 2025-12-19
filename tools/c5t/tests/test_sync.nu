@@ -235,11 +235,10 @@ export def "test export-db-to-sync writes all data to jsonl" [] {
 
   # Set up temp database and sync dir
   let temp_dir = (mktemp -d)
-  let db_path = ($temp_dir | path join "test.db")
   let sync_dir = ($temp_dir | path join "sync")
   mkdir $sync_dir
 
-  $env.C5T_DB_PATH = $db_path
+  $env.XDG_DATA_HOME = $temp_dir
   init-database
 
   # Create test data - upsert-repo takes optional path, uses CWD if not given
@@ -317,11 +316,10 @@ export def "test import-sync-to-db updates existing with newer timestamp" [] {
 
   # Set up temp database and sync dir
   let temp_dir = (mktemp -d)
-  let db_path = ($temp_dir | path join "test.db")
   let sync_dir = ($temp_dir | path join "sync")
   mkdir $sync_dir
 
-  $env.C5T_DB_PATH = $db_path
+  $env.XDG_DATA_HOME = $temp_dir
   init-database
 
   # Create temp git repo for upsert-repo
