@@ -13,6 +13,9 @@ def main [] {
 def "main list-tools" [] {
   init-database | ignore
 
+  # Auto-refresh from sync on startup (silent - errors are ignored)
+  try { sync-refresh | ignore } catch { }
+
   [
     {
       name: "upsert_task_list"
