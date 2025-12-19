@@ -132,3 +132,16 @@ export def "test get_summary schema has repo_id" [] {
   assert ("repo_id" in ($tool.input_schema.properties | columns))
   assert ($tool.input_schema.properties.repo_id.type == "string")
 }
+
+# --- status parameter tests ---
+
+# Test list_task_lists schema has status parameter with enum
+export def "test list_task_lists schema has status" [] {
+  let output = nu tools/c5t/mod.nu list-tools
+  let tools = $output | from json
+  let tool = $tools | where name == "list_task_lists" | first
+
+  assert ("status" in ($tool.input_schema.properties | columns))
+  assert ($tool.input_schema.properties.status.type == "string")
+  assert ($tool.input_schema.properties.status.enum == ["active" "archived" "all"])
+}

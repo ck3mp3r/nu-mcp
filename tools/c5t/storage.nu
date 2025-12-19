@@ -74,9 +74,6 @@ export def get-repo [remote: string] {
   let result = query-sql $db_path $sql [$remote]
 
   if $result.success and ($result.data | length) > 0 {
-    # Update last_accessed_at
-    let update_sql = "UPDATE repo SET last_accessed_at = datetime('now') WHERE id = ?"
-    let _ = execute-sql $db_path $update_sql [$result.data.0.id]
     return {success: true exists: true repo_id: ($result.data.0.id)}
   }
 
@@ -114,7 +111,7 @@ export def upsert-repo [path?: string] {
 
   if $existing.exists {
     # Update path
-    let sql = "UPDATE repo SET path = ?, last_accessed_at = datetime('now') WHERE id = ?"
+    let sql = "UPDATE repo SET path = ? WHERE id = ?"
     let result = execute-sql $db_path $sql [$resolved_path $existing.repo_id]
 
     if not $result.success {
@@ -132,24 +129,6 @@ export def upsert-repo [path?: string] {
     }
     {success: true created: true repo_id: $id remote: $remote path: $resolved_path}
   }
-}
-
-# Get the last-accessed repository (most recently used)
-export def get-last-accessed-repo [] {
-  let db_path = init-database
-
-  let sql = "SELECT id, remote, path FROM repo ORDER BY last_accessed_at DESC LIMIT 1"
-  let result = query-sql $db_path $sql []
-
-  if not $result.success {
-    return {success: false error: $"Failed to get last-accessed repo: ($result.error)"}
-  }
-
-  if ($result.data | is-empty) {
-    return {success: false error: "No repositories registered. Use upsert_repo to register a repository first."}
-  }
-
-  {success: true repo_id: $result.data.0.id remote: $result.data.0.remote}
 }
 
 # Get repo ID - uses explicit repo_id if provided, otherwise resolves from CWD git repo
@@ -194,9 +173,9 @@ export def get-current-repo-id [repo_id?: string] {
 export def list-repos [] {
   let db_path = init-database
 
-  let sql = "SELECT id, remote, path, created_at, last_accessed_at 
+  let sql = "SELECT id, remote, path, created_at 
              FROM repo 
-             ORDER BY last_accessed_at DESC"
+             ORDER BY remote ASC"
 
   let result = query-sql $db_path $sql []
 
@@ -1711,7 +1690,7 @@ export def export-data [] {
   let db_path = get-db-path
 
   # Get all repos
-  let repos_sql = "SELECT id, remote, path, created_at, last_accessed_at 
+  let repos_sql = "SELECT id, remote, path, created_at 
                    FROM repo 
                    ORDER BY id"
   let repos_result = query-sql $db_path $repos_sql []
@@ -1829,14 +1808,13 @@ export def import-data [
   # Import repos
   for repo in $data.repos {
     let new_id = generate-id
-    let sql = "INSERT INTO repo (id, remote, path, created_at, last_accessed_at) 
-               VALUES (?, ?, ?, ?, ?)"
+    let sql = "INSERT INTO repo (id, remote, path, created_at) 
+               VALUES (?, ?, ?, ?)"
     let params = [
       $new_id
       $repo.remote
       ($repo.path? | default null)
       ($repo.created_at? | default (date now | format date "%Y-%m-%dT%H:%M:%S"))
-      ($repo.last_accessed_at? | default (date now | format date "%Y-%m-%dT%H:%M:%S"))
     ]
 
     let result = execute-sql $db_path $sql $params

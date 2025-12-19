@@ -156,7 +156,7 @@ export def "test write-sync-files creates jsonl files" [] {
   let sync_dir = ($temp_dir | path join "sync")
 
   let data = {
-    repos: [{id: "repo1234" remote: "git@github.com:test/repo" path: "/path" created_at: "2025-01-01" last_accessed_at: "2025-01-01"}]
+    repos: [{id: "repo1234" remote: "git@github.com:test/repo" path: "/path" created_at: "2025-01-01"}]
     lists: [{id: "list1234" repo_id: "repo1234" name: "Test" description: "Desc" tags: "tag1" notes: null external_ref: null created_at: "2025-01-01" updated_at: "2025-01-01"}]
     tasks: [{id: "task1234" list_id: "list1234" content: "Task" priority: 3 status: "todo" parent_id: null created_at: "2025-01-01" updated_at: "2025-01-01" started_at: null completed_at: null}]
     notes: [{id: "note1234" repo_id: "repo1234" title: "Note" content: "Content" tags: "" note_type: "manual" created_at: "2025-01-01" updated_at: "2025-01-01"}]
@@ -181,7 +181,7 @@ export def "test read-sync-files reads jsonl files" [] {
   let sync_dir = ($temp_dir | path join "sync")
 
   let data = {
-    repos: [{id: "repo1234" remote: "git@github.com:test/repo" path: "/path" created_at: "2025-01-01" last_accessed_at: "2025-01-01"}]
+    repos: [{id: "repo1234" remote: "git@github.com:test/repo" path: "/path" created_at: "2025-01-01"}]
     lists: [{id: "list1234" repo_id: "repo1234" name: "Test" description: "Desc" tags: "tag1" notes: null external_ref: null created_at: "2025-01-01" updated_at: "2025-01-01"}]
     tasks: [{id: "task1234" list_id: "list1234" content: "Task" priority: 3 status: "todo" parent_id: null created_at: "2025-01-01" updated_at: "2025-01-01" started_at: null completed_at: null}]
     notes: [{id: "note1234" repo_id: "repo1234" title: "Note" content: "Content" tags: "" note_type: "manual" created_at: "2025-01-01" updated_at: "2025-01-01"}]
@@ -288,7 +288,7 @@ export def "test import-sync-to-db imports new records" [] {
 
     # Create sync files with test data
     let data = {
-      repos: [{id: "testrepo" remote: "github:test/repo" path: "/test/path" created_at: "2025-01-01T00:00:00Z" last_accessed_at: "2025-01-01T00:00:00Z"}]
+      repos: [{id: "testrepo" remote: "github:test/repo" path: "/test/path" created_at: "2025-01-01T00:00:00Z"}]
       lists: [{id: "testlist" repo_id: "testrepo" name: "Imported List" description: "Imported" tags: "" notes: null status: "active" external_ref: null created_at: "2025-01-01T00:00:00Z" updated_at: "2025-01-01T00:00:00Z" archived_at: null}]
       tasks: [{id: "testtask" list_id: "testlist" content: "Imported Task" priority: 3 status: "todo" parent_id: null created_at: "2025-01-01T00:00:00Z" started_at: null completed_at: null}]
       notes: [{id: "testnote" repo_id: "testrepo" title: "Imported Note" content: "Content" tags: "" note_type: "manual" created_at: "2025-01-01T00:00:00Z" updated_at: "2025-01-01T00:00:00Z"}]
@@ -337,7 +337,7 @@ export def "test import-sync-to-db updates existing with newer timestamp" [] {
 
   # Create sync files with newer data (future timestamp)
   let data = {
-    repos: [{id: $repo.repo_id remote: $repo.remote path: $repo.path created_at: "2025-01-01T00:00:00Z" last_accessed_at: "2025-01-01T00:00:00Z"}]
+    repos: [{id: $repo.repo_id remote: $repo.remote path: $repo.path created_at: "2025-01-01T00:00:00Z"}]
     lists: [{id: $list.id repo_id: $repo.repo_id name: "New Name" description: "New Desc" tags: "" notes: null status: "active" external_ref: null created_at: "2025-01-01T00:00:00Z" updated_at: "2099-01-01T00:00:00Z" archived_at: null}]
     tasks: []
     notes: []
@@ -498,7 +498,7 @@ export def "test sync-refresh imports data from sync files" [] {
 
   # Write sync data directly (simulating a pull from remote)
   let data = {
-    repos: [{id: "testrepo" remote: "github:test/repo" path: "/test/path" created_at: "2025-01-01T00:00:00Z" last_accessed_at: "2025-01-01T00:00:00Z"}]
+    repos: [{id: "testrepo" remote: "github:test/repo" path: "/test/path" created_at: "2025-01-01T00:00:00Z"}]
     lists: []
     tasks: []
     notes: []

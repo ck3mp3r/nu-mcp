@@ -214,3 +214,19 @@ export def "test subtask foreign key to parent task works" [] {
     assert ($subtasks.0.parent_id == "d4e5f6a7") "Parent ID should be TEXT"
   }
 }
+
+# ============================================================================
+# SCHEMA CLEANUP TESTS
+# ============================================================================
+
+# Test that repo table does NOT have last_accessed_at column
+export def "test repo table has no last_accessed_at" [] {
+  with-test-db {
+    let db_path = init-database
+
+    let table_info = open $db_path | query db "PRAGMA table_info(repo)"
+    let col_names = $table_info | get name
+
+    assert ("last_accessed_at" not-in $col_names) "repo table should not have last_accessed_at column"
+  }
+}

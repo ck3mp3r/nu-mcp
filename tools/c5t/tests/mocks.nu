@@ -27,19 +27,8 @@ export def "query db" [
     }
   }
 
-  # Repository queries - check for last-accessed pattern first
+  # Repository queries
   if ($sql | str contains "FROM repo") {
-    # Last-accessed repo query (LIMIT 1 with ORDER BY last_accessed_at)
-    if ($sql | str contains "ORDER BY last_accessed_at DESC LIMIT 1") {
-      if "MOCK_query_db_REPO_LAST_ACCESSED" in $env {
-        let mock_data = $env | get MOCK_query_db_REPO_LAST_ACCESSED
-        if $mock_data.exit_code != 0 {
-          error make {msg: $"SQLite error: ($mock_data.error)"}
-        }
-        return $mock_data.output
-      }
-    }
-    # General repo queries
     if "MOCK_query_db_REPO" in $env {
       let mock_data = $env | get MOCK_query_db_REPO
       if $mock_data.exit_code != 0 {

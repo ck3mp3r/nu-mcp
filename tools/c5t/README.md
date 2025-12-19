@@ -391,7 +391,7 @@ sync_export {"message": "Added new auth tasks"}
 c5t uses **last-write-wins** based on `updated_at` timestamps:
 - When importing, if a record exists locally and in sync files, the newer one wins
 - Tasks use `completed_at` for comparison
-- Repos use `last_accessed_at`
+- Repos are overwritten (path is just metadata, identity is by remote)
 
 ### Sync Tools
 
