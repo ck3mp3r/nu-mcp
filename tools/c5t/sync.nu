@@ -47,9 +47,23 @@ export def git-commit-push [path: string message: string]: nothing -> record<suc
     }
 
     ^git commit -m $message --quiet
-    let push_output = (do { ^git push } | complete | get stdout | str trim)
+
+    # Check if remote exists
+    let remotes = (^git remote | str trim)
+    if ($remotes | is-empty) {
+      cd -
+      return {success: true message: "Committed (no remote configured)"}
+    }
+
+    # Use -u to set upstream tracking (needed for first push to empty remote)
+    let push_result = (do { ^git push -u origin HEAD } | complete)
     cd -
-    {success: true message: $push_output}
+
+    if $push_result.exit_code != 0 {
+      {success: false message: $"Push failed: ($push_result.stderr | str trim)"}
+    } else {
+      {success: true message: "Committed and pushed"}
+    }
   } catch {|err|
     cd -
     {success: false message: $"Git commit/push failed: ($err.msg)"}
