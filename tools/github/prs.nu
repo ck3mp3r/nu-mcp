@@ -75,8 +75,8 @@ export def get-pr-checks [
   run-gh $args --path ($path | default "")
 }
 
-# Create a new pull request
-export def create-pr [
+# Create a new pull request (internal helper - use upsert-pr instead)
+def create-pr-internal [
   title: string
   --path: string # Path to git repo (optional, defaults to cwd)
   --body: string # PR description
@@ -86,8 +86,6 @@ export def create-pr [
   --labels: list<string> = [] # Labels to add
   --reviewers: list<string> = [] # Reviewers to request
 ] {
-  check-tool-permission "create_pr"
-
   mut args = ["pr" "create" "--title" $title]
 
   if $body != null {
@@ -119,8 +117,8 @@ export def create-pr [
   run-gh $args --path ($path | default "")
 }
 
-# Update an existing pull request
-export def update-pr [
+# Update an existing pull request (internal helper)
+def update-pr-internal [
   number: int
   --path: string # Path to git repo (optional, defaults to cwd)
   --title: string # New title
@@ -129,8 +127,6 @@ export def update-pr [
   --remove-labels: list<string> = [] # Labels to remove
   --add-reviewers: list<string> = [] # Reviewers to add
 ] {
-  check-tool-permission "update_pr"
-
   mut args = ["pr" "edit" ($number | into string)]
 
   if $title != null {
@@ -156,4 +152,96 @@ export def update-pr [
   $args = ($args | append ["--json" "number,url"])
 
   run-gh $args --path ($path | default "")
+}
+
+# Get current git branch name
+def get-current-branch [--path: string = ""] {
+  if $path != "" {
+    cd $path
+  }
+  git branch --show-current | str trim
+}
+
+# Find existing PR by head branch
+def find-pr-by-head [
+  head: string
+  --path: string = ""
+] {
+  let args = [
+    "pr"
+    "list"
+    "--head"
+    $head
+    "--json"
+    "number,headRefName"
+  ]
+
+  let result = run-gh $args --path $path
+  let prs = $result | from json
+
+  if ($prs | length) > 0 {
+    $prs | first
+  } else {
+    null
+  }
+}
+
+# Upsert (create or update) a pull request
+# If a PR already exists for the head branch, updates it
+# Otherwise creates a new PR
+export def upsert-pr [
+  title: string
+  --path: string # Path to git repo (optional, defaults to cwd)
+  --body: string # PR description
+  --base: string # Base branch to merge into
+  --head: string # Head branch with changes (defaults to current branch)
+  --draft # Create as draft PR (only applies to new PRs)
+  --labels: list<string> = [] # Labels to add
+  --reviewers: list<string> = [] # Reviewers to request/add
+] {
+  check-tool-permission "upsert_pr"
+
+  let repo_path = $path | default ""
+
+  # Get head branch - use provided or current git branch
+  let head_branch = if $head != null {
+    $head
+  } else {
+    get-current-branch --path $repo_path
+  }
+
+  # Check if PR exists for this head branch
+  let existing_pr = find-pr-by-head $head_branch --path $repo_path
+
+  if $existing_pr != null {
+    # Update existing PR
+    update-pr-internal $existing_pr.number --path $repo_path --title $title --body $body --add-labels $labels --add-reviewers $reviewers
+  } else {
+    # Create new PR
+    mut args = ["pr" "create" "--title" $title "--head" $head_branch]
+
+    if $body != null {
+      $args = ($args | append ["--body" $body])
+    }
+
+    if $base != null {
+      $args = ($args | append ["--base" $base])
+    }
+
+    if $draft {
+      $args = ($args | append ["--draft"])
+    }
+
+    for label in $labels {
+      $args = ($args | append ["--label" $label])
+    }
+
+    for reviewer in $reviewers {
+      $args = ($args | append ["--reviewer" $reviewer])
+    }
+
+    $args = ($args | append ["--json" "number,url"])
+
+    run-gh $args --path $repo_path
+  }
 }

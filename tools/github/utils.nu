@@ -2,14 +2,20 @@
 # gh CLI wrapper, safety modes, and helper functions
 
 # Safety mode configuration
-# MCP_GITHUB_MODE: "readonly" (default) or "destructive"
+# MCP_GITHUB_MODE: "readonly" or "readwrite" (default)
+#
+# All current tools are non-destructive:
+# - readonly: list, get, view operations
+# - write: create/update PRs, trigger workflows (not destructive - doesn't delete anything)
+#
+# Future destructive tools (delete_pr, delete_branch, etc.) would need a "destructive" mode
 
 # Get current safety mode
 export def get-safety-mode [] {
-  $env.MCP_GITHUB_MODE? | default "readonly"
+  $env.MCP_GITHUB_MODE? | default "readwrite"
 }
 
-# List of readonly tools (always allowed)
+# List of readonly tools
 export def readonly-tools [] {
   [
     "list_workflows"
@@ -21,12 +27,11 @@ export def readonly-tools [] {
   ]
 }
 
-# List of destructive tools (require destructive mode)
-export def destructive-tools [] {
+# List of write tools (create/update - not destructive)
+export def write-tools [] {
   [
     "run_workflow"
-    "create_pr"
-    "update_pr"
+    "upsert_pr"
   ]
 }
 
@@ -35,8 +40,8 @@ export def is-tool-allowed [tool_name: string] {
   let mode = get-safety-mode
   match $mode {
     "readonly" => { $tool_name in (readonly-tools) }
-    "destructive" => { true }
-    _ => { $tool_name in (readonly-tools) } # Default to readonly for unknown modes
+    "readwrite" => { true } # All current tools are allowed
+    _ => { true } # Default to readwrite for unknown modes
   }
 }
 
@@ -45,7 +50,7 @@ export def check-tool-permission [tool_name: string] {
   if not (is-tool-allowed $tool_name) {
     let mode = get-safety-mode
     error make {
-      msg: $"Tool '($tool_name)' requires destructive mode. Current mode: ($mode). Set MCP_GITHUB_MODE=destructive to enable."
+      msg: $"Tool '($tool_name)' requires readwrite mode. Current mode: ($mode). Set MCP_GITHUB_MODE=readwrite to enable."
     }
   }
 }

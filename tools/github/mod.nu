@@ -79,7 +79,7 @@ def "main list-tools" [] {
     }
     {
       name: "run_workflow"
-      description: "Trigger a workflow run. Requires destructive safety mode."
+      description: "Trigger a workflow run"
       input_schema: {
         type: "object"
         properties: {
@@ -173,8 +173,8 @@ def "main list-tools" [] {
       }
     }
     {
-      name: "create_pr"
-      description: "Create a new pull request. Requires destructive safety mode."
+      name: "upsert_pr"
+      description: "Create or update a pull request. If a PR already exists for the head branch, it will be updated. Otherwise, a new PR is created."
       input_schema: {
         type: "object"
         properties: {
@@ -196,7 +196,7 @@ def "main list-tools" [] {
           }
           draft: {
             type: "boolean"
-            description: "Create as draft PR (optional, default: false)"
+            description: "Create as draft PR - only applies when creating new PR (optional, default: false)"
           }
           labels: {
             type: "array"
@@ -206,7 +206,7 @@ def "main list-tools" [] {
           reviewers: {
             type: "array"
             items: {type: "string"}
-            description: "Reviewers to request (optional)"
+            description: "Reviewers to request/add (optional)"
           }
           path: {
             type: "string"
@@ -214,47 +214,6 @@ def "main list-tools" [] {
           }
         }
         required: ["title"]
-      }
-    }
-    {
-      name: "update_pr"
-      description: "Update an existing pull request. Requires destructive safety mode."
-      input_schema: {
-        type: "object"
-        properties: {
-          number: {
-            type: "integer"
-            description: "The PR number to update"
-          }
-          title: {
-            type: "string"
-            description: "New title for the PR (optional)"
-          }
-          body: {
-            type: "string"
-            description: "New body for the PR (optional)"
-          }
-          add_labels: {
-            type: "array"
-            items: {type: "string"}
-            description: "Labels to add (optional)"
-          }
-          remove_labels: {
-            type: "array"
-            items: {type: "string"}
-            description: "Labels to remove (optional)"
-          }
-          add_reviewers: {
-            type: "array"
-            items: {type: "string"}
-            description: "Reviewers to add (optional)"
-          }
-          path: {
-            type: "string"
-            description: "Path to the git repository directory (optional, defaults to current directory)"
-          }
-        }
-        required: ["number"]
       }
     }
   ] | to json
@@ -315,7 +274,7 @@ def "main call-tool" [
       let path = get-optional $parsed_args "path" null
       get-pr-checks $number --path $path
     }
-    "create_pr" => {
+    "upsert_pr" => {
       let title = $parsed_args | get title
       let path = get-optional $parsed_args "path" null
       let body = get-optional $parsed_args "body" null
@@ -325,20 +284,10 @@ def "main call-tool" [
       let labels = get-optional $parsed_args "labels" []
       let reviewers = get-optional $parsed_args "reviewers" []
       if $draft {
-        create-pr $title --path $path --body $body --base $base --head $head --draft --labels $labels --reviewers $reviewers
+        upsert-pr $title --path $path --body $body --base $base --head $head --draft --labels $labels --reviewers $reviewers
       } else {
-        create-pr $title --path $path --body $body --base $base --head $head --labels $labels --reviewers $reviewers
+        upsert-pr $title --path $path --body $body --base $base --head $head --labels $labels --reviewers $reviewers
       }
-    }
-    "update_pr" => {
-      let number = $parsed_args | get number
-      let path = get-optional $parsed_args "path" null
-      let title = get-optional $parsed_args "title" null
-      let body = get-optional $parsed_args "body" null
-      let add_labels = get-optional $parsed_args "add_labels" []
-      let remove_labels = get-optional $parsed_args "remove_labels" []
-      let add_reviewers = get-optional $parsed_args "add_reviewers" []
-      update-pr $number --path $path --title $title --body $body --add-labels $add_labels --remove-labels $remove_labels --add-reviewers $add_reviewers
     }
     _ => {
       error make {msg: $"Unknown tool: ($tool_name)"}

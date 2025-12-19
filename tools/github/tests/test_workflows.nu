@@ -173,7 +173,7 @@ export def "test get-workflow-run handles not found" [] {
 }
 
 # =============================================================================
-# run-workflow tests (destructive - needs safety mode)
+# run-workflow tests (write - blocked in readonly mode)
 # =============================================================================
 
 export def "test run-workflow blocked in readonly mode" [] {
@@ -188,12 +188,13 @@ export def "test run-workflow blocked in readonly mode" [] {
   }
 
   assert ($result.exit_code != 0) "Should fail"
-  assert ($result.stderr | str contains "destructive mode") "Should mention destructive mode"
+  assert ($result.stderr | str contains "readwrite mode") "Should mention readwrite mode"
 }
 
-export def "test run-workflow allowed in destructive mode" [] {
+export def "test run-workflow allowed in readwrite mode" [] {
   # Mock key: workflow_run_ci_yaml (dots replaced)
-  let result = with-env {MCP_GITHUB_MODE: "destructive" MOCK_gh_workflow_run_ci_yaml: (mock-success "")} {
+  # Default mode is readwrite, so no need to set MCP_GITHUB_MODE
+  let result = with-env {MOCK_gh_workflow_run_ci_yaml: (mock-success "")} {
     nu --no-config-file -c "
       use tools/github/tests/mocks.nu *
       use tools/github/workflows.nu run-workflow
@@ -208,7 +209,7 @@ export def "test run-workflow allowed in destructive mode" [] {
 
 export def "test run-workflow with ref" [] {
   # Mock key: workflow_run_ci_yaml___ref_feature_branch (dots and dashes replaced)
-  let result = with-env {MCP_GITHUB_MODE: "destructive" MOCK_gh_workflow_run_ci_yaml___ref_feature_branch: (mock-success "")} {
+  let result = with-env {MOCK_gh_workflow_run_ci_yaml___ref_feature_branch: (mock-success "")} {
     nu --no-config-file -c "
       use tools/github/tests/mocks.nu *
       use tools/github/workflows.nu run-workflow
@@ -223,7 +224,7 @@ export def "test run-workflow with ref" [] {
 export def "test run-workflow with inputs" [] {
   # Mock key: workflow_run_deploy_yaml__f_environment_staging
   # -f becomes _f (dash to underscore), = becomes _ 
-  let result = with-env {MCP_GITHUB_MODE: "destructive" MOCK_gh_workflow_run_deploy_yaml__f_environment_staging: (mock-success "")} {
+  let result = with-env {MOCK_gh_workflow_run_deploy_yaml__f_environment_staging: (mock-success "")} {
     nu --no-config-file -c "
       use tools/github/tests/mocks.nu *
       use tools/github/workflows.nu run-workflow

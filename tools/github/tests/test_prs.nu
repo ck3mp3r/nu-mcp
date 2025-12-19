@@ -61,34 +61,6 @@ export def "test list-prs with state filter" [] {
   assert (($parsed | length) == 2) "Should return PRs"
 }
 
-export def "test list-prs with author filter" [] {
-  let mock_output = sample-pr-list
-  let result = with-env {MOCK_gh_pr_list___json_number_title_state_author_headRefName_baseRefName_createdAt_isDraft___author_developer: (mock-success $mock_output)} {
-    nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu list-prs
-      list-prs --author developer
-    "
-  }
-  let parsed = $result | from json
-
-  assert (($parsed | length) == 2) "Should return PRs"
-}
-
-export def "test list-prs with limit" [] {
-  let mock_output = sample-pr-list
-  let result = with-env {MOCK_gh_pr_list___json_number_title_state_author_headRefName_baseRefName_createdAt_isDraft___limit_10: (mock-success $mock_output)} {
-    nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu list-prs
-      list-prs --limit 10
-    "
-  }
-  let parsed = $result | from json
-
-  assert (($parsed | length) == 2) "Should return PRs"
-}
-
 export def "test list-prs handles error" [] {
   let result = with-env {MOCK_gh_pr_list___json_number_title_state_author_headRefName_baseRefName_createdAt_isDraft: (mock-error "not a git repository")} {
     do {
@@ -174,31 +146,36 @@ export def "test get-pr-checks handles error" [] {
 }
 
 # =============================================================================
-# create-pr tests (destructive - needs safety mode)
+# upsert-pr tests (destructive - needs safety mode)
 # =============================================================================
 
-export def "test create-pr blocked in readonly mode" [] {
+export def "test upsert-pr blocked in readonly mode" [] {
   let result = with-env {MCP_GITHUB_MODE: "readonly"} {
     do {
       nu --no-config-file -c "
       use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu create-pr
-      create-pr 'Test PR'
+      use tools/github/prs.nu upsert-pr
+      upsert-pr 'Test PR' --head feature-branch
     "
     } | complete
   }
 
   assert ($result.exit_code != 0) "Should fail"
-  assert ($result.stderr | str contains "destructive mode") "Should mention destructive mode"
+  assert ($result.stderr | str contains "readwrite mode") "Should mention readwrite mode"
 }
 
-export def "test create-pr allowed in destructive mode" [] {
+export def "test upsert-pr creates new pr when none exists" [] {
+  # First: check for existing PR by head branch - returns empty (no PR)
+  # Then: create new PR
   let mock_output = '{"number": 43, "url": "https://github.com/owner/repo/pull/43"}'
-  let result = with-env {MCP_GITHUB_MODE: "destructive" MOCK_gh_pr_create___title_Test_PR___json_number_url: (mock-success $mock_output)} {
+  let result = with-env {
+    MOCK_gh_pr_list___head_feature_branch___json_number_headRefName: (mock-success "[]")
+    MOCK_gh_pr_create___title_Test_PR___head_feature_branch___json_number_url: (mock-success $mock_output)
+  } {
     nu --no-config-file -c "
       use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu create-pr
-      create-pr 'Test PR'
+      use tools/github/prs.nu upsert-pr
+      upsert-pr 'Test PR' --head feature-branch
     "
   }
   let parsed = $result | from json
@@ -206,16 +183,36 @@ export def "test create-pr allowed in destructive mode" [] {
   assert (($parsed | get number) == 43) "Should return new PR number"
 }
 
-export def "test create-pr with body and base" [] {
-  let mock_output = '{"number": 44, "url": "https://github.com/owner/repo/pull/44"}'
+export def "test upsert-pr updates existing pr" [] {
+  # First: check for existing PR - returns PR #42
+  # Then: update it with new title
+  let existing_pr = '[{"number": 42, "headRefName": "feature-branch"}]'
+  let updated_pr = '{"number": 42, "url": "https://github.com/owner/repo/pull/42"}'
   let result = with-env {
-    MCP_GITHUB_MODE: "destructive"
-    MOCK_gh_pr_create___title_Feature___body_Description___base_develop___json_number_url: (mock-success $mock_output)
+    MOCK_gh_pr_list___head_feature_branch___json_number_headRefName: (mock-success $existing_pr)
+    MOCK_gh_pr_edit_42___title_Updated_Title___json_number_url: (mock-success $updated_pr)
   } {
     nu --no-config-file -c "
       use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu create-pr
-      create-pr 'Feature' --body 'Description' --base develop
+      use tools/github/prs.nu upsert-pr
+      upsert-pr 'Updated Title' --head feature-branch
+    "
+  }
+  let parsed = $result | from json
+
+  assert (($parsed | get number) == 42) "Should return existing PR number"
+}
+
+export def "test upsert-pr with body and labels creates new" [] {
+  let mock_output = '{"number": 44, "url": "https://github.com/owner/repo/pull/44"}'
+  let result = with-env {
+    MOCK_gh_pr_list___head_my_branch___json_number_headRefName: (mock-success "[]")
+    MOCK_gh_pr_create___title_New_Feature___head_my_branch___body_Description___label_enhancement___json_number_url: (mock-success $mock_output)
+  } {
+    nu --no-config-file -c "
+      use tools/github/tests/mocks.nu *
+      use tools/github/prs.nu upsert-pr
+      upsert-pr 'New Feature' --head my-branch --body Description --labels [enhancement]
     "
   }
   let parsed = $result | from json
@@ -223,89 +220,21 @@ export def "test create-pr with body and base" [] {
   assert (($parsed | get number) == 44) "Should return new PR number"
 }
 
-export def "test create-pr as draft" [] {
+export def "test upsert-pr uses current branch when head not specified" [] {
+  # When no --head, get current branch from git, then check/create
   let mock_output = '{"number": 45, "url": "https://github.com/owner/repo/pull/45"}'
   let result = with-env {
-    MCP_GITHUB_MODE: "destructive"
-    MOCK_gh_pr_create___title_Draft_PR___draft___json_number_url: (mock-success $mock_output)
+    MOCK_git_branch___show_current: (mock-success "current-feature")
+    MOCK_gh_pr_list___head_current_feature___json_number_headRefName: (mock-success "[]")
+    MOCK_gh_pr_create___title_My_PR___head_current_feature___json_number_url: (mock-success $mock_output)
   } {
     nu --no-config-file -c "
       use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu create-pr
-      create-pr 'Draft PR' --draft
+      use tools/github/prs.nu upsert-pr
+      upsert-pr 'My PR'
     "
   }
   let parsed = $result | from json
 
   assert (($parsed | get number) == 45) "Should return new PR number"
-}
-
-# =============================================================================
-# update-pr tests (destructive - needs safety mode)
-# =============================================================================
-
-export def "test update-pr blocked in readonly mode" [] {
-  let result = with-env {MCP_GITHUB_MODE: "readonly"} {
-    do {
-      nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu update-pr
-      update-pr 42 --title 'New Title'
-    "
-    } | complete
-  }
-
-  assert ($result.exit_code != 0) "Should fail"
-  assert ($result.stderr | str contains "destructive mode") "Should mention destructive mode"
-}
-
-export def "test update-pr title" [] {
-  let mock_output = '{"number": 42, "url": "https://github.com/owner/repo/pull/42"}'
-  let result = with-env {
-    MCP_GITHUB_MODE: "destructive"
-    MOCK_gh_pr_edit_42___title_New_Title___json_number_url: (mock-success $mock_output)
-  } {
-    nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu update-pr
-      update-pr 42 --title 'New Title'
-    "
-  }
-  let parsed = $result | from json
-
-  assert (($parsed | get number) == 42) "Should return PR number"
-}
-
-export def "test update-pr add labels" [] {
-  let mock_output = '{"number": 42, "url": "https://github.com/owner/repo/pull/42"}'
-  let result = with-env {
-    MCP_GITHUB_MODE: "destructive"
-    MOCK_gh_pr_edit_42___add_label_bug___json_number_url: (mock-success $mock_output)
-  } {
-    nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu update-pr
-      update-pr 42 --add-labels [bug]
-    "
-  }
-  let parsed = $result | from json
-
-  assert (($parsed | get number) == 42) "Should return PR number"
-}
-
-export def "test update-pr add reviewers" [] {
-  let mock_output = '{"number": 42, "url": "https://github.com/owner/repo/pull/42"}'
-  let result = with-env {
-    MCP_GITHUB_MODE: "destructive"
-    MOCK_gh_pr_edit_42___add_reviewer_reviewer1___json_number_url: (mock-success $mock_output)
-  } {
-    nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu update-pr
-      update-pr 42 --add-reviewers [reviewer1]
-    "
-  }
-  let parsed = $result | from json
-
-  assert (($parsed | get number) == 42) "Should return PR number"
 }

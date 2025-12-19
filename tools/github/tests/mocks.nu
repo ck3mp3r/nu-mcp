@@ -37,3 +37,20 @@ export def mock-var-name [...args: string] {
   let joined = ($args | str join "_" | str replace --all " " "_" | str replace --all "-" "_")
   $"MOCK_gh_($joined)"
 }
+
+# Mock git command - intercepts git CLI calls
+export def --wrapped git [...rest] {
+  let args = ($rest | str join "_" | str replace --all " " "_" | str replace --all "-" "_" | str replace --all "," "_" | str replace --all "." "_" | str replace --all "=" "_")
+  let mock_var = $"MOCK_git_($args)"
+
+  if $mock_var in $env {
+    let mock_data = ($env | get $mock_var | from json)
+    if $mock_data.exit_code != 0 {
+      error make {msg: ($mock_data.error? | default "git command failed")}
+    }
+    $mock_data.output
+  } else {
+    # No mock found - error! Never call real CLI in tests
+    error make {msg: $"No mock found for git command. Expected env var: ($mock_var)"}
+  }
+}
