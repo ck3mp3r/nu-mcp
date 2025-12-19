@@ -13,8 +13,8 @@ export def "test format-list-created formats output" [] {
   assert ($output | str contains "1234")
 }
 
-export def "test format-active-lists formats output" [] {
-  use ../formatters.nu format-active-lists
+export def "test format-task-lists formats output" [] {
+  use ../formatters.nu format-task-lists
 
   let lists = [
     {
@@ -28,16 +28,16 @@ export def "test format-active-lists formats output" [] {
     }
   ]
 
-  let output = format-active-lists $lists
+  let output = format-task-lists $lists "active"
 
   assert ($output | str contains "Sprint Tasks")
   assert ($output | str contains "sprint")
 }
 
-export def "test format-active-lists handles empty" [] {
-  use ../formatters.nu format-active-lists
+export def "test format-task-lists handles empty" [] {
+  use ../formatters.nu format-task-lists
 
-  let output = format-active-lists []
+  let output = format-task-lists [] "active"
   assert ($output | str contains "No active")
 }
 
@@ -239,4 +239,54 @@ export def "test format-item-updated accepts string id" [] {
   let output = format-item-updated "status" "ghi11111" "done"
   assert ($output | str contains "ghi11111") "Should contain item ID"
   assert ($output | str contains "status") "Should contain field name"
+}
+
+# --- format-task-lists tests (renamed from format-active-lists) ---
+
+export def "test format-task-lists active header" [] {
+  use ../formatters.nu format-task-lists
+
+  let lists = [{id: "abc12345" name: "Test List" tags: [] description: "" external_ref: null}]
+  let output = format-task-lists $lists "active"
+
+  assert ($output | str starts-with "# Active Task Lists")
+}
+
+export def "test format-task-lists archived header" [] {
+  use ../formatters.nu format-task-lists
+
+  let lists = [{id: "abc12345" name: "Test List" tags: [] description: "" external_ref: null}]
+  let output = format-task-lists $lists "archived"
+
+  assert ($output | str starts-with "# Archived Task Lists")
+}
+
+export def "test format-task-lists all header" [] {
+  use ../formatters.nu format-task-lists
+
+  let lists = [{id: "abc12345" name: "Test List" tags: [] description: "" external_ref: null}]
+  let output = format-task-lists $lists "all"
+
+  assert ($output | str starts-with "# All Task Lists")
+}
+
+export def "test format-task-lists empty active" [] {
+  use ../formatters.nu format-task-lists
+
+  let output = format-task-lists [] "active"
+  assert ($output == "No active task lists found.")
+}
+
+export def "test format-task-lists empty archived" [] {
+  use ../formatters.nu format-task-lists
+
+  let output = format-task-lists [] "archived"
+  assert ($output == "No archived task lists found.")
+}
+
+export def "test format-task-lists empty all" [] {
+  use ../formatters.nu format-task-lists
+
+  let output = format-task-lists [] "all"
+  assert ($output == "No task lists found.")
 }

@@ -37,13 +37,24 @@ export def format-list-created [result: record] {
   ] | str join (char newline)
 }
 
-# Format active task lists as markdown table
-export def format-active-lists [lists: list] {
+# Format task lists as markdown table with status-aware header
+export def format-task-lists [lists: list status: string = "active"] {
   if ($lists | is-empty) {
-    return "No active task lists found."
+    return (
+      match $status {
+        "active" => "No active task lists found."
+        "archived" => "No archived task lists found."
+        _ => "No task lists found."
+      }
+    )
   }
 
-  let header = $"# Active Task Lists \(($lists | length)\)\n\n"
+  let header_label = match $status {
+    "active" => "Active"
+    "archived" => "Archived"
+    _ => "All"
+  }
+  let header = $"# ($header_label) Task Lists \(($lists | length)\)\n\n"
 
   let table_data = $lists | each {|list|
       let tags_str = if ($list.tags | is-not-empty) {

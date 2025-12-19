@@ -61,6 +61,11 @@ def "main list-tools" [] {
       input_schema: {
         type: "object"
         properties: {
+          status: {
+            type: "string"
+            enum: ["active" "archived" "all"]
+            description: "Filter lists by status: 'active' (default), 'archived', or 'all'"
+          }
           tags: {
             type: "array"
             items: {type: "string"}
@@ -539,16 +544,17 @@ def "main call-tool" [
     }
 
     "list_task_lists" => {
+      let status = if "status" in $parsed_args { $parsed_args.status } else { "active" }
       let tag_filter = if "tags" in $parsed_args { $parsed_args.tags } else { null }
       let all_repos = if "all_repos" in $parsed_args { $parsed_args.all_repos } else { false }
       let repo_id = if "repo_id" in $parsed_args { $parsed_args.repo_id } else { null }
 
       let result = if $all_repos {
-        get-task-lists --status "active" --all-repos
+        get-task-lists --status $status --all-repos
       } else if $repo_id != null {
-        get-task-lists --status "active" --repo-id $repo_id
+        get-task-lists --status $status --repo-id $repo_id
       } else {
-        get-task-lists --status "active"
+        get-task-lists --status $status
       }
 
       if not $result.success {
@@ -565,7 +571,7 @@ def "main call-tool" [
         $result.lists
       }
 
-      format-active-lists $filtered
+      format-task-lists $filtered $status
     }
 
     "upsert_task" => {

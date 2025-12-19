@@ -197,7 +197,7 @@ export def export-db-to-sync [sync_dir: string] {
   }
 }
 
-# Import sync files to database (last-write-wins via updated_at/last_accessed_at)
+# Import sync files to database (last-write-wins via updated_at, repos just overwrite)
 export def import-sync-to-db [sync_dir: string] {
   use storage.nu [ get-db-path execute-sql query-sql ]
 
@@ -209,29 +209,24 @@ export def import-sync-to-db [sync_dir: string] {
 
   let db_path = get-db-path
 
-  # Import repos (upsert with last-write-wins)
+  # Import repos (simple overwrite - repos are identified by remote, path is just metadata)
   for repo in $data.repos {
-    let existing = (query-sql $db_path "SELECT id, last_accessed_at FROM repo WHERE id = ?" [$repo.id])
+    let existing = (query-sql $db_path "SELECT id FROM repo WHERE id = ?" [$repo.id])
 
     if $existing.success and ($existing.data | length) > 0 {
-      # Update if sync data is newer
-      let existing_time = $existing.data.0.last_accessed_at
-      if $repo.last_accessed_at > $existing_time {
-        execute-sql $db_path "UPDATE repo SET remote = ?, path = ?, last_accessed_at = ? WHERE id = ?" [
-          $repo.remote
-          $repo.path
-          $repo.last_accessed_at
-          $repo.id
-        ]
-      }
+      # Update path (the only mutable field)
+      execute-sql $db_path "UPDATE repo SET remote = ?, path = ? WHERE id = ?" [
+        $repo.remote
+        $repo.path
+        $repo.id
+      ]
     } else {
       # Insert new repo
-      execute-sql $db_path "INSERT INTO repo (id, remote, path, created_at, last_accessed_at) VALUES (?, ?, ?, ?, ?)" [
+      execute-sql $db_path "INSERT INTO repo (id, remote, path, created_at) VALUES (?, ?, ?, ?)" [
         $repo.id
         $repo.remote
         $repo.path
         $repo.created_at
-        $repo.last_accessed_at
       ]
     }
   }

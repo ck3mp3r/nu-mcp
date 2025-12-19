@@ -8,8 +8,7 @@ CREATE TABLE IF NOT EXISTS repo (
     id TEXT PRIMARY KEY CHECK(length(id) == 8),
     remote TEXT UNIQUE NOT NULL,        -- e.g. "github:ck3mp3r/nu-mcp"
     path TEXT,                          -- local absolute path (last known)
-    created_at TEXT DEFAULT (datetime('now')),
-    last_accessed_at TEXT DEFAULT (datetime('now'))
+    created_at TEXT DEFAULT (datetime('now'))
 );
 
 -- Task List table - tracks collections of work items
