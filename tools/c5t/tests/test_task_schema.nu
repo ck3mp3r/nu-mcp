@@ -408,3 +408,67 @@ export def "test import-data restores with repo_id mapping" [] {
     assert (($notes.notes | length) >= 1)
   }
 }
+
+# =============================================================================
+# ARCHIVE-TASK-LIST TESTS
+# =============================================================================
+
+export def "test archive-task-list sets archived_at and status" [] {
+  with-test-db {
+    use ../storage.nu [ upsert-list archive-task-list get-list init-database ]
+
+    let repo_id = (create-test-repo)
+    let list = upsert-list "List to Archive" "Desc" $repo_id
+
+    # Archive the list
+    let result = archive-task-list $list.id
+
+    assert ($result.success == true)
+    assert ($result.list_id == $list.id)
+
+    # Verify it's archived
+    let archived_list = get-list $list.id
+    assert ($archived_list.success == true)
+    assert ($archived_list.list.status == "archived")
+    assert ($archived_list.list.archived_at != null)
+    assert (($archived_list.list.archived_at | describe) == "string")
+  }
+}
+
+export def "test archive-task-list returns error if list not found" [] {
+  with-test-db {
+    use ../storage.nu [ archive-task-list init-database ]
+
+    let _ = init-database
+
+    let result = archive-task-list "badid123"
+
+    assert ($result.success == false)
+    assert ($result.error | str contains "not found")
+  }
+}
+
+export def "test archive-task-list is idempotent" [] {
+  with-test-db {
+    use ../storage.nu [ upsert-list archive-task-list get-list init-database ]
+
+    let repo_id = (create-test-repo)
+    let list = upsert-list "List to Archive" "Desc" $repo_id
+
+    # Archive once
+    let result1 = archive-task-list $list.id
+    assert ($result1.success == true)
+
+    let first_archived = get-list $list.id
+    let first_archived_at = $first_archived.list.archived_at
+
+    # Archive again
+    let result2 = archive-task-list $list.id
+    assert ($result2.success == true)
+
+    # Verify archived_at didn't change
+    let second_archived = get-list $list.id
+    assert ($second_archived.list.archived_at == $first_archived_at)
+    assert ($second_archived.list.status == "archived")
+  }
+}

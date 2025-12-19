@@ -153,6 +153,20 @@ def "main list-tools" [] {
     }
 
     {
+      name: "archive_task_list"
+      description: "Archive a task list by setting status to 'archived' and recording the archived timestamp. Archived lists are excluded from default list views but can be retrieved with status filter."
+      input_schema: {
+        type: "object"
+        properties: {
+          list_id: {
+            type: "string"
+            description: "ID of the task list to archive"
+          }
+        }
+        required: ["list_id"]
+      }
+    }
+    {
       name: "delete_task_list"
       description: "Remove a task list. Use force=true to delete list with tasks, otherwise fails if list has tasks."
       input_schema: {
@@ -637,6 +651,22 @@ def "main call-tool" [
       }
 
       $"✓ Task deleted \(ID: ($task_id)\)"
+    }
+
+    "archive_task_list" => {
+      if "list_id" not-in $parsed_args {
+        return "Error: Missing required field: 'list_id'"
+      }
+
+      let list_id = $parsed_args.list_id
+
+      let result = archive-task-list $list_id
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $"✓ Task list archived \(ID: ($list_id)\)"
     }
 
     "delete_task_list" => {
