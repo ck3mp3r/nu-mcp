@@ -4,6 +4,7 @@
 use storage.nu *
 use formatters.nu *
 use utils.nu *
+use sync.nu *
 
 def main [] {
   help main
@@ -11,6 +12,9 @@ def main [] {
 
 def "main list-tools" [] {
   init-database | ignore
+
+  # Auto-refresh from sync on startup (silent - errors are ignored)
+  try { sync-refresh | ignore } catch { }
 
   [
     {
@@ -20,11 +24,11 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of list to update (omit to create new)"
           }
           repo_id: {
-            type: "integer"
+            type: "string"
             description: "Repository ID to create list in (optional, defaults to current directory's repo)"
           }
           name: {
@@ -44,6 +48,10 @@ def "main list-tools" [] {
             type: "string"
             description: "Progress notes, decisions, or context for this list (markdown supported)"
           }
+          external_ref: {
+            type: "string"
+            description: "External reference ID such as Jira ticket or GitHub issue (e.g., 'PROJ-123', 'GH-456') (optional)"
+          }
         }
       }
     }
@@ -59,7 +67,7 @@ def "main list-tools" [] {
             description: "Filter lists by tags - shows lists with ANY of these tags (optional)"
           }
           repo_id: {
-            type: "integer"
+            type: "string"
             description: "Repository ID to list from (optional, defaults to current directory's repo)"
           }
           all_repos: {
@@ -76,15 +84,15 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task list"
           }
           task_id: {
-            type: "integer"
+            type: "string"
             description: "ID of task to update (omit to create new)"
           }
           parent_id: {
-            type: "integer"
+            type: "string"
             description: "ID of parent task (optional, for creating subtasks)"
           }
           content: {
@@ -114,11 +122,11 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task list containing the task"
           }
           task_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task to complete"
           }
         }
@@ -132,11 +140,11 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task list containing the task"
           }
           task_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task to delete"
           }
         }
@@ -151,7 +159,7 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task list to delete"
           }
           force: {
@@ -169,7 +177,7 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           note_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the note to delete"
           }
         }
@@ -184,15 +192,15 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           source_list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the list containing the task"
           }
           task_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task to move"
           }
           target_list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the list to move the task to"
           }
         }
@@ -207,7 +215,7 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task list"
           }
         }
@@ -256,7 +264,7 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           list_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the task list"
           }
           status: {
@@ -268,7 +276,7 @@ def "main list-tools" [] {
             description: "Filter to specific statuses. Examples: ['done'], ['backlog', 'todo'], ['in_progress', 'review']"
           }
           parent_id: {
-            type: "integer"
+            type: "string"
             description: "Filter to subtasks of a specific parent task. When provided, only subtasks of this parent are returned."
           }
         }
@@ -283,11 +291,11 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           note_id: {
-            type: "integer"
+            type: "string"
             description: "ID of note to update (omit to create new)"
           }
           repo_id: {
-            type: "integer"
+            type: "string"
             description: "Repository ID to create note in (optional, defaults to current directory's repo)"
           }
           title: {
@@ -328,7 +336,7 @@ def "main list-tools" [] {
             minimum: 1
           }
           repo_id: {
-            type: "integer"
+            type: "string"
             description: "Repository ID to list notes from (optional, defaults to current directory's repo)"
           }
           all_repos: {
@@ -345,7 +353,7 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           note_id: {
-            type: "integer"
+            type: "string"
             description: "ID of the note to retrieve (from list_notes or search results)"
           }
         }
@@ -374,7 +382,7 @@ def "main list-tools" [] {
             default: 10
           }
           repo_id: {
-            type: "integer"
+            type: "string"
             description: "Repository ID to search in (optional, defaults to current directory's repo)"
           }
           all_repos: {
@@ -392,7 +400,7 @@ def "main list-tools" [] {
         type: "object"
         properties: {
           repo_id: {
-            type: "integer"
+            type: "string"
             description: "Repository ID to get summary for (optional, defaults to current directory's repo)"
           }
           all_repos: {
@@ -423,6 +431,48 @@ def "main list-tools" [] {
         }
       }
     }
+    {
+      name: "sync_init"
+      description: "Initialize sync by setting up a git repository in the sync directory. Must be called once before using sync_export. Optionally set a remote URL for pushing."
+      input_schema: {
+        type: "object"
+        properties: {
+          remote_url: {
+            type: "string"
+            description: "Git remote URL to add as 'origin' (e.g., 'git@github.com:user/c5t-sync.git'). Optional - can be added later manually."
+          }
+        }
+      }
+    }
+    {
+      name: "sync_refresh"
+      description: "Pull latest sync data from remote and import into local database. Use this to get changes made on other machines. Performs: git pull -> import JSONL files."
+      input_schema: {
+        type: "object"
+        properties: {}
+      }
+    }
+    {
+      name: "sync_export"
+      description: "Export local database to sync files and push to remote. Use this to share changes with other machines. Performs: git pull -> export to JSONL -> git commit -> git push."
+      input_schema: {
+        type: "object"
+        properties: {
+          message: {
+            type: "string"
+            description: "Custom commit message (optional, defaults to auto-generated message with timestamp)"
+          }
+        }
+      }
+    }
+    {
+      name: "sync_status"
+      description: "Show sync status including: whether sync is configured, git status, and diff between local DB and sync files."
+      input_schema: {
+        type: "object"
+        properties: {}
+      }
+    }
   ] | to json
 }
 
@@ -438,14 +488,28 @@ def "main call-tool" [
 
   match $tool_name {
     "upsert_task_list" => {
+      # Required positional params - validate at MCP level
+      let name = if "name" in $parsed_args { $parsed_args.name } else { "" }
+      let description = if "description" in $parsed_args { $parsed_args.description } else { "" }
+
+      # Resolve repo_id - use provided or get from CWD
+      let repo_id = if "repo_id" in $parsed_args and $parsed_args.repo_id != null {
+        $parsed_args.repo_id
+      } else {
+        let repo_result = get-current-repo-id
+        if not $repo_result.success {
+          return $repo_result.error
+        }
+        $repo_result.repo_id
+      }
+
+      # Optional flag params
       let list_id = if "list_id" in $parsed_args { $parsed_args.list_id } else { null }
-      let name = if "name" in $parsed_args { $parsed_args.name } else { null }
-      let description = if "description" in $parsed_args { $parsed_args.description } else { null }
       let tags = if "tags" in $parsed_args { $parsed_args.tags } else { null }
       let notes = if "notes" in $parsed_args { $parsed_args.notes } else { null }
-      let repo_id = if "repo_id" in $parsed_args { $parsed_args.repo_id } else { null }
+      let external_ref = if "external_ref" in $parsed_args { $parsed_args.external_ref } else { null }
 
-      let result = upsert-list $list_id $name $description $tags $notes $repo_id
+      let result = upsert-list $name $description $repo_id --list-id $list_id --tags $tags --notes $notes --external-ref $external_ref
 
       if not $result.success {
         return $result.error
@@ -491,34 +555,35 @@ def "main call-tool" [
     }
 
     "upsert_task" => {
+      # Required positional params - validate at MCP level
       if "list_id" not-in $parsed_args {
         return "Error: Missing required field: 'list_id'"
       }
-
       let list_id = $parsed_args.list_id
+
+      # Content is required for create, but for update we might want to keep existing
+      # For hybrid pattern, content is always required positional
+      let content = if "content" in $parsed_args { $parsed_args.content } else { "" }
+
+      # Optional flag params with defaults
       let task_id = if "task_id" in $parsed_args { $parsed_args.task_id } else { null }
-      let content = if "content" in $parsed_args { $parsed_args.content } else { null }
-      let priority = if "priority" in $parsed_args { $parsed_args.priority } else { null }
-      let status = if "status" in $parsed_args { $parsed_args.status } else { null }
+      let priority = if "priority" in $parsed_args { $parsed_args.priority } else { 3 }
+      let status = if "status" in $parsed_args { $parsed_args.status } else { "backlog" }
       let parent_id = if "parent_id" in $parsed_args { $parsed_args.parent_id } else { null }
 
-      # Validate priority if provided
-      if $priority != null {
-        let priority_validation = validate-priority $priority
-        if not $priority_validation.valid {
-          return $priority_validation.error
-        }
+      # Validate priority
+      let priority_validation = validate-priority $priority
+      if not $priority_validation.valid {
+        return $priority_validation.error
       }
 
-      # Validate status if provided
-      if $status != null {
-        let status_validation = validate-status $status
-        if not $status_validation.valid {
-          return $status_validation.error
-        }
+      # Validate status
+      let status_validation = validate-status $status
+      if not $status_validation.valid {
+        return $status_validation.error
       }
 
-      let result = upsert-task $list_id $task_id $content $priority $status $parent_id
+      let result = upsert-task $list_id $content --task-id $task_id --priority $priority --status $status --parent-id $parent_id
 
       if not $result.success {
         return $result.error
@@ -796,13 +861,26 @@ Use list_backups to see available backup files."
     }
 
     "upsert_note" => {
-      let note_id = if "note_id" in $parsed_args { $parsed_args.note_id } else { null }
-      let title = if "title" in $parsed_args { $parsed_args.title } else { null }
-      let content = if "content" in $parsed_args { $parsed_args.content } else { null }
-      let tags = if "tags" in $parsed_args { $parsed_args.tags } else { null }
-      let repo_id = if "repo_id" in $parsed_args { $parsed_args.repo_id } else { null }
+      # Required positional params
+      let title = if "title" in $parsed_args { $parsed_args.title } else { "" }
+      let content = if "content" in $parsed_args { $parsed_args.content } else { "" }
 
-      let result = upsert-note $note_id $title $content $tags $repo_id
+      # Resolve repo_id - use provided or get from CWD
+      let repo_id = if "repo_id" in $parsed_args and $parsed_args.repo_id != null {
+        $parsed_args.repo_id
+      } else {
+        let repo_result = get-current-repo-id
+        if not $repo_result.success {
+          return $repo_result.error
+        }
+        $repo_result.repo_id
+      }
+
+      # Optional flag params
+      let note_id = if "note_id" in $parsed_args { $parsed_args.note_id } else { null }
+      let tags = if "tags" in $parsed_args { $parsed_args.tags } else { null }
+
+      let result = upsert-note $title $content $repo_id --note-id $note_id --tags $tags
 
       if not $result.success {
         return $result.error
@@ -930,6 +1008,48 @@ Use list_backups to see available backup files."
   Remote: ($result.remote)
   Path: ($result.path)"
       }
+    }
+
+    "sync_init" => {
+      let remote_url = if "remote_url" in $parsed_args { $parsed_args.remote_url } else { null }
+      let result = sync-init $remote_url
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $result.message
+    }
+
+    "sync_refresh" => {
+      let result = sync-refresh
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $result.message
+    }
+
+    "sync_export" => {
+      let message = if "message" in $parsed_args { $parsed_args.message } else { null }
+      let result = sync-export $message
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $result.message
+    }
+
+    "sync_status" => {
+      let result = sync-status
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $result.message
     }
 
     _ => {

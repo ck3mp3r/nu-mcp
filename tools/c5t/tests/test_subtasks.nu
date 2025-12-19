@@ -10,7 +10,7 @@ export def "test upsert_task schema has parent_id" [] {
   let tool = $tools | where name == "upsert_task" | first
 
   assert ("parent_id" in ($tool.input_schema.properties | columns))
-  assert ($tool.input_schema.properties.parent_id.type == "integer")
+  assert ($tool.input_schema.properties.parent_id.type == "string")
 }
 
 # Test list_tasks shows subtasks with parent tasks
@@ -41,7 +41,7 @@ export def "test list_tasks schema has parent_id" [] {
   let tool = $tools | where name == "list_tasks" | first
 
   assert ("parent_id" in ($tool.input_schema.properties | columns))
-  assert ($tool.input_schema.properties.parent_id.type == "integer")
+  assert ($tool.input_schema.properties.parent_id.type == "string")
 }
 
 # Test list_tasks status is array type
@@ -66,15 +66,15 @@ export def "test list_tasks status excludes active magic value" [] {
 
 # Integration test: list_tasks with parent_id returns subtasks
 export def "test list_tasks with parent_id executes" [] {
-  # Call with non-existent IDs - should return "No subtasks" message, not crash
-  let output = nu tools/c5t/mod.nu call-tool list_tasks '{"list_id": 99999, "parent_id": 99999}'
+  # Call with non-existent IDs (8-char hex) - should return "No subtasks" message, not crash
+  let output = nu tools/c5t/mod.nu call-tool list_tasks '{"list_id": "ffffffff", "parent_id": "eeeeeeee"}'
   assert ($output | str contains "No subtasks")
 }
 
 # Integration test: list_tasks tool can be called without error  
 export def "test list_tasks tool executes" [] {
-  # Call with non-existent ID - should return error or empty, not crash
-  let output = nu tools/c5t/mod.nu call-tool list_tasks '{"list_id": 99999}'
+  # Call with non-existent ID (8-char hex) - should return error or empty, not crash
+  let output = nu tools/c5t/mod.nu call-tool list_tasks '{"list_id": "ffffffff"}'
   # Just verify it doesn't crash - output will be error or empty
   assert (($output | str length) > 0)
 }

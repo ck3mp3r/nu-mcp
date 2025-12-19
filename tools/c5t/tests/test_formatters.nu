@@ -187,3 +187,56 @@ export def "test format-items-list sorts by priority" [] {
   assert ($p2_pos < $p3_pos) "P2 should come before P3"
   assert ($p3_pos < $no_priority_pos) "P3 should come before items without priority"
 }
+
+# Test format-subtasks-list with string IDs (not int)
+export def "test format-subtasks-list accepts string parent_id" [] {
+  use ../formatters.nu format-subtasks-list
+
+  let parent_id = "cf527fce" # 8-char hex string ID
+  let tasks = [
+    {id: "abc12345" content: "Subtask 1" status: "todo" priority: 2 started_at: null completed_at: null}
+    {id: "def67890" content: "Subtask 2" status: "done" priority: 1 started_at: null completed_at: "2025-01-15"}
+  ]
+
+  let output = format-subtasks-list $parent_id $tasks
+
+  assert ($output | str contains "cf527fce") "Should contain parent ID"
+  assert ($output | str contains "Subtask 1") "Should contain first subtask"
+  assert ($output | str contains "Subtask 2") "Should contain second subtask"
+}
+
+# Test format-subtasks-list handles empty list with string ID
+export def "test format-subtasks-list handles empty with string id" [] {
+  use ../formatters.nu format-subtasks-list
+
+  let output = format-subtasks-list "abcd1234" []
+  assert ($output | str contains "No subtasks") "Should show no subtasks message"
+  assert ($output | str contains "abcd1234") "Should contain parent ID"
+}
+
+# Test format-task-completed accepts string ID
+export def "test format-task-completed accepts string id" [] {
+  use ../formatters.nu format-task-completed
+
+  let output = format-task-completed "abc12345"
+  assert ($output | str contains "abc12345") "Should contain task ID"
+  assert ($output | str contains "complete") "Should indicate completion"
+}
+
+# Test format-notes-updated accepts string ID
+export def "test format-notes-updated accepts string id" [] {
+  use ../formatters.nu format-notes-updated
+
+  let output = format-notes-updated "def67890"
+  assert ($output | str contains "def67890") "Should contain list ID"
+  assert ($output | str contains "notes updated") "Should indicate notes updated"
+}
+
+# Test format-item-updated accepts string ID
+export def "test format-item-updated accepts string id" [] {
+  use ../formatters.nu format-item-updated
+
+  let output = format-item-updated "status" "ghi11111" "done"
+  assert ($output | str contains "ghi11111") "Should contain item ID"
+  assert ($output | str contains "status") "Should contain field name"
+}

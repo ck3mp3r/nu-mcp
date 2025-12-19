@@ -41,19 +41,19 @@ export def with-test-db [test_fn: closure] {
   cleanup-test-db $test_env
 }
 
-# Create a test repo and return its ID
+# Create a test repo and return its ID (8-char hex string)
 export def create-test-repo [remote: string = "github:test/repo"] {
   use ../storage.nu [ init-database ]
+  use ../utils.nu [ generate-id ]
 
   # Initialize database first (creates schema)
   let db_path = init-database
 
-  # Insert repo directly via the db
-  let result = open $db_path | query db "INSERT INTO repo (remote, path) VALUES (?, ?) RETURNING id" -p [$remote "/tmp/test-repo"]
+  # Generate an 8-char hex ID
+  let id = generate-id
 
-  if ($result | length) > 0 {
-    $result.0.id
-  } else {
-    error make {msg: "Failed to create test repo"}
-  }
+  # Insert repo with generated ID
+  open $db_path | query db "INSERT INTO repo (id, remote, path) VALUES (?, ?, ?)" -p [$id $remote "/tmp/test-repo"]
+
+  $id
 }

@@ -22,11 +22,18 @@ export def format-list-created [result: record] {
     ""
   }
 
+  let ext_ref_str = if ($result.external_ref? | default null) != null {
+    $"\n  External Ref: ($result.external_ref)"
+  } else {
+    ""
+  }
+
   [
     $"✓ Todo list created: ($result.name)"
     $"  ID: ($result.id)"
     $"  Tags: ($tags_str)"
     $desc_str
+    $ext_ref_str
   ] | str join (char newline)
 }
 
@@ -51,7 +58,13 @@ export def format-active-lists [lists: list] {
         "-"
       }
 
-      {ID: $list.id Name: $list.name Tags: $tags_str Description: $desc}
+      let ext_ref = if ($list.external_ref? | default null) != null and $list.external_ref != "" {
+        $list.external_ref
+      } else {
+        "-"
+      }
+
+      {ID: $list.id Name: $list.name Ref: $ext_ref Tags: $tags_str Description: $desc}
     }
 
   $header + ($table_data | table --index false | into string)
@@ -83,12 +96,19 @@ export def format-list-detail [list: record] {
     ""
   }
 
+  let ext_ref_str = if ($list.external_ref? | default null) != null and $list.external_ref != "" {
+    $"\n**External Ref:** ($list.external_ref)"
+  } else {
+    ""
+  }
+
   [
     $"# ($list.name)"
     $"**ID:** ($list.id)"
     $"**Status:** ($list.status)"
     $"**Tags:** ($tags_str)"
     $"**Description:** ($desc_str)"
+    $ext_ref_str
     $"**Created:** ($list.created_at)"
     $"**Updated:** ($list.updated_at)"
     $archived_str
@@ -188,7 +208,7 @@ export def format-task-created [result: record] {
 }
 
 # Format item update response
-export def format-item-updated [field: string item_id: int value: any] {
+export def format-item-updated [field: string item_id: string value: any] {
   [
     $"✓ Item ($field) updated"
     $"  ID: ($item_id)"
@@ -197,7 +217,7 @@ export def format-item-updated [field: string item_id: int value: any] {
 }
 
 # Format task completion response
-export def format-task-completed [task_id: int] {
+export def format-task-completed [task_id: string] {
   [
     $"✓ Task marked as complete"
     $"  ID: ($task_id)"
@@ -205,7 +225,7 @@ export def format-task-completed [task_id: int] {
 }
 
 # Format notes update response
-export def format-notes-updated [list_id: int] {
+export def format-notes-updated [list_id: string] {
   [
     $"✓ Progress notes updated"
     $"  List ID: ($list_id)"
@@ -272,7 +292,7 @@ export def format-tasks-table [list: record tasks: list] {
 }
 
 # Format subtasks list
-export def format-subtasks-list [parent_id: int tasks: list] {
+export def format-subtasks-list [parent_id: string tasks: list] {
   if ($tasks | is-empty) {
     return $"No subtasks found for parent task ($parent_id)."
   }

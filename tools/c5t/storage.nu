@@ -66,7 +66,7 @@ export def get-git-remote [path?: string] {
   }
 }
 
-# Get existing repo record, returns {success: bool, repo_id?: int, exists: bool}
+# Get existing repo record, returns {success: bool, repo_id?: string, exists: bool}
 export def get-repo [remote: string] {
   let db_path = init-database
 
@@ -83,37 +83,13 @@ export def get-repo [remote: string] {
   {success: true exists: false}
 }
 
-# Create a new repo record
-export def create-repo [remote: string path: string] {
-  let db_path = init-database
-
-  let insert_sql = "INSERT INTO repo (remote, path) VALUES (?, ?) RETURNING id"
-  let insert_result = query-sql $db_path $insert_sql [$remote $path]
-
-  if $insert_result.success and ($insert_result.data | length) > 0 {
-    {success: true repo_id: ($insert_result.data.0.id) created: true}
-  } else {
-    {success: false error: "Failed to create repo"}
-  }
-}
-
-# Update an existing repo's path
-export def update-repo-path [repo_id: int path: string] {
-  let db_path = init-database
-
-  let sql = "UPDATE repo SET path = ?, last_accessed_at = datetime('now') WHERE id = ?"
-  let result = execute-sql $db_path $sql [$path $repo_id]
-
-  if $result.success {
-    {success: true}
-  } else {
-    {success: false error: "Failed to update repo path"}
-  }
-}
-
 # Upsert repo - create if not exists, update path if exists
 # path: optional path to git repo (defaults to CWD)
 export def upsert-repo [path?: string] {
+  use utils.nu [ generate-id ]
+
+  let db_path = init-database
+
   # Resolve the path - if provided, use it; otherwise use CWD
   let resolved_path = if $path != null {
     # Resolve relative paths to absolute
@@ -138,18 +114,23 @@ export def upsert-repo [path?: string] {
 
   if $existing.exists {
     # Update path
-    let update_result = update-repo-path $existing.repo_id $resolved_path
-    if not $update_result.success {
-      return $update_result
+    let sql = "UPDATE repo SET path = ?, last_accessed_at = datetime('now') WHERE id = ?"
+    let result = execute-sql $db_path $sql [$resolved_path $existing.repo_id]
+
+    if not $result.success {
+      return {success: false error: "Failed to update repo path"}
     }
     {success: true created: false repo_id: $existing.repo_id remote: $remote path: $resolved_path}
   } else {
     # Create new
-    let create_result = create-repo $remote $resolved_path
-    if not $create_result.success {
-      return $create_result
+    let id = generate-id
+    let insert_sql = "INSERT INTO repo (id, remote, path) VALUES (?, ?, ?)"
+    let insert_result = execute-sql $db_path $insert_sql [$id $remote $resolved_path]
+
+    if not $insert_result.success {
+      return {success: false error: "Failed to create repo"}
     }
-    {success: true created: true repo_id: $create_result.repo_id remote: $remote path: $resolved_path}
+    {success: true created: true repo_id: $id remote: $remote path: $resolved_path}
   }
 }
 
@@ -174,7 +155,7 @@ export def get-last-accessed-repo [] {
 # Get repo ID - uses explicit repo_id if provided, otherwise resolves from CWD git repo
 # repo_id: optional explicit repo ID to use
 # Errors if CWD is not a git repo or not registered (no implicit fallback)
-export def get-current-repo-id [repo_id?: int] {
+export def get-current-repo-id [repo_id?: string] {
   # If explicit repo_id provided, use it
   if $repo_id != null {
     return {success: true repo_id: $repo_id}
@@ -308,7 +289,7 @@ export def execute-sql [db_path: string sql: string params: list = []] {
   }
 }
 
-def query-sql [db_path: string sql: string params: list = []] {
+export def query-sql [db_path: string sql: string params: list = []] {
   try {
     let result = run-query-db $db_path $sql $params
     {success: true data: $result}
@@ -329,74 +310,12 @@ def parse-tags [tags_json: any] {
 # TASK LIST FUNCTIONS
 # ============================================================================
 
-# Create a task list
-export def create-task-list [
-  name: string
-  description?: string
-  tags?: list
-  explicit_repo_id?: int
-] {
-  let db_path = init-database
-
-  let repo_result = get-current-repo-id $explicit_repo_id
-
-  if not $repo_result.success {
-    return {
-      success: false
-      error: $"Failed to get repository: ($repo_result.error? | default 'unknown')"
-    }
-  }
-
-  let repo_id = $repo_result.repo_id
-
-  let tags_json = if $tags != null and ($tags | is-not-empty) {
-    $tags | to json --raw
-  } else {
-    null
-  }
-
-  let desc_value = if $description != null { $description } else { null }
-
-  let sql = "INSERT INTO task_list (repo_id, name, description, tags) 
-             VALUES (?, ?, ?, ?) 
-             RETURNING id"
-
-  let params = [$repo_id $name $desc_value $tags_json]
-
-  let result = query-sql $db_path $sql $params
-
-  if not $result.success {
-    return {
-      success: false
-      error: $"Failed to create task list: ($result.error)"
-    }
-  }
-
-  if ($result.data | is-empty) {
-    return {
-      success: false
-      error: "Failed to retrieve inserted ID"
-    }
-  }
-
-  let list_id = $result.data.0.id
-
-  {
-    success: true
-    id: $list_id
-    repo_id: $repo_id
-    name: $name
-    description: $description
-    tags: $tags
-  }
-}
-
 # Get task lists with status filter
 export def get-task-lists [
   --status: string = "active" # active, archived, or all
   --tags: list = []
   --all-repos
-  --repo-id: int
+  --repo-id: string
 ] {
   let db_path = init-database
 
@@ -417,7 +336,7 @@ export def get-task-lists [
         error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
       }
     }
-    $where_clauses = ($where_clauses | append $"repo_id = ($repo_result.repo_id)")
+    $where_clauses = ($where_clauses | append $"repo_id = '($repo_result.repo_id)'")
   }
 
   let where_sql = if ($where_clauses | is-not-empty) {
@@ -426,7 +345,7 @@ export def get-task-lists [
     ""
   }
 
-  let sql = $"SELECT id, repo_id, name, description, notes, tags, status, created_at, updated_at, archived_at 
+  let sql = $"SELECT id, repo_id, name, description, notes, tags, external_ref, status, created_at, updated_at, archived_at 
               FROM task_list 
               ($where_sql)
               ORDER BY created_at DESC"
@@ -470,11 +389,11 @@ export def get-task-lists [
 
 # Get list metadata without tasks
 export def get-list [
-  list_id: int
+  list_id: string
 ] {
   let db_path = init-database
 
-  let sql = "SELECT id, repo_id, name, description, notes, tags, status, created_at, updated_at, archived_at 
+  let sql = "SELECT id, repo_id, name, description, notes, tags, external_ref, status, created_at, updated_at, archived_at 
              FROM task_list 
              WHERE id = ?"
   let params = [$list_id]
@@ -505,7 +424,7 @@ export def get-list [
 
 # Check if a list exists
 export def list-exists [
-  list_id: int
+  list_id: string
 ] {
   let db_path = get-db-path
 
@@ -519,14 +438,25 @@ export def list-exists [
 
 # Upsert a task list - create if no list_id, update if list_id provided
 export def upsert-list [
-  list_id?: int
-  name?: string
-  description?: string
-  tags?: list
-  notes?: string
-  repo_id?: int
+  name: string # Required: list name
+  description: string # Required: list description
+  repo_id: string # Required: repository ID
+  --list-id: string # Optional: provide to update existing list
+  --tags: list # Optional: tags for the list
+  --notes: string # Optional: notes/progress for the list
+  --external-ref: string # Optional: external reference (Jira, GitHub issue)
 ] {
+  use utils.nu [ generate-id ]
+
   let db_path = init-database
+
+  # Validate required params
+  if ($name | str trim | is-empty) {
+    return {
+      success: false
+      error: "Name cannot be empty"
+    }
+  }
 
   if $list_id != null {
     # Update existing
@@ -537,32 +467,9 @@ export def upsert-list [
       }
     }
 
-    if $name == null and $description == null and $tags == null and $notes == null {
-      return {
-        success: false
-        error: "At least one of 'name', 'description', 'tags', or 'notes' must be provided for update"
-      }
-    }
-
-    if $name != null and ($name | str trim | is-empty) {
-      return {
-        success: false
-        error: "Name cannot be empty"
-      }
-    }
-
-    mut set_clauses = []
-    mut params = []
-
-    if $name != null {
-      $set_clauses = ($set_clauses | append "name = ?")
-      $params = ($params | append $name)
-    }
-
-    if $description != null {
-      $set_clauses = ($set_clauses | append "description = ?")
-      $params = ($params | append $description)
-    }
+    # Always update name, description; optionally update tags, notes, external_ref
+    mut set_clauses = ["name = ?" "description = ?"]
+    mut params = [$name $description]
 
     if $tags != null {
       $set_clauses = ($set_clauses | append "tags = ?")
@@ -572,6 +479,11 @@ export def upsert-list [
     if $notes != null {
       $set_clauses = ($set_clauses | append "notes = ?")
       $params = ($params | append $notes)
+    }
+
+    if $external_ref != null {
+      $set_clauses = ($set_clauses | append "external_ref = ?")
+      $params = ($params | append $external_ref)
     }
 
     $set_clauses = ($set_clauses | append "updated_at = datetime('now')")
@@ -597,79 +509,58 @@ export def upsert-list [
     }
   } else {
     # Create new
-    if $name == null {
-      return {
-        success: false
-        error: "'name' is required when creating a new list"
-      }
+    let id = generate-id
+
+    let tags_json = if $tags != null and ($tags | is-not-empty) {
+      $tags | to json --raw
+    } else {
+      null
     }
 
-    if ($name | str trim | is-empty) {
-      return {
-        success: false
-        error: "Name cannot be empty"
-      }
-    }
+    let ext_ref_value = if $external_ref != null { $external_ref } else { null }
+    let notes_value = if $notes != null { $notes } else { null }
 
-    let result = create-task-list $name $description $tags $repo_id
+    let sql = "INSERT INTO task_list (id, repo_id, name, description, notes, tags, external_ref) 
+               VALUES (?, ?, ?, ?, ?, ?, ?)"
+
+    let params = [$id $repo_id $name $description $notes_value $tags_json $ext_ref_value]
+
+    let result = execute-sql $db_path $sql $params
 
     if not $result.success {
-      return $result
-    }
-
-    if $notes != null {
-      let _ = update-list-notes $result.id $notes
+      return {
+        success: false
+        error: $"Failed to create task list: ($result.error)"
+      }
     }
 
     {
       success: true
       created: true
-      id: $result.id
-      list_id: $result.id
-      repo_id: $result.repo_id
+      id: $id
+      list_id: $id
+      repo_id: $repo_id
       name: $name
       description: $description
       tags: $tags
       notes: $notes
+      external_ref: $external_ref
       list: {
-        id: $result.id
-        repo_id: $result.repo_id
+        id: $id
+        repo_id: $repo_id
         name: $name
         description: $description
         tags: $tags
         notes: $notes
+        external_ref: $external_ref
       }
-    }
-  }
-}
-
-# Update notes on a task list
-export def update-list-notes [
-  list_id: int
-  notes: string
-] {
-  let db_path = get-db-path
-
-  let sql = "UPDATE task_list 
-             SET notes = ? 
-             WHERE id = ?"
-
-  let params = [$notes $list_id]
-  let result = execute-sql $db_path $sql $params
-
-  if $result.success {
-    {success: true}
-  } else {
-    {
-      success: false
-      error: $"Failed to update notes: ($result.error)"
     }
   }
 }
 
 # Delete a task list (optionally with force to delete tasks too)
 export def delete-list [
-  list_id: int
+  list_id: string
   force: bool = false
 ] {
   let db_path = get-db-path
@@ -727,104 +618,10 @@ export def delete-list [
 # TASK FUNCTIONS
 # ============================================================================
 
-# Add a task to a list
-export def add-task [
-  list_id: int
-  content: string
-  priority?: int
-  status?: string
-] {
-  let db_path = get-db-path
-
-  let task_status = if $status != null { $status } else { "backlog" }
-  let priority_value = if $priority != null { $priority } else { null }
-
-  let sql = "INSERT INTO task (list_id, content, status, priority) 
-             VALUES (?, ?, ?, ?) 
-             RETURNING id"
-
-  let params = [$list_id $content $task_status $priority_value]
-
-  let result = query-sql $db_path $sql $params
-
-  if not $result.success {
-    return {
-      success: false
-      error: $"Failed to add task: ($result.error)"
-    }
-  }
-
-  if ($result.data | is-empty) {
-    return {
-      success: false
-      error: "Failed to retrieve inserted task ID"
-    }
-  }
-
-  let task_id = $result.data.0.id
-
-  {
-    success: true
-    id: $task_id
-    list_id: $list_id
-    content: $content
-    status: $task_status
-    priority: $priority
-  }
-}
-
-# Add a subtask with parent_id
-export def add-subtask [
-  list_id: int
-  parent_id: int
-  content: string
-  priority?: int
-  status?: string
-] {
-  let db_path = get-db-path
-
-  let task_status = if $status != null { $status } else { "backlog" }
-  let priority_value = if $priority != null { $priority } else { null }
-
-  let sql = "INSERT INTO task (list_id, parent_id, content, status, priority) 
-             VALUES (?, ?, ?, ?, ?) 
-             RETURNING id"
-
-  let params = [$list_id $parent_id $content $task_status $priority_value]
-
-  let result = query-sql $db_path $sql $params
-
-  if not $result.success {
-    return {
-      success: false
-      error: $"Failed to add subtask: ($result.error)"
-    }
-  }
-
-  if ($result.data | is-empty) {
-    return {
-      success: false
-      error: "Failed to retrieve inserted subtask ID"
-    }
-  }
-
-  let task_id = $result.data.0.id
-
-  {
-    success: true
-    id: $task_id
-    parent_id: $parent_id
-    list_id: $list_id
-    content: $content
-    status: $task_status
-    priority: $priority
-  }
-}
-
 # Get a single task
 export def get-task [
-  list_id: int
-  task_id: int
+  list_id: string
+  task_id: string
 ] {
   let db_path = get-db-path
 
@@ -858,8 +655,8 @@ export def get-task [
 
 # Get subtasks for a parent task
 export def get-subtasks [
-  list_id: int
-  parent_id: int
+  list_id: string
+  parent_id: string
 ] {
   let db_path = get-db-path
 
@@ -888,8 +685,8 @@ export def get-subtasks [
 
 # Check if a task exists
 export def task-exists [
-  list_id: int
-  task_id: int
+  list_id: string
+  task_id: string
 ] {
   let db_path = get-db-path
 
@@ -903,8 +700,8 @@ export def task-exists [
 
 # Delete a task
 export def delete-task [
-  list_id: int
-  task_id: int
+  list_id: string
+  task_id: string
 ] {
   let db_path = get-db-path
 
@@ -930,19 +727,29 @@ export def delete-task [
 
 # Upsert a task - create if no task_id, update if task_id provided
 export def upsert-task [
-  list_id: int
-  task_id?: int
-  content?: string
-  priority?: int
-  status?: string
-  parent_id?: int
+  list_id: string # Required: list the task belongs to
+  content: string # Required: task content
+  --task-id: string # Optional: provide to update existing task
+  --priority: int = 3 # Optional: priority 1-5, default 3
+  --status: string = "backlog" # Optional: status, default backlog
+  --parent-id: string # Optional: parent task ID for subtasks
 ] {
+  use utils.nu [ generate-id ]
+
   let db_path = get-db-path
 
   if not (list-exists $list_id) {
     return {
       success: false
       error: $"List not found: ($list_id)"
+    }
+  }
+
+  # Validate content is not empty (required positional)
+  if ($content | str trim | is-empty) {
+    return {
+      success: false
+      error: "Content cannot be empty"
     }
   }
 
@@ -955,44 +762,23 @@ export def upsert-task [
       }
     }
 
-    if $content == null and $priority == null and $status == null {
-      return {
-        success: false
-        error: "At least one of 'content', 'priority', or 'status' must be provided for update"
-      }
+    # Build update - content is always set (required positional)
+    mut set_clauses = ["content = ?"]
+    mut params = [$content]
+
+    # priority and status have defaults, so always set them
+    $set_clauses = ($set_clauses | append "priority = ?")
+    $params = ($params | append $priority)
+
+    $set_clauses = ($set_clauses | append "status = ?")
+    $params = ($params | append $status)
+
+    # Handle timestamp updates for status changes
+    if $status == "in_progress" {
+      $set_clauses = ($set_clauses | append "started_at = COALESCE(started_at, datetime('now'))")
     }
-
-    if $content != null and ($content | str trim | is-empty) {
-      return {
-        success: false
-        error: "Content cannot be empty"
-      }
-    }
-
-    mut set_clauses = []
-    mut params = []
-
-    if $content != null {
-      $set_clauses = ($set_clauses | append "content = ?")
-      $params = ($params | append $content)
-    }
-
-    if $priority != null {
-      $set_clauses = ($set_clauses | append "priority = ?")
-      $params = ($params | append $priority)
-    }
-
-    if $status != null {
-      $set_clauses = ($set_clauses | append "status = ?")
-      $params = ($params | append $status)
-
-      # Handle timestamp updates for status changes
-      if $status == "in_progress" {
-        $set_clauses = ($set_clauses | append "started_at = COALESCE(started_at, datetime('now'))")
-      }
-      if $status in ["done" "cancelled"] {
-        $set_clauses = ($set_clauses | append "completed_at = datetime('now')")
-      }
+    if $status in ["done" "cancelled"] {
+      $set_clauses = ($set_clauses | append "completed_at = datetime('now')")
     }
 
     let set_sql = $set_clauses | str join ", "
@@ -1018,47 +804,39 @@ export def upsert-task [
     }
   } else {
     # Create new
-    if $content == null {
-      return {
-        success: false
-        error: "'content' is required when creating a new task"
-      }
-    }
+    let id = generate-id
+    let parent_value = if $parent_id != null { $parent_id } else { null }
 
-    if ($content | str trim | is-empty) {
-      return {
-        success: false
-        error: "Content cannot be empty"
-      }
-    }
+    let sql = "INSERT INTO task (id, list_id, parent_id, content, status, priority) 
+               VALUES (?, ?, ?, ?, ?, ?)"
 
-    # Use add-subtask if parent_id is provided, otherwise add-task
-    let result = if $parent_id != null {
-      add-subtask $list_id $parent_id $content $priority $status
-    } else {
-      add-task $list_id $content $priority $status
-    }
+    let params = [$id $list_id $parent_value $content $status $priority]
+
+    let result = execute-sql $db_path $sql $params
 
     if not $result.success {
-      return $result
+      return {
+        success: false
+        error: $"Failed to create task: ($result.error)"
+      }
     }
 
     {
       success: true
       created: true
-      id: $result.id
-      task_id: $result.id
+      id: $id
+      task_id: $id
       list_id: $list_id
       content: $content
       priority: $priority
-      status: ($status | default "backlog")
+      status: $status
       parent_id: $parent_id
       task: {
-        id: $result.id
+        id: $id
         list_id: $list_id
         content: $content
         priority: $priority
-        status: ($status | default "backlog")
+        status: $status
         parent_id: $parent_id
       }
     }
@@ -1067,8 +845,8 @@ export def upsert-task [
 
 # Complete a task (set status to done)
 export def complete-task [
-  list_id: int
-  task_id: int
+  list_id: string
+  task_id: string
 ] {
   let db_path = get-db-path
 
@@ -1100,9 +878,9 @@ export def complete-task [
 
 # Move a task from one list to another
 export def move-task [
-  source_list_id: int
-  task_id: int
-  target_list_id: int
+  source_list_id: string
+  task_id: string
+  target_list_id: string
 ] {
   let db_path = get-db-path
 
@@ -1137,7 +915,7 @@ export def move-task [
 
 # Get a list with its tasks
 export def get-list-with-tasks [
-  list_id: int
+  list_id: string
   status_filter?: list
 ] {
   let db_path = init-database
@@ -1218,7 +996,7 @@ export def get-list-with-tasks [
 # Get active lists with task counts by status for summary
 export def get-task-lists-with-counts [
   --all-repos
-  --repo-id: int
+  --repo-id: string
 ] {
   let db_path = init-database
 
@@ -1232,7 +1010,7 @@ export def get-task-lists-with-counts [
         error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
       }
     }
-    $" AND tl.repo_id = ($repo_result.repo_id)"
+    $" AND tl.repo_id = '($repo_result.repo_id)'"
   }
 
   let sql = $"SELECT 
@@ -1277,7 +1055,7 @@ export def get-task-lists-with-counts [
 # Get all in-progress tasks across all lists for summary
 export def get-all-in-progress-tasks [
   --all-repos
-  --repo-id: int
+  --repo-id: string
 ] {
   let db_path = init-database
 
@@ -1291,7 +1069,7 @@ export def get-all-in-progress-tasks [
         error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
       }
     }
-    $" AND tl.repo_id = ($repo_result.repo_id)"
+    $" AND tl.repo_id = '($repo_result.repo_id)'"
   }
 
   let sql = $"SELECT 
@@ -1326,7 +1104,7 @@ export def get-all-in-progress-tasks [
 # Get recently completed tasks for summary
 export def get-recently-completed-tasks [
   --all-repos
-  --repo-id: int
+  --repo-id: string
 ] {
   let db_path = init-database
 
@@ -1340,7 +1118,7 @@ export def get-recently-completed-tasks [
         error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
       }
     }
-    $" AND tl.repo_id = ($repo_result.repo_id)"
+    $" AND tl.repo_id = '($repo_result.repo_id)'"
   }
 
   let sql = $"SELECT 
@@ -1378,7 +1156,7 @@ export def get-recently-completed-tasks [
 # Get high-priority pending tasks for summary
 export def get-high-priority-tasks [
   --all-repos
-  --repo-id: int
+  --repo-id: string
 ] {
   let db_path = init-database
 
@@ -1392,7 +1170,7 @@ export def get-high-priority-tasks [
         error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
       }
     }
-    $" AND tl.repo_id = ($repo_result.repo_id)"
+    $" AND tl.repo_id = '($repo_result.repo_id)'"
   }
 
   let sql = $"SELECT 
@@ -1429,7 +1207,7 @@ export def get-high-priority-tasks [
 # Get comprehensive summary/overview for quick status at-a-glance
 export def get-summary [
   --all-repos
-  --repo-id: int
+  --repo-id: string
 ] {
   let db_path = init-database
 
@@ -1443,7 +1221,7 @@ export def get-summary [
         error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
       }
     }
-    $" AND tl.repo_id = ($repo_result.repo_id)"
+    $" AND tl.repo_id = '($repo_result.repo_id)'"
   }
 
   let stats_sql = $"SELECT 
@@ -1551,71 +1329,13 @@ export def get-summary [
 # NOTE FUNCTIONS
 # ============================================================================
 
-# Create a standalone note
-export def create-note [
-  title: string
-  content: string
-  tags?: list
-  explicit_repo_id?: int
-] {
-  let db_path = init-database
-
-  let repo_result = get-current-repo-id $explicit_repo_id
-
-  if not $repo_result.success {
-    return {
-      success: false
-      error: $"Failed to get repository: ($repo_result.error? | default 'unknown')"
-    }
-  }
-
-  let repo_id = $repo_result.repo_id
-
-  let tags_value = if $tags != null and ($tags | is-not-empty) {
-    $tags | to json --raw
-  } else {
-    null
-  }
-
-  let sql = "INSERT INTO note (repo_id, title, content, tags, note_type) 
-             VALUES (?, ?, ?, ?, ?) 
-             RETURNING id"
-
-  let params = [$repo_id $title $content $tags_value "manual"]
-  let result = query-sql $db_path $sql $params
-
-  if not $result.success {
-    return {
-      success: false
-      error: $"Failed to create note: ($result.error)"
-    }
-  }
-
-  if ($result.data | is-empty) {
-    return {
-      success: false
-      error: "Failed to retrieve note ID"
-    }
-  }
-
-  let note_id = $result.data.0.id
-
-  {
-    success: true
-    id: $note_id
-    repo_id: $repo_id
-    title: $title
-    tags: $tags
-  }
-}
-
 # Get notes with optional filtering
 export def get-notes [
   tag_filter?: list
   note_type?: string
   limit?: int
   --all-repos
-  --repo-id: int
+  --repo-id: string
 ] {
   let db_path = init-database
 
@@ -1629,7 +1349,7 @@ export def get-notes [
         error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
       }
     }
-    $where_clauses = ($where_clauses | append $"repo_id = ($repo_result.repo_id)")
+    $where_clauses = ($where_clauses | append $"repo_id = '($repo_result.repo_id)'")
   }
 
   if $note_type != null {
@@ -1691,7 +1411,7 @@ export def get-notes [
 
 # Get a specific note by ID
 export def get-note [
-  note_id: int
+  note_id: string
 ] {
   let db_path = get-db-path
 
@@ -1725,40 +1445,43 @@ export def get-note [
 
 # Upsert a note - create if no note_id, update if note_id provided
 export def upsert-note [
-  note_id?: int
-  title?: string
-  content?: string
-  tags?: list
-  repo_id?: int
+  title: string # Required: note title
+  content: string # Required: note content (markdown)
+  repo_id: string # Required: repository ID
+  --note-id: string # Optional: provide to update existing note
+  --tags: list # Optional: tags for the note
 ] {
+  use utils.nu [ generate-id ]
+
   let db_path = init-database
 
+  # Validate required params
+  if ($title | str trim | is-empty) {
+    return {
+      success: false
+      error: "Title cannot be empty"
+    }
+  }
+
+  if ($content | str trim | is-empty) {
+    return {
+      success: false
+      error: "Content cannot be empty"
+    }
+  }
+
   if $note_id != null {
+    # Update existing
     let existing = get-note $note_id
     if not $existing.success {
       return $existing
     }
 
-    if $title == null and $content == null and $tags == null {
-      return {
-        success: false
-        error: "At least one of 'title', 'content', or 'tags' must be provided for update"
-      }
-    }
+    # Always update title and content (required positional)
+    mut set_clauses = ["title = ?" "content = ?"]
+    mut params = [$title $content]
 
-    mut set_clauses = []
-    mut params = []
-
-    if $title != null {
-      $set_clauses = ($set_clauses | append "title = ?")
-      $params = ($params | append $title)
-    }
-
-    if $content != null {
-      $set_clauses = ($set_clauses | append "content = ?")
-      $params = ($params | append $content)
-    }
-
+    # Optionally update tags
     if $tags != null {
       $set_clauses = ($set_clauses | append "tags = ?")
       $params = ($params | append ($tags | to json))
@@ -1786,30 +1509,39 @@ export def upsert-note [
       note: $updated.note
     }
   } else {
-    if $title == null or $content == null {
-      return {
-        success: false
-        error: "Both 'title' and 'content' are required when creating a new note"
-      }
+    # Create new
+    let id = generate-id
+
+    let tags_value = if $tags != null and ($tags | is-not-empty) {
+      $tags | to json --raw
+    } else {
+      null
     }
 
-    let result = create-note $title $content $tags $repo_id
+    let sql = "INSERT INTO note (id, repo_id, title, content, tags, note_type) 
+               VALUES (?, ?, ?, ?, ?, ?)"
+
+    let params = [$id $repo_id $title $content $tags_value "manual"]
+    let result = execute-sql $db_path $sql $params
 
     if not $result.success {
-      return $result
+      return {
+        success: false
+        error: $"Failed to create note: ($result.error)"
+      }
     }
 
     {
       success: true
       created: true
-      id: $result.id
-      note_id: $result.id
-      repo_id: $result.repo_id
+      id: $id
+      note_id: $id
+      repo_id: $repo_id
       title: $title
       tags: $tags
       note: {
-        id: $result.id
-        repo_id: $result.repo_id
+        id: $id
+        repo_id: $repo_id
         title: $title
       }
     }
@@ -1818,7 +1550,7 @@ export def upsert-note [
 
 # Delete a note by ID
 export def delete-note [
-  note_id: int
+  note_id: string
 ] {
   let db_path = get-db-path
 
@@ -1860,7 +1592,7 @@ export def search-notes [
   --limit: int = 10
   --tags: list = []
   --all-repos
-  --repo-id: int
+  --repo-id: string
 ] {
   let db_path = init-database
 
@@ -1874,7 +1606,7 @@ export def search-notes [
         error: $"Failed to get current repository: ($repo_result.error? | default 'unknown')"
       }
     }
-    $" AND note.repo_id = ($repo_result.repo_id)"
+    $" AND note.repo_id = '($repo_result.repo_id)'"
   }
 
   let sql = $"SELECT 
@@ -1887,7 +1619,7 @@ export def search-notes [
                note.created_at,
                bm25\(note_fts\) as rank
              FROM note_fts
-             JOIN note ON note.id = note_fts.rowid
+             JOIN note ON note.rowid = note_fts.rowid
              WHERE note_fts MATCH ?($repo_filter)
              ORDER BY rank
              LIMIT ?"
@@ -1999,6 +1731,7 @@ export def export-data [] {
 export def import-data [
   data: record
 ] {
+  use utils.nu [ generate-id ]
   let db_path = get-db-path
 
   # Validate v2.0 format - must have repos
@@ -2047,19 +1780,19 @@ export def import-data [
 
   # Import repos
   for repo in $data.repos {
-    let sql = "INSERT INTO repo (remote, path, created_at, last_accessed_at) 
-               VALUES (?, ?, ?, ?) 
-               RETURNING id"
+    let new_id = generate-id
+    let sql = "INSERT INTO repo (id, remote, path, created_at, last_accessed_at) 
+               VALUES (?, ?, ?, ?, ?)"
     let params = [
+      $new_id
       $repo.remote
       ($repo.path? | default null)
       ($repo.created_at? | default (date now | format date "%Y-%m-%dT%H:%M:%S"))
       ($repo.last_accessed_at? | default (date now | format date "%Y-%m-%dT%H:%M:%S"))
     ]
 
-    let result = query-sql $db_path $sql $params
-    if $result.success and ($result.data | is-not-empty) {
-      let new_id = $result.data | first | get id
+    let result = execute-sql $db_path $sql $params
+    if $result.success {
       $repo_id_map = ($repo_id_map | upsert ($repo.id | into string) $new_id)
       $imported_repos = $imported_repos + 1
     }
@@ -2074,11 +1807,12 @@ export def import-data [
       continue
     }
 
+    let new_id = generate-id
     let tags_json = if $list.tags != null { $list.tags } else { null }
-    let sql = "INSERT INTO task_list (repo_id, name, description, notes, tags, status, created_at, updated_at, archived_at) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) 
-               RETURNING id"
+    let sql = "INSERT INTO task_list (id, repo_id, name, description, notes, tags, status, created_at, updated_at, archived_at) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     let params = [
+      $new_id
       $new_repo_id
       $list.name
       ($list.description? | default null)
@@ -2090,9 +1824,8 @@ export def import-data [
       ($list.archived_at? | default null)
     ]
 
-    let result = query-sql $db_path $sql $params
-    if $result.success and ($result.data | is-not-empty) {
-      let new_id = $result.data | first | get id
+    let result = execute-sql $db_path $sql $params
+    if $result.success {
       $list_id_map = ($list_id_map | upsert ($list.id | into string) $new_id)
       $imported_lists = $imported_lists + 1
     }
@@ -2111,10 +1844,11 @@ export def import-data [
       continue
     }
 
-    let sql = "INSERT INTO task (list_id, parent_id, content, status, priority, created_at, started_at, completed_at) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-               RETURNING id"
+    let new_id = generate-id
+    let sql = "INSERT INTO task (id, list_id, parent_id, content, status, priority, created_at, started_at, completed_at) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
     let params = [
+      $new_id
       $new_list_id
       null
       $task.content
@@ -2125,9 +1859,8 @@ export def import-data [
       ($task.completed_at? | default null)
     ]
 
-    let result = query-sql $db_path $sql $params
-    if $result.success and ($result.data | is-not-empty) {
-      let new_id = $result.data | first | get id
+    let result = execute-sql $db_path $sql $params
+    if $result.success {
       $task_id_map = ($task_id_map | upsert ($task.id | into string) $new_id)
       $imported_tasks = $imported_tasks + 1
     }
@@ -2153,9 +1886,11 @@ export def import-data [
       continue
     }
 
-    let sql = "INSERT INTO task (list_id, parent_id, content, status, priority, created_at, started_at, completed_at) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    let new_id = generate-id
+    let sql = "INSERT INTO task (id, list_id, parent_id, content, status, priority, created_at, started_at, completed_at) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
     let params = [
+      $new_id
       $new_list_id
       $new_parent_id
       $task.content
@@ -2181,10 +1916,12 @@ export def import-data [
       continue
     }
 
+    let new_id = generate-id
     let tags_json = if ($note.tags? | default null) != null { $note.tags } else { null }
-    let sql = "INSERT INTO note (repo_id, title, content, tags, note_type, created_at, updated_at) 
-               VALUES (?, ?, ?, ?, ?, ?, ?)"
+    let sql = "INSERT INTO note (id, repo_id, title, content, tags, note_type, created_at, updated_at) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     let params = [
+      $new_id
       $new_repo_id
       $note.title
       $note.content
