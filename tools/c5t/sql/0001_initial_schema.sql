@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS task_list (
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     archived_at TEXT,
-    FOREIGN KEY (repo_id) REFERENCES repo(id)
+    FOREIGN KEY (repo_id) REFERENCES repo(id) ON DELETE CASCADE
 );
 
 -- Task table - individual work items within lists (supports subtasks via parent_id)
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS note (
     note_type TEXT DEFAULT 'manual' CHECK(note_type IN ('manual', 'archived_todo', 'scratchpad')),
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (repo_id) REFERENCES repo(id)
+    FOREIGN KEY (repo_id) REFERENCES repo(id) ON DELETE CASCADE
 );
 
 -- Indexes for performance
