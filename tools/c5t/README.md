@@ -70,6 +70,15 @@ complete_task {"list_id": 1, "task_id": 1}
 
 # Add progress notes to the list
 upsert_task_list {"list_id": 1, "notes": "## Progress\n\nCompleted research"}
+
+# Archive a completed list (sets status='archived', records timestamp)
+archive_task_list {"list_id": 1}
+
+# View archived lists
+list_task_lists {"status": "archived"}
+
+# View all lists (active and archived)
+list_task_lists {"status": "all"}
 ```
 
 **Statuses**: `backlog`, `todo`, `in_progress`, `review`, `done`, `cancelled`
@@ -107,6 +116,38 @@ list_tasks {"list_id": 1}
 - Parent tasks show subtask count in task lists
 - Use `list_tasks` with `parent_id` to view subtasks for a specific parent
 - Deleting a parent task cascades to delete all subtasks
+
+## Archiving Task Lists
+
+Archive completed task lists to keep your workspace clean while preserving history:
+
+```bash
+# Archive a completed list
+archive_task_list {"list_id": "abc12345"}
+
+# List only active lists (default behavior)
+list_task_lists {}
+
+# List only archived lists
+list_task_lists {"status": "archived"}
+
+# List all lists (active and archived)
+list_task_lists {"status": "all"}
+```
+
+**How archiving works:**
+- Sets list `status` to 'archived'
+- Records `archived_at` timestamp
+- Archived lists are excluded from default `list_task_lists` output
+- Tasks within archived lists remain accessible
+- Archiving is idempotent (can archive an already-archived list)
+- Use `status` parameter to view archived lists
+
+**Why archive instead of delete:**
+- Preserves work history and completed tasks
+- Keeps your active list view clean
+- Can be synced across machines (unlike deleted data)
+- No risk of accidental data loss
 
 ## Notes Workflow
 
@@ -209,6 +250,7 @@ Last updated: [timestamp]
 - `upsert_task_list` - Create or update a list (omit list_id to create, provide to update). Supports name, description, tags, and progress notes.
 - `list_task_lists` - List task lists with status counts
 - `get_task_list` - Get list metadata without tasks
+- `archive_task_list` - Archive a list (sets status='archived', excluded from default views)
 - `delete_task_list` - Remove a list (use force=true if has tasks)
 
 ### Tasks

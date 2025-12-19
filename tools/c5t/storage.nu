@@ -558,6 +558,54 @@ export def upsert-list [
   }
 }
 
+# Archive a task list (sets status to 'archived' and archived_at timestamp)
+export def archive-task-list [
+  list_id: string
+] {
+  let db_path = get-db-path
+
+  # Check if list exists
+  if not (list-exists $list_id) {
+    return {
+      success: false
+      error: $"List not found: ($list_id)"
+    }
+  }
+
+  # Get current list to check if already archived
+  let list_result = get-list $list_id
+  if not $list_result.success {
+    return {
+      success: false
+      error: $"Failed to get list: ($list_result.error)"
+    }
+  }
+
+  # If already archived, keep the original archived_at timestamp (idempotent)
+  let archived_at = if $list_result.list.status == "archived" {
+    $list_result.list.archived_at
+  } else {
+    date now | format date "%Y-%m-%d %H:%M:%S"
+  }
+
+  # Update status and archived_at
+  let sql = "UPDATE task_list SET status = 'archived', archived_at = ? WHERE id = ?"
+  let result = execute-sql $db_path $sql [$archived_at $list_id]
+
+  if not $result.success {
+    return {
+      success: false
+      error: $"Failed to archive list: ($result.error)"
+    }
+  }
+
+  {
+    success: true
+    list_id: $list_id
+    archived_at: $archived_at
+  }
+}
+
 # Delete a task list (optionally with force to delete tasks too)
 export def delete-list [
   list_id: string
