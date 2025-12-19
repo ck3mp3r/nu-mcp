@@ -1,7 +1,33 @@
 # Utility functions for c5t tool
 
-# NOTE: ID generation removed - SQLite auto-generates INTEGER PRIMARY KEY
-# IDs are now integers auto-assigned by SQLite using last_insert_rowid()
+# ============================================================================
+# ID GENERATION
+# ============================================================================
+
+# Generate an 8-character lowercase hex ID from random bytes
+# Returns: string like "a3f7b2c1"
+export def generate-id [] {
+  random binary 4 | encode hex | str downcase
+}
+
+# Generate an ID with collision checking
+# check_fn: a closure that returns true if the ID is available (no collision)
+# Returns: string - a unique 8-char hex ID
+export def generate-id-checked [check_fn: closure] {
+  mut id = (generate-id)
+  mut attempts = 0
+  let max_attempts = 100
+
+  while not (do $check_fn $id) {
+    $attempts = $attempts + 1
+    if $attempts >= $max_attempts {
+      error make {msg: "Failed to generate unique ID after 100 attempts"}
+    }
+    $id = (generate-id)
+  }
+
+  $id
+}
 
 # Get git status for scratchpad
 export def get-git-status [] {
