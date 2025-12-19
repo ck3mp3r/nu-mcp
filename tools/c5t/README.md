@@ -228,7 +228,13 @@ Last updated: [timestamp]
 ### Summary
 - `get_summary` - Quick status overview of active work, including recently completed tasks
 
-### Data Management
+### Sync
+- `sync_init` - Initialize git repo in sync directory, optionally add remote
+- `sync_status` - Show sync configuration and status
+- `sync_refresh` - Pull from remote and import to database (also runs on startup)
+- `sync_export` - Export to JSONL, commit, and push to remote
+
+### Backup
 - `export_data` - Export all data to `~/.local/share/c5t/backups/backup-{timestamp}.json`
 - `list_backups` - List available backup files
 - `import_data` - Import data from backup file (replaces all existing data)
@@ -237,7 +243,8 @@ Last updated: [timestamp]
 
 - **Location**: `~/.local/share/c5t/context.db` (respects `XDG_DATA_HOME`)
 - **Backups**: `~/.local/share/c5t/backups/`
-- **Schema**: SQLite with INTEGER PRIMARY KEYs
+- **Sync**: `~/.local/share/c5t/sync/` (JSONL files in git repo)
+- **Schema**: SQLite with TEXT PRIMARY KEYs (8-char hex IDs)
 - **Tables**: `repo`, `task_list`, `task`, `note`, `note_fts` (FTS5)
 - **Migration**: Auto-applies on initialization
 
@@ -290,7 +297,89 @@ list_repos {}
 - Prefix: `"auth*"` (matches authentication, authorize, etc.)
 - NOT: `"api NOT deprecated"`
 
-## Export/Import
+## Sync Across Machines
+
+c5t supports syncing your data across machines using a git repository. Your task lists, tasks, and notes are exported to JSONL files and can be pushed/pulled via git.
+
+### Storage Location
+
+- **Sync Directory**: `~/.local/share/c5t/sync/`
+- **Sync Files**: `repos.jsonl`, `lists.jsonl`, `tasks.jsonl`, `notes.jsonl`
+
+### Setting Up Sync
+
+```bash
+# 1. Initialize sync (creates git repo in sync directory)
+sync_init {}
+
+# 2. Add a remote for syncing across machines
+sync_init {"remote_url": "git@github.com:username/c5t-sync.git"}
+
+# 3. Check sync status
+sync_status {}
+```
+
+### Syncing Data
+
+```bash
+# Pull latest changes from remote and import to database
+sync_refresh {}
+
+# Export local database and push to remote
+sync_export {}
+sync_export {"message": "Added new auth tasks"}
+```
+
+### How It Works
+
+1. **sync_refresh** (also runs automatically on MCP startup):
+   - Checks if sync is configured (git repo exists)
+   - Pulls latest changes from remote
+   - Imports JSONL files into local database
+   - Uses last-write-wins conflict resolution (via `updated_at` timestamps)
+
+2. **sync_export**:
+   - Pulls latest first (to avoid conflicts)
+   - Exports all data to JSONL files
+   - Commits with auto-generated or custom message
+   - Pushes to remote
+
+### Conflict Resolution
+
+c5t uses **last-write-wins** based on `updated_at` timestamps:
+- When importing, if a record exists locally and in sync files, the newer one wins
+- Tasks use `completed_at` for comparison
+- Repos use `last_accessed_at`
+
+### Sync Tools
+
+| Tool | Description |
+|------|-------------|
+| `sync_init` | Initialize git repo in sync directory, optionally add remote |
+| `sync_status` | Show sync configuration and status |
+| `sync_refresh` | Pull from remote and import to database |
+| `sync_export` | Export to JSONL, commit, and push to remote |
+
+### Manual Git Operations
+
+The sync directory is a standard git repo. You can use git directly:
+
+```bash
+cd ~/.local/share/c5t/sync
+
+# Add remote manually
+git remote add origin git@github.com:username/c5t-sync.git
+
+# View history
+git log --oneline
+
+# Resolve conflicts manually if needed
+git status
+```
+
+## Export/Import (Backup)
+
+For one-time backups (not sync), use export/import:
 
 ### Backup Your Data
 
@@ -360,8 +449,9 @@ export_data {}
 
 - Database auto-initializes on first tool call
 - Repository must be registered before creating lists/notes
-- IDs are auto-generated integers (SQLite rowid)
+- IDs are 8-character hex strings (e.g., `a1b2c3d4`)
 - Tags stored as JSON arrays
 - Timestamps in ISO format
 - All markdown content preserved as-is
 - SQL injection protected (single quote escaping)
+- Sync auto-refreshes on MCP startup (if configured)
