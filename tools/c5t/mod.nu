@@ -4,6 +4,7 @@
 use storage.nu *
 use formatters.nu *
 use utils.nu *
+use sync.nu *
 
 def main [] {
   help main
@@ -425,6 +426,48 @@ def "main list-tools" [] {
             description: "Path to the git repository (optional, defaults to current working directory). Can be relative or absolute."
           }
         }
+      }
+    }
+    {
+      name: "sync_init"
+      description: "Initialize sync by setting up a git repository in the sync directory. Must be called once before using sync_export. Optionally set a remote URL for pushing."
+      input_schema: {
+        type: "object"
+        properties: {
+          remote_url: {
+            type: "string"
+            description: "Git remote URL to add as 'origin' (e.g., 'git@github.com:user/c5t-sync.git'). Optional - can be added later manually."
+          }
+        }
+      }
+    }
+    {
+      name: "sync_refresh"
+      description: "Pull latest sync data from remote and import into local database. Use this to get changes made on other machines. Performs: git pull -> import JSONL files."
+      input_schema: {
+        type: "object"
+        properties: {}
+      }
+    }
+    {
+      name: "sync_export"
+      description: "Export local database to sync files and push to remote. Use this to share changes with other machines. Performs: git pull -> export to JSONL -> git commit -> git push."
+      input_schema: {
+        type: "object"
+        properties: {
+          message: {
+            type: "string"
+            description: "Custom commit message (optional, defaults to auto-generated message with timestamp)"
+          }
+        }
+      }
+    }
+    {
+      name: "sync_status"
+      description: "Show sync status including: whether sync is configured, git status, and diff between local DB and sync files."
+      input_schema: {
+        type: "object"
+        properties: {}
       }
     }
   ] | to json
@@ -962,6 +1005,48 @@ Use list_backups to see available backup files."
   Remote: ($result.remote)
   Path: ($result.path)"
       }
+    }
+
+    "sync_init" => {
+      let remote_url = if "remote_url" in $parsed_args { $parsed_args.remote_url } else { null }
+      let result = sync-init $remote_url
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $result.message
+    }
+
+    "sync_refresh" => {
+      let result = sync-refresh
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $result.message
+    }
+
+    "sync_export" => {
+      let message = if "message" in $parsed_args { $parsed_args.message } else { null }
+      let result = sync-export $message
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $result.message
+    }
+
+    "sync_status" => {
+      let result = sync-status
+
+      if not $result.success {
+        return $result.error
+      }
+
+      $result.message
     }
 
     _ => {

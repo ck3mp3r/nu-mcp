@@ -334,3 +334,221 @@ export def import-sync-to-db [sync_dir: string] {
     notes: ($data.notes | length)
   }
 }
+
+# =============================================================================
+# MCP Sync Functions
+# =============================================================================
+
+# Initialize sync by setting up git repository in sync directory
+# Returns: {success: bool, message: string, error?: string}
+export def sync-init [remote_url: any]: nothing -> record<success: bool, message: string> {
+  let sync_dir = get-sync-dir
+
+  # Check if already initialized
+  if (is-git-repo $sync_dir) {
+    return {success: false error: "Sync is already initialized. Use sync_status to check configuration."}
+  }
+
+  # Create sync directory and initialize git
+  mkdir $sync_dir
+  cd $sync_dir
+  ^git init --quiet
+
+  # Add remote if provided
+  if $remote_url != null and ($remote_url | str length) > 0 {
+    ^git remote add origin $remote_url
+  }
+
+  cd -
+
+  let remote_msg = if $remote_url != null and ($remote_url | str length) > 0 {
+    $"\n  Remote: ($remote_url)"
+  } else {
+    "\n  No remote configured. Add one with: git -C ~/.local/share/c5t/sync remote add origin <url>"
+  }
+
+  {
+    success: true
+    message: $"✓ Sync initialized at ($sync_dir)($remote_msg)"
+  }
+}
+
+# Get sync status information
+# Returns: {success: bool, message: string}
+export def sync-status []: nothing -> record<success: bool, message: string> {
+  let sync_dir = get-sync-dir
+
+  # Check if sync is configured
+  if not (is-git-repo $sync_dir) {
+    return {
+      success: true
+      message: "Sync is not configured.
+
+To set up sync:
+  1. Use sync_init to create the sync repository
+  2. Optionally add a remote: git -C ~/.local/share/c5t/sync remote add origin <url>
+  3. Use sync_export to push your data
+  4. Use sync_refresh to pull changes"
+    }
+  }
+
+  # Get remote info
+  cd $sync_dir
+  let remotes = try {
+    ^git remote -v | str trim
+  } catch {
+    ""
+  }
+
+  let status = try {
+    ^git status --short | str trim
+  } catch {
+    ""
+  }
+
+  let has_remote = ($remotes | is-not-empty)
+  let is_clean = ($status | is-empty)
+
+  cd -
+
+  # Check sync files
+  let repos_file = ($sync_dir | path join "repos.jsonl")
+  let lists_file = ($sync_dir | path join "lists.jsonl")
+  let tasks_file = ($sync_dir | path join "tasks.jsonl")
+  let notes_file = ($sync_dir | path join "notes.jsonl")
+
+  let has_files = ($repos_file | path exists) or ($lists_file | path exists) or ($tasks_file | path exists) or ($notes_file | path exists)
+
+  mut lines = ["Sync is configured."]
+  $lines = ($lines | append $"  Directory: ($sync_dir)")
+
+  if $has_remote {
+    $lines = ($lines | append "  Remotes:")
+    let remote_lines = ($remotes | lines | each {|r| $"    ($r)" })
+    $lines = ($lines | append $remote_lines)
+  } else {
+    $lines = ($lines | append "  No remote configured.")
+  }
+
+  $lines = ($lines | append $"  Working tree: (if $is_clean { 'clean' } else { 'dirty' })")
+  $lines = ($lines | append $"  Sync files: (if $has_files { 'present' } else { 'not created yet' })")
+
+  {
+    success: true
+    message: ($lines | str join (char newline))
+  }
+}
+
+# Refresh local database from sync files (pull + import)
+# Returns: {success: bool, message: string, error?: string}
+export def sync-refresh []: nothing -> record<success: bool, message: string> {
+  use storage.nu [ init-database ]
+
+  let sync_dir = get-sync-dir
+
+  # Check if sync is configured
+  if not (is-git-repo $sync_dir) {
+    return {
+      success: true
+      message: "Sync is not configured. Use sync_init first."
+    }
+  }
+
+  # Check if working tree is clean
+  if not (git-status-clean $sync_dir) {
+    return {
+      success: true
+      message: "Warning: Sync directory has uncommitted changes. Skipping pull.
+
+Resolve conflicts manually and run sync_refresh again."
+    }
+  }
+
+  # Try to pull (may fail if no remote or no commits yet)
+  let pull_result = git-pull $sync_dir
+
+  # Initialize database schema if needed
+  init-database
+
+  # Import sync files
+  let import_result = import-sync-to-db $sync_dir
+
+  let message = if $import_result.success {
+    let pull_msg = if $pull_result.success {
+      $pull_result.message
+    } else {
+      "No remote to pull from"
+    }
+
+    if $import_result.message? != null and $import_result.message == "No sync data to import" {
+      $"✓ Sync refreshed (no data to import)
+  Pull: ($pull_msg)"
+    } else {
+      $"✓ Sync refreshed
+  Pull: ($pull_msg)
+  Imported: ($import_result.repos) repos, ($import_result.lists) lists, ($import_result.tasks) tasks, ($import_result.notes) notes"
+    }
+  } else {
+    $"Error during import: ($import_result.error? | default 'unknown')"
+  }
+
+  {
+    success: true
+    message: $message
+  }
+}
+
+# Export local database to sync files and push to remote
+# Returns: {success: bool, message: string, error?: string}
+export def sync-export [commit_message: any]: nothing -> record<success: bool, message: string> {
+  let sync_dir = get-sync-dir
+
+  # Check if sync is configured
+  if not (is-git-repo $sync_dir) {
+    return {
+      success: false
+      error: "Sync is not configured. Use sync_init first."
+    }
+  }
+
+  # Try to pull first (get latest before export)
+  let pull_result = git-pull $sync_dir
+
+  # Export database to sync files
+  let export_result = export-db-to-sync $sync_dir
+
+  if not $export_result.success {
+    return {
+      success: false
+      error: $"Export failed: ($export_result.error? | default 'unknown')"
+    }
+  }
+
+  # Generate commit message
+  let timestamp = date now | format date "%Y-%m-%d %H:%M:%S"
+  let message = if $commit_message != null and ($commit_message | str length) > 0 {
+    $commit_message
+  } else {
+    $"c5t sync: ($timestamp)"
+  }
+
+  # Commit and push
+  let commit_result = git-commit-push $sync_dir $message
+
+  let push_status = if $commit_result.success {
+    if $commit_result.message == "Nothing to commit" {
+      "No changes to commit"
+    } else {
+      "Committed and pushed"
+    }
+  } else {
+    $"Commit/push failed: ($commit_result.message)"
+  }
+
+  {
+    success: true
+    message: $"✓ Sync exported
+  Exported: ($export_result.repos) repos, ($export_result.lists) lists, ($export_result.tasks) tasks, ($export_result.notes) notes
+  Status: ($push_status)"
+  }
+}

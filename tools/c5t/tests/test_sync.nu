@@ -359,3 +359,240 @@ export def "test import-sync-to-db updates existing with newer timestamp" [] {
   # Cleanup
   rm -rf $temp_dir
 }
+
+# =============================================================================
+# sync-init Tests
+# =============================================================================
+
+export def "test sync-init creates git repo in sync dir" [] {
+  use ../sync.nu [ sync-init get-sync-dir is-git-repo ]
+
+  # Use temp sync dir
+  let temp_dir = (mktemp -d)
+  let sync_dir = ($temp_dir | path join "c5t" "sync")
+  $env.XDG_DATA_HOME = $temp_dir
+
+  let result = sync-init null
+
+  assert $result.success "sync-init should succeed"
+  assert (is-git-repo $sync_dir) "Sync dir should be a git repo"
+
+  # Cleanup
+  rm -rf $temp_dir
+}
+
+export def "test sync-init adds remote when provided" [] {
+  use ../sync.nu [ sync-init get-sync-dir ]
+
+  # Use temp sync dir
+  let temp_dir = (mktemp -d)
+  let sync_dir = ($temp_dir | path join "c5t" "sync")
+  $env.XDG_DATA_HOME = $temp_dir
+
+  let result = sync-init "git@github.com:user/c5t-sync.git"
+
+  assert $result.success "sync-init should succeed"
+
+  # Check remote was added
+  cd $sync_dir
+  let remote = (^git remote get-url origin | str trim)
+  cd -
+
+  assert ($remote == "git@github.com:user/c5t-sync.git") "Remote should be set"
+
+  # Cleanup
+  rm -rf $temp_dir
+}
+
+export def "test sync-init returns error if already initialized" [] {
+  use ../sync.nu [ sync-init get-sync-dir ]
+
+  # Use temp sync dir
+  let temp_dir = (mktemp -d)
+  let sync_dir = ($temp_dir | path join "c5t" "sync")
+  $env.XDG_DATA_HOME = $temp_dir
+
+  # Initialize twice
+  sync-init null
+  let result = sync-init null
+
+  assert (not $result.success) "Second init should fail"
+  assert ($result.error | str contains "already initialized") "Error should mention already initialized"
+
+  # Cleanup
+  rm -rf $temp_dir
+}
+
+# =============================================================================
+# sync-status Tests
+# =============================================================================
+
+export def "test sync-status shows not configured when no git repo" [] {
+  use ../sync.nu [ sync-status ]
+
+  # Use temp sync dir without git
+  let temp_dir = (mktemp -d)
+  $env.XDG_DATA_HOME = $temp_dir
+
+  let result = sync-status
+
+  assert $result.success "sync-status should succeed"
+  assert ($result.message | str contains "not configured") "Should show not configured"
+
+  # Cleanup
+  rm -rf $temp_dir
+}
+
+export def "test sync-status shows configured status" [] {
+  use ../sync.nu [ sync-init sync-status ]
+
+  # Use temp sync dir
+  let temp_dir = (mktemp -d)
+  $env.XDG_DATA_HOME = $temp_dir
+
+  sync-init "git@github.com:user/repo.git"
+
+  let result = sync-status
+
+  assert $result.success "sync-status should succeed"
+  assert ($result.message | str contains "configured") "Should show configured"
+  assert ($result.message | str contains "origin") "Should show remote info"
+
+  # Cleanup
+  rm -rf $temp_dir
+}
+
+# =============================================================================
+# sync-refresh Tests
+# =============================================================================
+
+export def "test sync-refresh skips when sync not configured" [] {
+  use ../sync.nu [ sync-refresh ]
+
+  # Use temp sync dir without git
+  let temp_dir = (mktemp -d)
+  $env.XDG_DATA_HOME = $temp_dir
+
+  let result = sync-refresh
+
+  assert $result.success "sync-refresh should succeed (skip)"
+  assert ($result.message | str contains "not configured") "Should mention not configured"
+
+  # Cleanup
+  rm -rf $temp_dir
+}
+
+export def "test sync-refresh imports data from sync files" [] {
+  use ../sync.nu [ sync-init sync-refresh write-sync-files get-sync-dir ]
+  use ../storage.nu [ init-database list-repos ]
+
+  # Set up temp environment
+  let temp_dir = (mktemp -d)
+  let sync_dir = ($temp_dir | path join "c5t" "sync")
+  let db_path = ($temp_dir | path join "c5t" "test.db")
+  $env.XDG_DATA_HOME = $temp_dir
+  $env.C5T_DB_PATH = $db_path
+
+  init-database
+
+  # Initialize sync
+  sync-init null
+
+  # Write sync data directly (simulating a pull from remote)
+  let data = {
+    repos: [{id: "testrepo" remote: "github:test/repo" path: "/test/path" created_at: "2025-01-01T00:00:00Z" last_accessed_at: "2025-01-01T00:00:00Z"}]
+    lists: []
+    tasks: []
+    notes: []
+  }
+  write-sync-files $sync_dir $data
+
+  # Commit the sync files so repo is clean
+  cd $sync_dir
+  ^git add -A
+  ^git commit -m "test sync data" --quiet
+  cd -
+
+  # Refresh should import the data
+  let result = sync-refresh
+
+  assert $result.success "sync-refresh should succeed"
+
+  # Verify data was imported
+  let repos = list-repos
+  assert (($repos.repos | where id == "testrepo" | length) == 1) "Should have imported repo"
+
+  # Cleanup
+  rm -rf $temp_dir
+}
+
+# =============================================================================
+# sync-export Tests
+# =============================================================================
+
+export def "test sync-export fails when sync not configured" [] {
+  use ../sync.nu [ sync-export ]
+
+  # Use temp sync dir without git
+  let temp_dir = (mktemp -d)
+  $env.XDG_DATA_HOME = $temp_dir
+
+  let result = sync-export null
+
+  assert (not $result.success) "sync-export should fail"
+  assert ($result.error | str contains "not configured") "Should mention not configured"
+
+  # Cleanup
+  rm -rf $temp_dir
+}
+
+export def "test sync-export exports data and commits" [] {
+  use ../sync.nu [ sync-init sync-export get-sync-dir read-sync-files ]
+  use ../storage.nu [ init-database upsert-repo upsert-list ]
+
+  # Set up temp environment
+  let temp_dir = (mktemp -d)
+  let sync_dir = ($temp_dir | path join "c5t" "sync")
+  let db_path = ($temp_dir | path join "c5t" "test.db")
+  $env.XDG_DATA_HOME = $temp_dir
+  $env.C5T_DB_PATH = $db_path
+
+  # Create temp git repo for upsert-repo
+  let git_dir = ($temp_dir | path join "git-repo")
+  mkdir $git_dir
+  cd $git_dir
+  ^git init --quiet
+  ^git remote add origin "git@github.com:test/repo.git"
+
+  init-database
+
+  # Create some data
+  let repo = upsert-repo $git_dir
+  let list = upsert-list "Test List" "Description" $repo.repo_id
+
+  cd -
+
+  # Initialize sync
+  sync-init null
+
+  # Export (without remote, so push will be skipped)
+  let result = sync-export "Test export"
+
+  assert $result.success "sync-export should succeed"
+
+  # Verify sync files were created
+  let data = read-sync-files $sync_dir
+
+  assert (($data.repos | length) >= 1) "Should have exported repos"
+  assert (($data.lists | length) >= 1) "Should have exported lists"
+
+  # Verify commit was made
+  cd $sync_dir
+  let log = (^git log --oneline -1 | str trim)
+  cd -
+
+  assert ($log | str contains "Test export") "Commit message should match"
+
+  # Cleanup
+  rm -rf $temp_dir
+}
