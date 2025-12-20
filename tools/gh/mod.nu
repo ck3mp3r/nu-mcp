@@ -238,10 +238,10 @@ def "main call-tool" [
     }
     "list_workflow_runs" => {
       let path = get-optional $parsed_args "path" ""
-      let workflow = get-optional $parsed_args "workflow" ""
-      let branch = get-optional $parsed_args "branch" ""
-      let status = get-optional $parsed_args "status" ""
-      let limit = get-optional $parsed_args "limit" 0
+      let workflow = get-optional $parsed_args "workflow" null
+      let branch = get-optional $parsed_args "branch" null
+      let status = get-optional $parsed_args "status" null
+      let limit = get-optional $parsed_args "limit" null
       list-workflow-runs --path $path --workflow $workflow --branch $branch --status $status --limit $limit
     }
     "get_workflow_run" => {
@@ -252,7 +252,7 @@ def "main call-tool" [
     "run_workflow" => {
       let workflow = $parsed_args | get workflow
       let path = get-optional $parsed_args "path" ""
-      let ref = get-optional $parsed_args "ref" ""
+      let ref = get-optional $parsed_args "ref" null
       let inputs = get-optional $parsed_args "inputs" {}
       run-workflow $workflow --path $path --ref $ref --inputs $inputs | to json
     }
