@@ -166,11 +166,11 @@ export def "test upsert-pr blocked in readonly mode" [] {
 
 export def "test upsert-pr creates new pr when none exists" [] {
   # First: check for existing PR by head branch - returns empty (no PR)
-  # Then: create new PR
-  let mock_output = '{"number": 43, "url": "https://github.com/owner/repo/pull/43"}'
+  # Then: create new PR (returns URL to stdout)
+  let mock_url = "https://github.com/owner/repo/pull/43"
   let result = with-env {
     MOCK_gh_pr_list___head_feature_branch___json_number_headRefName: (mock-success "[]")
-    MOCK_gh_pr_create___title_Test_PR___head_feature_branch___json_number_url: (mock-success $mock_output)
+    MOCK_gh_pr_create___title_Test_PR___head_feature_branch: (mock-success $mock_url)
   } {
     nu --no-config-file -c "
       use tools/github/tests/mocks.nu *
@@ -181,16 +181,19 @@ export def "test upsert-pr creates new pr when none exists" [] {
   let parsed = $result | from json
 
   assert (($parsed | get number) == 43) "Should return new PR number"
+  assert (($parsed | get url) == $mock_url) "Should return PR URL"
 }
 
 export def "test upsert-pr updates existing pr" [] {
   # First: check for existing PR - returns PR #42
-  # Then: update it with new title
+  # Then: update it with new title (edit doesn't return anything)
+  # Then: get the PR details
   let existing_pr = '[{"number": 42, "headRefName": "feature-branch"}]'
-  let updated_pr = '{"number": 42, "url": "https://github.com/owner/repo/pull/42"}'
+  let pr_details = (sample-pr)
   let result = with-env {
     MOCK_gh_pr_list___head_feature_branch___json_number_headRefName: (mock-success $existing_pr)
-    MOCK_gh_pr_edit_42___title_Updated_Title___json_number_url: (mock-success $updated_pr)
+    MOCK_gh_pr_edit_42___title_Updated_Title: (mock-success "")
+    MOCK_gh_pr_view_42___json_number_title_body_state_author_headRefName_baseRefName_createdAt_updatedAt_isDraft_labels_reviewRequests_url: (mock-success $pr_details)
   } {
     nu --no-config-file -c "
       use tools/github/tests/mocks.nu *
@@ -204,10 +207,10 @@ export def "test upsert-pr updates existing pr" [] {
 }
 
 export def "test upsert-pr with body and labels creates new" [] {
-  let mock_output = '{"number": 44, "url": "https://github.com/owner/repo/pull/44"}'
+  let mock_url = "https://github.com/owner/repo/pull/44"
   let result = with-env {
     MOCK_gh_pr_list___head_my_branch___json_number_headRefName: (mock-success "[]")
-    MOCK_gh_pr_create___title_New_Feature___head_my_branch___body_Description___label_enhancement___json_number_url: (mock-success $mock_output)
+    MOCK_gh_pr_create___title_New_Feature___head_my_branch___body_Description___label_enhancement: (mock-success $mock_url)
   } {
     nu --no-config-file -c "
       use tools/github/tests/mocks.nu *
@@ -218,15 +221,16 @@ export def "test upsert-pr with body and labels creates new" [] {
   let parsed = $result | from json
 
   assert (($parsed | get number) == 44) "Should return new PR number"
+  assert (($parsed | get url) == $mock_url) "Should return PR URL"
 }
 
 export def "test upsert-pr uses current branch when head not specified" [] {
   # When no --head, get current branch from git, then check/create
-  let mock_output = '{"number": 45, "url": "https://github.com/owner/repo/pull/45"}'
+  let mock_url = "https://github.com/owner/repo/pull/45"
   let result = with-env {
     MOCK_git_branch___show_current: (mock-success "current-feature")
     MOCK_gh_pr_list___head_current_feature___json_number_headRefName: (mock-success "[]")
-    MOCK_gh_pr_create___title_My_PR___head_current_feature___json_number_url: (mock-success $mock_output)
+    MOCK_gh_pr_create___title_My_PR___head_current_feature: (mock-success $mock_url)
   } {
     nu --no-config-file -c "
       use tools/github/tests/mocks.nu *
@@ -237,4 +241,5 @@ export def "test upsert-pr uses current branch when head not specified" [] {
   let parsed = $result | from json
 
   assert (($parsed | get number) == 45) "Should return new PR number"
+  assert (($parsed | get url) == $mock_url) "Should return PR URL"
 }

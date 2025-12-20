@@ -149,9 +149,11 @@ def update-pr-internal [
     $args = ($args | append ["--add-reviewer" $reviewer])
   }
 
-  $args = ($args | append ["--json" "number,url"])
-
+  # gh pr edit doesn't support --json, get the PR after editing
   run-gh $args --path ($path | default "")
+
+  # Return the PR details after update
+  get-pr $number --path ($path | default "")
 }
 
 # Get current git branch name
@@ -240,8 +242,12 @@ export def upsert-pr [
       $args = ($args | append ["--reviewer" $reviewer])
     }
 
-    $args = ($args | append ["--json" "number,url"])
+    # gh pr create doesn't support --json, it returns URL to stdout
+    let output = run-gh $args --path $repo_path
 
-    run-gh $args --path $repo_path
+    # Extract PR number from URL (format: https://github.com/owner/repo/pull/123)
+    let pr_number = $output | str trim | split row "/" | last
+
+    {number: ($pr_number | into int) url: ($output | str trim)} | to json
   }
 }
