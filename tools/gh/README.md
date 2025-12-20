@@ -134,6 +134,8 @@ This makes it safe to call repeatedly - it won't create duplicate PRs.
 
 ## Usage Examples
 
+These examples show how to call the tools from an MCP client (e.g., Claude Desktop, using JavaScript/TypeScript). The `await` keyword is JavaScript syntax for async operations in the MCP client, not Nushell syntax.
+
 ### List Recent Workflow Runs
 
 ```javascript
@@ -217,6 +219,21 @@ The tool includes comprehensive tests (27 tests covering all functionality):
 ```bash
 nu tools/gh/tests/run_tests.nu
 # Results: 27/27 passed, 0 failed
+```
+
+### Manual Testing with Nushell
+
+You can also test tools directly with Nushell (no `await` keyword needed - Nushell is synchronous):
+
+```bash
+# List workflows
+nu tools/gh/mod.nu call-tool list_workflows '{}'
+
+# List recent workflow runs
+nu tools/gh/mod.nu call-tool list_workflow_runs '{}'
+
+# Get PR details
+nu tools/gh/mod.nu call-tool get_pr '{"number": 42}'
 ```
 
 ## Development
