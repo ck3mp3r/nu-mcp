@@ -57,7 +57,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_task_lists"
-      description: "list_task_lists returns tabular data that MUST be displayed directly to the user in your response - never summarize or omit this output."
+      description: "List task lists with optional filtering by status (active/archived/all), tags, and repository. Returns tabular data that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {
@@ -335,7 +335,7 @@ def "main list-tools" [] {
     }
     {
       name: "list_notes"
-      description: "list_notes returns tabular data that MUST be displayed directly to the user in your response - never summarize or omit this output."
+      description: "List notes with optional filtering by tags, note type (manual/archived_todo), limit, and repository. Returns tabular data that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {
@@ -381,7 +381,7 @@ def "main list-tools" [] {
     }
     {
       name: "search"
-      description: "search returns tabular results that MUST be displayed directly to the user in your response - never summarize or omit this output."
+      description: "Full-text search notes with FTS5 query syntax and optional filtering by tags, limit, and repository. Returns tabular results that MUST be displayed directly to the user in your response - never summarize or omit this output."
       input_schema: {
         type: "object"
         properties: {
