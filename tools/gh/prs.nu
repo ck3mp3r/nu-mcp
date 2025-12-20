@@ -69,50 +69,8 @@ export def get-pr-checks [
     "checks"
     ($number | into string)
     "--json"
-    "name,state,conclusion"
+    "name,state,bucket,workflow,completedAt"
   ]
-
-  run-gh $args --path ($path | default "")
-}
-
-# Create a new pull request (internal helper - use upsert-pr instead)
-def create-pr-internal [
-  title: string
-  --path: string # Path to git repo (optional, defaults to cwd)
-  --body: string # PR description
-  --base: string # Base branch to merge into
-  --head: string # Head branch with changes
-  --draft # Create as draft PR
-  --labels: list<string> = [] # Labels to add
-  --reviewers: list<string> = [] # Reviewers to request
-] {
-  mut args = ["pr" "create" "--title" $title]
-
-  if $body != null {
-    $args = ($args | append ["--body" $body])
-  }
-
-  if $base != null {
-    $args = ($args | append ["--base" $base])
-  }
-
-  if $head != null {
-    $args = ($args | append ["--head" $head])
-  }
-
-  if $draft {
-    $args = ($args | append ["--draft"])
-  }
-
-  for label in $labels {
-    $args = ($args | append ["--label" $label])
-  }
-
-  for reviewer in $reviewers {
-    $args = ($args | append ["--reviewer" $reviewer])
-  }
-
-  $args = ($args | append ["--json" "number,url"])
 
   run-gh $args --path ($path | default "")
 }

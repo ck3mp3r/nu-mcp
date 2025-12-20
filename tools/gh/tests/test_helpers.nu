@@ -193,8 +193,8 @@ export def sample-pr [] {
 # Sample mock data for PR checks
 export def sample-pr-checks [] {
   [
-    {name: "CI / build" state: "SUCCESS" conclusion: "SUCCESS"}
-    {name: "CI / test" state: "SUCCESS" conclusion: "SUCCESS"}
-    {name: "lint" state: "SUCCESS" conclusion: "SUCCESS"}
+    {name: "CI / build" state: "SUCCESS" bucket: "pass" workflow: "CI" completedAt: "2024-01-15T10:00:00Z"}
+    {name: "CI / test" state: "SUCCESS" bucket: "pass" workflow: "CI" completedAt: "2024-01-15T10:05:00Z"}
+    {name: "lint" state: "SUCCESS" bucket: "pass" workflow: "Lint" completedAt: "2024-01-15T10:02:00Z"}
   ] | to json
 }

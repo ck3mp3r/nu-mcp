@@ -117,7 +117,7 @@ export def "test get-pr handles not found" [] {
 
 export def "test get-pr-checks returns checks" [] {
   let mock_output = sample-pr-checks
-  let result = with-env {MOCK_gh_pr_checks_42___json_name_state_conclusion: (mock-success $mock_output)} {
+  let result = with-env {MOCK_gh_pr_checks_42___json_name_state_bucket_workflow_completedAt: (mock-success $mock_output)} {
     nu --no-config-file -c "
       use tools/gh/tests/mocks.nu *
       use tools/gh/prs.nu get-pr-checks
@@ -132,7 +132,7 @@ export def "test get-pr-checks returns checks" [] {
 }
 
 export def "test get-pr-checks handles error" [] {
-  let result = with-env {MOCK_gh_pr_checks_999___json_name_state_conclusion: (mock-error "Could not resolve to a PullRequest")} {
+  let result = with-env {MOCK_gh_pr_checks_999___json_name_state_bucket_workflow_completedAt: (mock-error "Could not resolve to a PullRequest")} {
     do {
       nu --no-config-file -c "
       use tools/gh/tests/mocks.nu *
