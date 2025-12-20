@@ -1,4 +1,4 @@
-# GitHub MCP Tool - provides GitHub workflow and PR management tools
+# gh MCP Tool - provides GitHub workflow and PR management via gh CLI
 # Wraps the gh CLI for MCP integration
 
 use utils.nu *

@@ -7,16 +7,16 @@ def main [] {
   print "Running GitHub tool tests...\n"
 
   # Verify we're in the project root
-  if not ("tools/github/mod.nu" | path exists) {
+  if not ("tools/gh/mod.nu" | path exists) {
     print "Error: Must run from project root directory"
     exit 1
   }
 
   # Discover all test files
-  let test_files = glob tools/github/tests/test_*.nu
+  let test_files = glob tools/gh/tests/test_*.nu
 
   if ($test_files | is-empty) {
-    print "No test files found (looking for tools/github/tests/test_*.nu)"
+    print "No test files found (looking for tools/gh/tests/test_*.nu)"
     exit 0
   }
 

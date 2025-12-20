@@ -23,8 +23,8 @@ export def "test list-workflows returns workflow list" [] {
   # Key: workflow_list___json_id_name_path_state (commas replaced with _)
   let result = with-env {MOCK_gh_workflow_list___json_id_name_path_state: (mock-success $mock_output)} {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/workflows.nu list-workflows
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/workflows.nu list-workflows
       list-workflows
     "
   }
@@ -37,8 +37,8 @@ export def "test list-workflows returns workflow list" [] {
 export def "test list-workflows with empty result" [] {
   let result = with-env {MOCK_gh_workflow_list___json_id_name_path_state: (mock-success "[]")} {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/workflows.nu list-workflows
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/workflows.nu list-workflows
       list-workflows
     "
   }
@@ -51,8 +51,8 @@ export def "test list-workflows handles gh error" [] {
   let result = with-env {MOCK_gh_workflow_list___json_id_name_path_state: (mock-error "not a git repository")} {
     do {
       nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/workflows.nu list-workflows
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/workflows.nu list-workflows
       list-workflows
     "
     } | complete
@@ -70,8 +70,8 @@ export def "test list-workflow-runs returns runs" [] {
   let mock_output = sample-workflow-runs
   let result = with-env {MOCK_gh_run_list___json_databaseId_displayTitle_status_conclusion_workflowName_headBranch_event_createdAt: (mock-success $mock_output)} {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/workflows.nu list-workflow-runs
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/workflows.nu list-workflow-runs
       list-workflow-runs
     "
   }
@@ -85,8 +85,8 @@ export def "test list-workflow-runs with limit" [] {
   let mock_output = sample-workflow-runs
   let result = with-env {MOCK_gh_run_list___json_databaseId_displayTitle_status_conclusion_workflowName_headBranch_event_createdAt___limit_5: (mock-success $mock_output)} {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/workflows.nu list-workflow-runs
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/workflows.nu list-workflow-runs
       list-workflow-runs --limit 5
     "
   }
@@ -99,8 +99,8 @@ export def "test list-workflow-runs with workflow filter" [] {
   let mock_output = sample-workflow-runs
   let result = with-env {MOCK_gh_run_list___json_databaseId_displayTitle_status_conclusion_workflowName_headBranch_event_createdAt___workflow_CI: (mock-success $mock_output)} {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/workflows.nu list-workflow-runs
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/workflows.nu list-workflow-runs
       list-workflow-runs --workflow CI
     "
   }
@@ -113,8 +113,8 @@ export def "test list-workflow-runs with branch filter" [] {
   let mock_output = sample-workflow-runs
   let result = with-env {MOCK_gh_run_list___json_databaseId_displayTitle_status_conclusion_workflowName_headBranch_event_createdAt___branch_main: (mock-success $mock_output)} {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/workflows.nu list-workflow-runs
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/workflows.nu list-workflow-runs
       list-workflow-runs --branch main
     "
   }
@@ -127,8 +127,8 @@ export def "test list-workflow-runs with status filter" [] {
   let mock_output = sample-workflow-runs
   let result = with-env {MOCK_gh_run_list___json_databaseId_displayTitle_status_conclusion_workflowName_headBranch_event_createdAt___status_completed: (mock-success $mock_output)} {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/workflows.nu list-workflow-runs
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/workflows.nu list-workflow-runs
       list-workflow-runs --status completed
     "
   }
@@ -145,8 +145,8 @@ export def "test get-workflow-run returns run details" [] {
   let mock_output = sample-workflow-run
   let result = with-env {MOCK_gh_run_view_11111___json_databaseId_displayTitle_status_conclusion_workflowName_headBranch_headSha_event_createdAt_updatedAt_url_jobs: (mock-success $mock_output)} {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/workflows.nu get-workflow-run
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/workflows.nu get-workflow-run
       get-workflow-run 11111
     "
   }
@@ -161,8 +161,8 @@ export def "test get-workflow-run handles not found" [] {
   let result = with-env {MOCK_gh_run_view_99999___json_databaseId_displayTitle_status_conclusion_workflowName_headBranch_headSha_event_createdAt_updatedAt_url_jobs: (mock-error "run 99999 not found")} {
     do {
       nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/workflows.nu get-workflow-run
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/workflows.nu get-workflow-run
       get-workflow-run 99999
     "
     } | complete
@@ -180,8 +180,8 @@ export def "test run-workflow blocked in readonly mode" [] {
   let result = with-env {MCP_GITHUB_MODE: "readonly"} {
     do {
       nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/workflows.nu run-workflow
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/workflows.nu run-workflow
       run-workflow ci.yaml
     "
     } | complete
@@ -196,8 +196,8 @@ export def "test run-workflow allowed in readwrite mode" [] {
   # Default mode is readwrite, so no need to set MCP_GITHUB_MODE
   let result = with-env {MOCK_gh_workflow_run_ci_yaml: (mock-success "")} {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/workflows.nu run-workflow
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/workflows.nu run-workflow
       run-workflow ci.yaml | to json
     "
   }
@@ -211,8 +211,8 @@ export def "test run-workflow with ref" [] {
   # Mock key: workflow_run_ci_yaml___ref_feature_branch (dots and dashes replaced)
   let result = with-env {MOCK_gh_workflow_run_ci_yaml___ref_feature_branch: (mock-success "")} {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/workflows.nu run-workflow
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/workflows.nu run-workflow
       run-workflow ci.yaml --ref feature-branch | to json
     "
   }
@@ -226,8 +226,8 @@ export def "test run-workflow with inputs" [] {
   # -f becomes _f (dash to underscore), = becomes _ 
   let result = with-env {MOCK_gh_workflow_run_deploy_yaml__f_environment_staging: (mock-success "")} {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/workflows.nu run-workflow
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/workflows.nu run-workflow
       run-workflow deploy.yaml --inputs {environment: staging} | to json
     "
   }

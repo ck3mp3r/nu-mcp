@@ -22,8 +22,8 @@ export def "test list-prs returns pr list" [] {
   let mock_output = sample-pr-list
   let result = with-env {MOCK_gh_pr_list___json_number_title_state_author_headRefName_baseRefName_createdAt_isDraft: (mock-success $mock_output)} {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu list-prs
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu list-prs
       list-prs
     "
   }
@@ -37,8 +37,8 @@ export def "test list-prs returns pr list" [] {
 export def "test list-prs with empty result" [] {
   let result = with-env {MOCK_gh_pr_list___json_number_title_state_author_headRefName_baseRefName_createdAt_isDraft: (mock-success "[]")} {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu list-prs
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu list-prs
       list-prs
     "
   }
@@ -51,8 +51,8 @@ export def "test list-prs with state filter" [] {
   let mock_output = sample-pr-list
   let result = with-env {MOCK_gh_pr_list___json_number_title_state_author_headRefName_baseRefName_createdAt_isDraft___state_open: (mock-success $mock_output)} {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu list-prs
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu list-prs
       list-prs --state open
     "
   }
@@ -65,8 +65,8 @@ export def "test list-prs handles error" [] {
   let result = with-env {MOCK_gh_pr_list___json_number_title_state_author_headRefName_baseRefName_createdAt_isDraft: (mock-error "not a git repository")} {
     do {
       nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu list-prs
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu list-prs
       list-prs
     "
     } | complete
@@ -84,8 +84,8 @@ export def "test get-pr returns pr details" [] {
   let mock_output = sample-pr
   let result = with-env {MOCK_gh_pr_view_42___json_number_title_body_state_author_headRefName_baseRefName_createdAt_updatedAt_isDraft_labels_reviewRequests_url: (mock-success $mock_output)} {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu get-pr
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu get-pr
       get-pr 42
     "
   }
@@ -100,8 +100,8 @@ export def "test get-pr handles not found" [] {
   let result = with-env {MOCK_gh_pr_view_999___json_number_title_body_state_author_headRefName_baseRefName_createdAt_updatedAt_isDraft_labels_reviewRequests_url: (mock-error "Could not resolve to a PullRequest")} {
     do {
       nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu get-pr
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu get-pr
       get-pr 999
     "
     } | complete
@@ -119,8 +119,8 @@ export def "test get-pr-checks returns checks" [] {
   let mock_output = sample-pr-checks
   let result = with-env {MOCK_gh_pr_checks_42___json_name_state_conclusion: (mock-success $mock_output)} {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu get-pr-checks
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu get-pr-checks
       get-pr-checks 42
     "
   }
@@ -135,8 +135,8 @@ export def "test get-pr-checks handles error" [] {
   let result = with-env {MOCK_gh_pr_checks_999___json_name_state_conclusion: (mock-error "Could not resolve to a PullRequest")} {
     do {
       nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu get-pr-checks
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu get-pr-checks
       get-pr-checks 999
     "
     } | complete
@@ -153,8 +153,8 @@ export def "test upsert-pr blocked in readonly mode" [] {
   let result = with-env {MCP_GITHUB_MODE: "readonly"} {
     do {
       nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu upsert-pr
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu upsert-pr
       upsert-pr 'Test PR' --head feature-branch
     "
     } | complete
@@ -173,8 +173,8 @@ export def "test upsert-pr creates new pr when none exists" [] {
     MOCK_gh_pr_create___title_Test_PR___head_feature_branch: (mock-success $mock_url)
   } {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu upsert-pr
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu upsert-pr
       upsert-pr 'Test PR' --head feature-branch
     "
   }
@@ -196,8 +196,8 @@ export def "test upsert-pr updates existing pr" [] {
     MOCK_gh_pr_view_42___json_number_title_body_state_author_headRefName_baseRefName_createdAt_updatedAt_isDraft_labels_reviewRequests_url: (mock-success $pr_details)
   } {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu upsert-pr
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu upsert-pr
       upsert-pr 'Updated Title' --head feature-branch
     "
   }
@@ -213,8 +213,8 @@ export def "test upsert-pr with body and labels creates new" [] {
     MOCK_gh_pr_create___title_New_Feature___head_my_branch___body_Description___label_enhancement: (mock-success $mock_url)
   } {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu upsert-pr
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu upsert-pr
       upsert-pr 'New Feature' --head my-branch --body Description --labels [enhancement]
     "
   }
@@ -233,8 +233,8 @@ export def "test upsert-pr uses current branch when head not specified" [] {
     MOCK_gh_pr_create___title_My_PR___head_current_feature: (mock-success $mock_url)
   } {
     nu --no-config-file -c "
-      use tools/github/tests/mocks.nu *
-      use tools/github/prs.nu upsert-pr
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu upsert-pr
       upsert-pr 'My PR'
     "
   }
