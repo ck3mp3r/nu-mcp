@@ -243,3 +243,151 @@ export def "test upsert-pr uses current branch when head not specified" [] {
   assert (($parsed | get number) == 45) "Should return new PR number"
   assert (($parsed | get url) == $mock_url) "Should return PR URL"
 }
+
+# =============================================================================
+# close-pr tests
+# =============================================================================
+
+export def "test close-pr closes pr successfully" [] {
+  let result = with-env {MOCK_gh_pr_close_42: (mock-success "")} {
+    nu --no-config-file -c "
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu close-pr
+      close-pr 42
+    "
+  }
+  let parsed = $result | from json
+
+  assert ($parsed.success == true) "Should succeed"
+  assert (($parsed.message | str contains "42") and ($parsed.message | str contains "closed")) "Should mention PR number and closed"
+}
+
+export def "test close-pr with comment" [] {
+  let result = with-env {MOCK_gh_pr_close_42___comment_Closing_this: (mock-success "")} {
+    nu --no-config-file -c "
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu close-pr
+      close-pr 42 --comment 'Closing this'
+    "
+  }
+  let parsed = $result | from json
+
+  assert ($parsed.success == true) "Should succeed"
+}
+
+export def "test close-pr with delete branch" [] {
+  let result = with-env {MOCK_gh_pr_close_42___delete_branch: (mock-success "")} {
+    nu --no-config-file -c "
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu close-pr
+      close-pr 42 --delete-branch
+    "
+  }
+  let parsed = $result | from json
+
+  assert ($parsed.success == true) "Should succeed"
+}
+
+# =============================================================================
+# reopen-pr tests
+# =============================================================================
+
+export def "test reopen-pr reopens pr successfully" [] {
+  let result = with-env {MOCK_gh_pr_reopen_42: (mock-success "")} {
+    nu --no-config-file -c "
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu reopen-pr
+      reopen-pr 42
+    "
+  }
+  let parsed = $result | from json
+
+  assert ($parsed.success == true) "Should succeed"
+  assert (($parsed.message | str contains "42") and ($parsed.message | str contains "reopened")) "Should mention PR number and reopened"
+}
+
+export def "test reopen-pr with comment" [] {
+  let result = with-env {MOCK_gh_pr_reopen_42___comment_Reopening: (mock-success "")} {
+    nu --no-config-file -c "
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu reopen-pr
+      reopen-pr 42 --comment 'Reopening'
+    "
+  }
+  let parsed = $result | from json
+
+  assert ($parsed.success == true) "Should succeed"
+}
+
+# =============================================================================
+# merge-pr tests
+# =============================================================================
+
+export def "test merge-pr fails without confirm-merge" [] {
+  let result = do {
+    nu --no-config-file -c "
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu merge-pr
+      merge-pr 42
+    "
+  } | complete
+
+  assert ($result.exit_code != 0) "Should fail"
+  assert ($result.stderr | str contains "explicit confirmation") "Should mention confirmation required"
+}
+
+export def "test merge-pr succeeds with confirm-merge true" [] {
+  let result = with-env {MOCK_gh_pr_merge_42___squash: (mock-success "")} {
+    nu --no-config-file -c "
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu merge-pr
+      merge-pr 42 --confirm-merge
+    "
+  }
+  let parsed = $result | from json
+
+  assert ($parsed.success == true) "Should succeed"
+  assert (($parsed.message | str contains "42") and ($parsed.message | str contains "merged")) "Should mention PR number and merged"
+  assert ($parsed.message | str contains "squash") "Should mention squash strategy (default)"
+}
+
+export def "test merge-pr with merge strategy" [] {
+  let result = with-env {MOCK_gh_pr_merge_42___merge: (mock-success "")} {
+    nu --no-config-file -c "
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu merge-pr
+      merge-pr 42 --confirm-merge --merge
+    "
+  }
+  let parsed = $result | from json
+
+  assert ($parsed.success == true) "Should succeed"
+  assert ($parsed.message | str contains "merge") "Should mention merge strategy"
+}
+
+export def "test merge-pr with rebase strategy" [] {
+  let result = with-env {MOCK_gh_pr_merge_42___rebase: (mock-success "")} {
+    nu --no-config-file -c "
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu merge-pr
+      merge-pr 42 --confirm-merge --rebase
+    "
+  }
+  let parsed = $result | from json
+
+  assert ($parsed.success == true) "Should succeed"
+  assert ($parsed.message | str contains "rebase") "Should mention rebase strategy"
+}
+
+export def "test merge-pr with delete branch" [] {
+  let result = with-env {MOCK_gh_pr_merge_42___squash___delete_branch: (mock-success "")} {
+    nu --no-config-file -c "
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/prs.nu merge-pr
+      merge-pr 42 --confirm-merge --delete-branch
+    "
+  }
+  let parsed = $result | from json
+
+  assert ($parsed.success == true) "Should succeed"
+}

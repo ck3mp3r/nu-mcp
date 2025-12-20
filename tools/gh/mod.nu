@@ -216,6 +216,96 @@ def "main list-tools" [] {
         required: ["title"]
       }
     }
+    {
+      name: "close_pr"
+      description: "Close a pull request without merging (reversible via reopen_pr)"
+      input_schema: {
+        type: "object"
+        properties: {
+          number: {
+            type: "integer"
+            description: "The PR number to close"
+          }
+          comment: {
+            type: "string"
+            description: "Closing comment (optional)"
+          }
+          delete_branch: {
+            type: "boolean"
+            description: "Delete the local and remote branch after close (optional, default: false)"
+          }
+          path: {
+            type: "string"
+            description: "Path to the git repository directory (optional, defaults to current directory)"
+          }
+        }
+        required: ["number"]
+      }
+    }
+    {
+      name: "reopen_pr"
+      description: "Reopen a closed pull request (reversible via close_pr)"
+      input_schema: {
+        type: "object"
+        properties: {
+          number: {
+            type: "integer"
+            description: "The PR number to reopen"
+          }
+          comment: {
+            type: "string"
+            description: "Reopening comment (optional)"
+          }
+          path: {
+            type: "string"
+            description: "Path to the git repository directory (optional, defaults to current directory)"
+          }
+        }
+        required: ["number"]
+      }
+    }
+    {
+      name: "merge_pr"
+      description: "Merge a pull request (IRREVERSIBLE - requires explicit confirmation)"
+      input_schema: {
+        type: "object"
+        properties: {
+          number: {
+            type: "integer"
+            description: "The PR number to merge"
+          }
+          confirm_merge: {
+            type: "boolean"
+            description: "REQUIRED: Must be true to proceed. This operation is IRREVERSIBLE. Always ask user permission first."
+          }
+          squash: {
+            type: "boolean"
+            description: "Squash commits and merge (optional, default strategy if none specified)"
+          }
+          merge: {
+            type: "boolean"
+            description: "Create a merge commit (optional)"
+          }
+          rebase: {
+            type: "boolean"
+            description: "Rebase and merge (optional)"
+          }
+          delete_branch: {
+            type: "boolean"
+            description: "Delete the local and remote branch after merge (optional, default: false)"
+          }
+          auto: {
+            type: "boolean"
+            description: "Enable auto-merge when requirements are met (optional, default: false)"
+          }
+          path: {
+            type: "string"
+            description: "Path to the git repository directory (optional, defaults to current directory)"
+          }
+        }
+        required: ["number" "confirm_merge"]
+      }
+    }
   ] | to json
 }
 
@@ -287,6 +377,43 @@ def "main call-tool" [
         upsert-pr $title --path $path --body $body --base $base --head $head --draft --labels $labels --reviewers $reviewers
       } else {
         upsert-pr $title --path $path --body $body --base $base --head $head --labels $labels --reviewers $reviewers
+      }
+    }
+    "close_pr" => {
+      let number = $parsed_args | get number
+      let path = get-optional $parsed_args "path" null
+      let comment = get-optional $parsed_args "comment" null
+      let delete_branch = get-optional $parsed_args "delete_branch" false
+      if $delete_branch {
+        close-pr $number --path $path --comment $comment --delete-branch
+      } else {
+        close-pr $number --path $path --comment $comment
+      }
+    }
+    "reopen_pr" => {
+      let number = $parsed_args | get number
+      let path = get-optional $parsed_args "path" null
+      let comment = get-optional $parsed_args "comment" null
+      reopen-pr $number --path $path --comment $comment
+    }
+    "merge_pr" => {
+      let number = $parsed_args | get number
+      let path = get-optional $parsed_args "path" null
+      let confirm_merge = get-optional $parsed_args "confirm_merge" false
+      let squash = get-optional $parsed_args "squash" false
+      let merge = get-optional $parsed_args "merge" false
+      let rebase = get-optional $parsed_args "rebase" false
+      let delete_branch = get-optional $parsed_args "delete_branch" false
+      let auto = get-optional $parsed_args "auto" false
+
+      if $delete_branch and $auto {
+        merge-pr $number --path $path --confirm-merge=$confirm_merge --squash=$squash --merge=$merge --rebase=$rebase --delete-branch --auto
+      } else if $delete_branch {
+        merge-pr $number --path $path --confirm-merge=$confirm_merge --squash=$squash --merge=$merge --rebase=$rebase --delete-branch
+      } else if $auto {
+        merge-pr $number --path $path --confirm-merge=$confirm_merge --squash=$squash --merge=$merge --rebase=$rebase --auto
+      } else {
+        merge-pr $number --path $path --confirm-merge=$confirm_merge --squash=$squash --merge=$merge --rebase=$rebase
       }
     }
     _ => {

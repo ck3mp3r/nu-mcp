@@ -209,3 +209,106 @@ export def upsert-pr [
     {number: ($pr_number | into int) url: ($output | str trim)} | to json
   }
 }
+
+# Close a pull request
+export def close-pr [
+  number: int
+  --path: string
+  --comment: string
+  --delete-branch
+] {
+  check-tool-permission "close_pr"
+
+  mut args = ["pr" "close" ($number | into string)]
+
+  if $comment != null {
+    $args = ($args | append ["--comment" $comment])
+  }
+
+  if $delete_branch {
+    $args = ($args | append ["--delete-branch"])
+  }
+
+  run-gh $args --path ($path | default "")
+
+  # Return success message (no JSON output from gh pr close)
+  {success: true message: $"PR #($number) closed successfully"} | to json
+}
+
+# Reopen a closed pull request
+export def reopen-pr [
+  number: int
+  --path: string
+  --comment: string
+] {
+  check-tool-permission "reopen_pr"
+
+  mut args = ["pr" "reopen" ($number | into string)]
+
+  if $comment != null {
+    $args = ($args | append ["--comment" $comment])
+  }
+
+  run-gh $args --path ($path | default "")
+
+  # Return success message (no JSON output from gh pr reopen)
+  {success: true message: $"PR #($number) reopened successfully"} | to json
+}
+
+# Merge a pull request (IRREVERSIBLE)
+export def merge-pr [
+  number: int
+  --path: string
+  --confirm-merge
+  --squash
+  --merge
+  --rebase
+  --delete-branch
+  --auto
+] {
+  check-tool-permission "merge_pr"
+
+  # CRITICAL SAFETY CHECK
+  if not $confirm_merge {
+    error make {
+      msg: "merge_pr requires explicit confirmation. This operation is IRREVERSIBLE.
+
+To merge this PR, you MUST:
+1. ASK the user for permission first
+2. Set confirm_merge: true in the tool call
+
+Example: merge_pr(number: 123, confirm_merge: true)"
+    }
+  }
+
+  mut args = ["pr" "merge" ($number | into string)]
+
+  # Add merge strategy flag - default to squash if none provided
+  match [$squash $merge $rebase] {
+    [true _ _] => { $args = ($args | append ["--squash"]) }
+    [_ true _] => { $args = ($args | append ["--merge"]) }
+    [_ _ true] => { $args = ($args | append ["--rebase"]) }
+    _ => { $args = ($args | append ["--squash"]) } # Default: squash
+  }
+
+  if $delete_branch {
+    $args = ($args | append ["--delete-branch"])
+  }
+
+  if $auto {
+    $args = ($args | append ["--auto"])
+  }
+
+  run-gh $args --path ($path | default "")
+
+  # Determine which strategy was used for message
+  let strategy = match [$squash $merge $rebase] {
+    [true _ _] => "squash"
+    [_ true _] => "merge"
+    [_ _ true] => "rebase"
+    _ => "squash"
+  }
+
+  # Return success message (no JSON output from gh pr merge)
+  {success: true message: $"PR #($number) merged successfully using ($strategy) strategy"} | to json
+}
