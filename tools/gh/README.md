@@ -26,8 +26,10 @@ The tool operates in one of two modes controlled by `MCP_GITHUB_MODE`:
 
 | Mode | Tools | Configuration |
 |------|-------|---------------|
-| **readwrite** (default) | All 8 tools | No env var needed (or `MCP_GITHUB_MODE=readwrite`) |
-| **readonly** | 6 read-only tools | Set `MCP_GITHUB_MODE=readonly` |
+| **readwrite** (default) | All 11 tools | No env var needed (or `MCP_GITHUB_MODE=readwrite`) |
+| **readonly** | 7 read-only tools | Set `MCP_GITHUB_MODE=readonly` |
+
+**Note:** The `merge_pr` tool has an additional safety requirement beyond readwrite mode - it requires explicit `confirm_merge: true` to prevent accidental merges.
 
 ### Read-Only Mode (Production)
 
@@ -63,7 +65,10 @@ Default mode allows all operations including creating/updating PRs and triggerin
 }
 ```
 
-**Note:** All write operations are non-destructive (no delete/force operations).
+**Important Notes:**
+- `close_pr` and `reopen_pr` are reversible operations
+- `merge_pr` is **IRREVERSIBLE** and requires explicit `confirm_merge: true` flag
+- `upsert_pr` and `run_workflow` are non-destructive (won't delete data)
 
 ## Available Tools
 
@@ -131,6 +136,45 @@ Default mode allows all operations including creating/updating PRs and triggerin
 4. If no PR exists: creates a new one
 
 This makes it safe to call repeatedly - it won't create duplicate PRs.
+
+**`close_pr`** - Close a pull request without merging (reversible)
+- `number` (required): PR number to close
+- `comment` (optional): Closing comment
+- `delete_branch` (optional): Delete branch after close (default: false)
+- `path` (optional): Path to git repository
+
+**`reopen_pr`** - Reopen a closed pull request (reversible)
+- `number` (required): PR number to reopen
+- `comment` (optional): Reopening comment
+- `path` (optional): Path to git repository
+
+**`merge_pr`** - Merge a pull request ⚠️ **IRREVERSIBLE - REQUIRES EXPLICIT CONFIRMATION**
+- `number` (required): PR number to merge
+- `confirm_merge` (required): **MUST be `true`** - safety flag to prevent accidental merges
+- `squash` (optional): Squash commits (default strategy if none specified)
+- `merge` (optional): Create merge commit
+- `rebase` (optional): Rebase and merge
+- `delete_branch` (optional): Delete branch after merge (default: false)
+- `auto` (optional): Enable auto-merge when requirements met (default: false)
+- `path` (optional): Path to git repository
+
+**⚠️ CRITICAL: merge_pr Safety Requirements**
+
+This operation is **IRREVERSIBLE** and requires explicit user permission:
+
+1. **ALWAYS ask the user first** before calling `merge_pr`
+2. **MUST set `confirm_merge: true`** - the tool will fail without this
+3. The merge **CANNOT be undone** once completed
+4. Default merge strategy is **squash** (use `merge: true` or `rebase: true` for alternatives)
+
+**Example workflow:**
+```
+LLM: "I can merge PR #123 using squash merge. Do you want me to proceed?"
+User: "Yes, merge it"
+LLM: Calls merge_pr(number: 123, confirm_merge: true)
+```
+
+If you forget to ask, the tool will return an error explicitly telling you to ask the user first.
 
 ## Usage Examples
 
@@ -201,6 +245,29 @@ await use_mcp_tool("gh", "upsert_pr", {
   labels: ["enhancement"],
   reviewers: ["user1", "user2"]
 });
+
+// Close a PR
+await use_mcp_tool("gh", "close_pr", {
+  number: 42,
+  comment: "Closing this PR because..."
+});
+
+// Reopen a PR
+await use_mcp_tool("gh", "reopen_pr", {
+  number: 42,
+  comment: "Reopening after fixes"
+});
+
+// Merge a PR (REQUIRES EXPLICIT CONFIRMATION)
+// Step 1: LLM asks user: "Can I merge PR #42?"
+// Step 2: User confirms: "Yes"
+// Step 3: LLM calls with confirm_merge: true
+await use_mcp_tool("gh", "merge_pr", {
+  number: 42,
+  confirm_merge: true,  // REQUIRED - must explicitly confirm
+  squash: true,         // Optional - squash is default anyway
+  delete_branch: true   // Optional - delete branch after merge
+});
 ```
 
 ## Error Handling
@@ -214,11 +281,11 @@ All tools return descriptive error messages when operations fail:
 
 ## Testing
 
-The tool includes comprehensive tests (27 tests covering all functionality):
+The tool includes comprehensive tests (37 tests covering all functionality):
 
 ```bash
 nu tools/gh/tests/run_tests.nu
-# Results: 27/27 passed, 0 failed
+# Results: 37/37 passed, 0 failed
 ```
 
 ### Manual Testing with Nushell
