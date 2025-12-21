@@ -9,7 +9,7 @@ export def kubectl-logs [
 ] {
   # Extract parameters
   let resource_type = $params.resourceType? | default "pod"
-  let name = $params.name
+  let name = $params.name? | default ""
   let namespace = $params.namespace? | default ""
   let container = $params.container? | default ""
   let tail = $params.tail? | default null
@@ -21,6 +21,16 @@ export def kubectl-logs [
   let label_selector = $params.labelSelector? | default ""
   let context = $params.context? | default ""
   let delegate = $params.delegate? | default false
+
+  # Validate: must have either name or labelSelector
+  if $name == "" and $label_selector == "" {
+    return (
+      format-tool-response {
+        error: "Either 'name' or 'labelSelector' parameter is required"
+        message: "You must specify either a resource name or a label selector to get logs"
+      } --error true
+    )
+  }
 
   # Build kubectl arguments
   mut args = ["logs"]
@@ -97,11 +107,26 @@ export def kubectl-logs [
   }
 
   # Format response
-  format-tool-response {
+  mut response = {
     resourceType: $resource_type
-    name: $name
     namespace: (if $namespace != "" { $namespace } else { get-default-namespace })
-    container: $container
     logs: $result
   }
+
+  # Add name if it was provided (not using label selector)
+  if $name != "" {
+    $response = ($response | insert name $name)
+  }
+
+  # Add label selector if it was used
+  if $label_selector != "" {
+    $response = ($response | insert labelSelector $label_selector)
+  }
+
+  # Add container if specified
+  if $container != "" {
+    $response = ($response | insert container $container)
+  }
+
+  format-tool-response $response
 }
