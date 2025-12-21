@@ -158,7 +158,6 @@ export def kubectl-logs-schema [] {
         context: (context-parameter)
         delegate: (delegate-parameter)
       }
-      required: ["name"]
     }
   }
 }
