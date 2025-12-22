@@ -622,17 +622,9 @@ def "main call-tool" [
       let not_latest = get-optional $parsed_args "not_latest" false
       let target = get-optional $parsed_args "target" null
 
-      mut flags = []
-      if $title != null { $flags = ($flags | append ["--title" $title]) }
-      if $notes != null { $flags = ($flags | append ["--notes" $notes]) }
-      if $draft { $flags = ($flags | append "--draft") }
-      if $prerelease { $flags = ($flags | append "--prerelease") }
-      if $generate_notes { $flags = ($flags | append "--generate-notes") }
-      if $latest { $flags = ($flags | append "--latest") }
-      if $not_latest { $flags = ($flags | append "--not-latest") }
-      if $target != null { $flags = ($flags | append ["--target" $target]) }
-
-      create-release $tag --path $path ...$flags
+      # Pass all parameters - Nushell handles nulls for optional named params
+      # and boolean flags can be explicitly set with --flag=true/false
+      create-release $tag --path $path --title $title --notes $notes --target $target --draft=$draft --prerelease=$prerelease --generate-notes=$generate_notes --latest=$latest --not-latest=$not_latest
     }
     "edit_release" => {
       let tag = $parsed_args | get tag
@@ -643,14 +635,8 @@ def "main call-tool" [
       let no_draft = get-optional $parsed_args "no_draft" false
       let prerelease = get-optional $parsed_args "prerelease" false
 
-      mut flags = []
-      if $notes != null { $flags = ($flags | append ["--notes" $notes]) }
-      if $title != null { $flags = ($flags | append ["--title" $title]) }
-      if $draft { $flags = ($flags | append "--draft") }
-      if $no_draft { $flags = ($flags | append "--no-draft") }
-      if $prerelease { $flags = ($flags | append "--prerelease") }
-
-      edit-release $tag --path $path ...$flags
+      # Pass all parameters - Nushell handles nulls and boolean flag values
+      edit-release $tag --path $path --title $title --notes $notes --draft=$draft --no-draft=$no_draft --prerelease=$prerelease
     }
     "delete_release" => {
       let tag = $parsed_args | get tag
