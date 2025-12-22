@@ -24,6 +24,8 @@ export def readonly-tools [] {
     "list_prs"
     "get_pr"
     "get_pr_checks"
+    "list_releases"
+    "get_release"
   ]
 }
 
@@ -32,6 +34,15 @@ export def write-tools [] {
   [
     "run_workflow"
     "upsert_pr"
+    "create_release"
+    "edit_release"
+  ]
+}
+
+# List of destructive tools (delete operations)
+export def destructive-tools [] {
+  [
+    "delete_release"
   ]
 }
 
@@ -40,8 +51,9 @@ export def is-tool-allowed [tool_name: string] {
   let mode = get-safety-mode
   match $mode {
     "readonly" => { $tool_name in (readonly-tools) }
-    "readwrite" => { true } # All current tools are allowed
-    _ => { true } # Default to readwrite for unknown modes
+    "readwrite" => { $tool_name not-in (destructive-tools) } # Allow all except destructive
+    "destructive" => { true } # All tools allowed
+    _ => { $tool_name not-in (destructive-tools) } # Default to readwrite for unknown modes
   }
 }
 

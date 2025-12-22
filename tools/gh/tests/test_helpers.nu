@@ -198,3 +198,55 @@ export def sample-pr-checks [] {
     {name: "lint" state: "SUCCESS" bucket: "pass" workflow: "Lint" completedAt: "2024-01-15T10:02:00Z"}
   ] | to json
 }
+
+# Sample mock data for releases list
+export def sample-release-list [] {
+  [
+    {
+      tagName: "v1.0.0"
+      name: "Release v1.0.0"
+      isDraft: false
+      isPrerelease: false
+      isLatest: true
+      createdAt: "2025-01-15T10:00:00Z"
+      publishedAt: "2025-01-15T10:05:00Z"
+    }
+    {
+      tagName: "v0.9.0"
+      name: "Beta Release v0.9.0"
+      isDraft: false
+      isPrerelease: true
+      isLatest: false
+      createdAt: "2025-01-10T10:00:00Z"
+      publishedAt: "2025-01-10T10:05:00Z"
+    }
+    {
+      tagName: "v0.8.0"
+      name: "Draft Release v0.8.0"
+      isDraft: true
+      isPrerelease: false
+      isLatest: false
+      createdAt: "2025-01-05T10:00:00Z"
+      publishedAt: null
+    }
+  ] | to json
+}
+
+# Sample mock data for a single release
+export def sample-release [] {
+  {
+    tagName: "v1.0.0"
+    name: "Release v1.0.0"
+    body: "## What's Changed\n- New feature X\n- Bug fix Y"
+    isDraft: false
+    isPrerelease: false
+    createdAt: "2025-01-15T10:00:00Z"
+    publishedAt: "2025-01-15T10:05:00Z"
+    author: {login: "maintainer"}
+    url: "https://github.com/owner/repo/releases/tag/v1.0.0"
+    assets: [
+      {name: "binary-linux.tar.gz" size: 1234567}
+      {name: "binary-macos.tar.gz" size: 1234568}
+    ]
+  } | to json
+}

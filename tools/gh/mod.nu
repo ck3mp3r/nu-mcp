@@ -4,6 +4,7 @@
 use utils.nu *
 use workflows.nu *
 use prs.nu *
+use releases.nu *
 
 # Default main command
 def main [] {
@@ -306,6 +307,161 @@ def "main list-tools" [] {
         required: ["number" "confirm_merge"]
       }
     }
+    # Release tools
+    {
+      name: "list_releases"
+      description: "List releases in the repository with optional filtering"
+      input_schema: {
+        type: "object"
+        properties: {
+          path: {
+            type: "string"
+            description: "Path to the git repository directory (optional, defaults to current directory)"
+          }
+          limit: {
+            type: "integer"
+            description: "Maximum number of releases to return (optional, default: 30)"
+            minimum: 1
+            maximum: 100
+          }
+          exclude_drafts: {
+            type: "boolean"
+            description: "Exclude draft releases (optional, default: false)"
+          }
+          exclude_prereleases: {
+            type: "boolean"
+            description: "Exclude pre-releases (optional, default: false)"
+          }
+        }
+      }
+    }
+    {
+      name: "get_release"
+      description: "View details of a specific release by tag, or latest release if no tag provided"
+      input_schema: {
+        type: "object"
+        properties: {
+          tag: {
+            type: "string"
+            description: "Release tag (e.g., 'v1.0.0'). Omit to get latest release."
+          }
+          path: {
+            type: "string"
+            description: "Path to the git repository directory (optional, defaults to current directory)"
+          }
+        }
+      }
+    }
+    {
+      name: "create_release"
+      description: "Create a new GitHub release"
+      input_schema: {
+        type: "object"
+        properties: {
+          tag: {
+            type: "string"
+            description: "Release tag (e.g., 'v1.0.0')"
+          }
+          path: {
+            type: "string"
+            description: "Path to the git repository directory (optional, defaults to current directory)"
+          }
+          title: {
+            type: "string"
+            description: "Release title (optional)"
+          }
+          notes: {
+            type: "string"
+            description: "Release notes (optional)"
+          }
+          draft: {
+            type: "boolean"
+            description: "Save as draft instead of publishing (optional, default: false)"
+          }
+          prerelease: {
+            type: "boolean"
+            description: "Mark as prerelease (optional, default: false)"
+          }
+          generate_notes: {
+            type: "boolean"
+            description: "Auto-generate notes via GitHub API (optional, default: false)"
+          }
+          latest: {
+            type: "boolean"
+            description: "Mark as latest release (optional)"
+          }
+          not_latest: {
+            type: "boolean"
+            description: "Explicitly mark as NOT latest release (optional)"
+          }
+          target: {
+            type: "string"
+            description: "Target branch or commit SHA (optional, default: default branch)"
+          }
+        }
+        required: ["tag"]
+      }
+    }
+    {
+      name: "edit_release"
+      description: "Edit a release (update notes, title, draft/prerelease status)"
+      input_schema: {
+        type: "object"
+        properties: {
+          tag: {
+            type: "string"
+            description: "Release tag to edit (e.g., 'v1.0.0')"
+          }
+          path: {
+            type: "string"
+            description: "Path to the git repository directory (optional, defaults to current directory)"
+          }
+          notes: {
+            type: "string"
+            description: "Release notes (optional)"
+          }
+          title: {
+            type: "string"
+            description: "Release title (optional)"
+          }
+          draft: {
+            type: "boolean"
+            description: "Mark as draft (optional)"
+          }
+          no_draft: {
+            type: "boolean"
+            description: "Publish the release (set draft=false) (optional)"
+          }
+          prerelease: {
+            type: "boolean"
+            description: "Mark as prerelease (optional)"
+          }
+        }
+        required: ["tag"]
+      }
+    }
+    {
+      name: "delete_release"
+      description: "Delete a release (DESTRUCTIVE - requires MCP_GITHUB_MODE=destructive)"
+      input_schema: {
+        type: "object"
+        properties: {
+          tag: {
+            type: "string"
+            description: "Release tag to delete (e.g., 'v1.0.0')"
+          }
+          path: {
+            type: "string"
+            description: "Path to the git repository directory (optional, defaults to current directory)"
+          }
+          cleanup_tag: {
+            type: "boolean"
+            description: "Also delete the git tag (optional, default: false)"
+          }
+        }
+        required: ["tag"]
+      }
+    }
   ] | to json
 }
 
@@ -414,6 +570,97 @@ def "main call-tool" [
         merge-pr $number --path $path --confirm-merge=$confirm_merge --squash=$squash --merge=$merge --rebase=$rebase --auto
       } else {
         merge-pr $number --path $path --confirm-merge=$confirm_merge --squash=$squash --merge=$merge --rebase=$rebase
+      }
+    }
+    "list_releases" => {
+      let path = get-optional $parsed_args "path" ""
+      let limit = get-optional $parsed_args "limit" null
+      let exclude_drafts = get-optional $parsed_args "exclude_drafts" false
+      let exclude_prereleases = get-optional $parsed_args "exclude_prereleases" false
+
+      if $limit != null {
+        if $exclude_drafts and $exclude_prereleases {
+          list-releases --path $path --limit $limit --exclude-drafts --exclude-prereleases
+        } else if $exclude_drafts {
+          list-releases --path $path --limit $limit --exclude-drafts
+        } else if $exclude_prereleases {
+          list-releases --path $path --limit $limit --exclude-prereleases
+        } else {
+          list-releases --path $path --limit $limit
+        }
+      } else {
+        if $exclude_drafts and $exclude_prereleases {
+          list-releases --path $path --exclude-drafts --exclude-prereleases
+        } else if $exclude_drafts {
+          list-releases --path $path --exclude-drafts
+        } else if $exclude_prereleases {
+          list-releases --path $path --exclude-prereleases
+        } else {
+          list-releases --path $path
+        }
+      }
+    }
+    "get_release" => {
+      let tag = get-optional $parsed_args "tag" null
+      let path = get-optional $parsed_args "path" ""
+
+      if $tag != null {
+        get-release $tag --path $path
+      } else {
+        get-release --path $path
+      }
+    }
+    "create_release" => {
+      let tag = $parsed_args | get tag
+      let path = get-optional $parsed_args "path" ""
+      let title = get-optional $parsed_args "title" null
+      let notes = get-optional $parsed_args "notes" null
+      let draft = get-optional $parsed_args "draft" false
+      let prerelease = get-optional $parsed_args "prerelease" false
+      let generate_notes = get-optional $parsed_args "generate_notes" false
+      let latest = get-optional $parsed_args "latest" false
+      let not_latest = get-optional $parsed_args "not_latest" false
+      let target = get-optional $parsed_args "target" null
+
+      mut flags = []
+      if $title != null { $flags = ($flags | append ["--title" $title]) }
+      if $notes != null { $flags = ($flags | append ["--notes" $notes]) }
+      if $draft { $flags = ($flags | append "--draft") }
+      if $prerelease { $flags = ($flags | append "--prerelease") }
+      if $generate_notes { $flags = ($flags | append "--generate-notes") }
+      if $latest { $flags = ($flags | append "--latest") }
+      if $not_latest { $flags = ($flags | append "--not-latest") }
+      if $target != null { $flags = ($flags | append ["--target" $target]) }
+
+      create-release $tag --path $path ...$flags
+    }
+    "edit_release" => {
+      let tag = $parsed_args | get tag
+      let path = get-optional $parsed_args "path" ""
+      let notes = get-optional $parsed_args "notes" null
+      let title = get-optional $parsed_args "title" null
+      let draft = get-optional $parsed_args "draft" false
+      let no_draft = get-optional $parsed_args "no_draft" false
+      let prerelease = get-optional $parsed_args "prerelease" false
+
+      mut flags = []
+      if $notes != null { $flags = ($flags | append ["--notes" $notes]) }
+      if $title != null { $flags = ($flags | append ["--title" $title]) }
+      if $draft { $flags = ($flags | append "--draft") }
+      if $no_draft { $flags = ($flags | append "--no-draft") }
+      if $prerelease { $flags = ($flags | append "--prerelease") }
+
+      edit-release $tag --path $path ...$flags
+    }
+    "delete_release" => {
+      let tag = $parsed_args | get tag
+      let path = get-optional $parsed_args "path" ""
+      let cleanup_tag = get-optional $parsed_args "cleanup_tag" false
+
+      if $cleanup_tag {
+        delete-release $tag --path $path --cleanup-tag
+      } else {
+        delete-release $tag --path $path
       }
     }
     _ => {
