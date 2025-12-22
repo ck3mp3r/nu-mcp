@@ -25,6 +25,7 @@ use regex::Regex;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+use tracing::{debug, trace};
 
 /// Load safe command patterns from file at compile time
 const SAFE_PATTERNS_FILE: &str = include_str!("safe_command_patterns.txt");
@@ -335,9 +336,15 @@ pub fn validate_path_safety_with_cache(
     sandbox_dirs: &[std::path::PathBuf],
     cache: &mut PathCache,
 ) -> Result<(), String> {
+    debug!(
+        "validate_path_safety_with_cache called: command={:?}",
+        command
+    );
+
     // Check if command matches a safe pattern (commands with path-like args that aren't filesystem paths)
     // Examples: gh api /repos/..., kubectl get /apis/..., etc.
     if matches_safe_pattern(command) {
+        debug!("Command matches safe pattern, allowing");
         return Ok(());
     }
 
@@ -359,25 +366,33 @@ pub fn validate_path_safety_with_cache(
     let words = extract_words(command);
 
     // Check if command contains absolute paths or home directory paths that would escape the sandbox
+    debug!("Starting word-by-word validation loop");
     for word in words {
+        trace!("Checking word: {:?}", word);
+
         // 1. CHECK CACHE FIRST - short circuit if we've seen this before
         if cache.contains(&word) {
+            trace!("Cache hit for: {:?}, skipping validation", word);
             continue; // We know this isn't a filesystem path
         }
 
         // Skip common commands and flags - only check things that look like paths
         if word.starts_with('-') || is_common_command(&word) {
+            trace!("Word is flag or common command, skipping: {:?}", word);
             continue;
         }
 
         // Skip URLs - they're not filesystem paths
         if is_url(&word) {
+            trace!("Word is URL, skipping: {:?}", word);
             continue;
         }
 
         // Determine the path to check based on word type
+        trace!("Determining path type for word: {:?}", word);
         let path_to_check = if word == "~" || word.starts_with("~/") {
             // Home directory paths
+            trace!("Word is home directory path");
             if let Some(home_dir) = std::env::var_os("HOME") {
                 if word == "~" {
                     Path::new(&home_dir).to_path_buf()
@@ -385,56 +400,85 @@ pub fn validate_path_safety_with_cache(
                     Path::new(&home_dir).join(&word[2..])
                 }
             } else {
+                trace!("HOME not set, skipping");
                 continue; // Skip if HOME is not set
             }
         } else if word.contains("..") {
             // Path with traversal - resolve relative to first sandbox directory
             // This allows cd ../ when inside the sandbox, but blocks escaping
+            trace!("Word contains path traversal (..)");
             first_sandbox.join(&word)
         } else if is_likely_filesystem_path(&word) {
             // Absolute path
+            trace!("Word is likely filesystem path");
             Path::new(&word).to_path_buf()
         } else if word.contains('/') || word.contains('\\') {
             // Relative path with slashes (e.g., "subdir/file.txt")
+            trace!("Word is relative path with slashes");
             first_sandbox.join(&word)
         } else {
             // Plain word without path separators - not a path, skip
+            trace!("Word is plain word, not a path, skipping");
             continue;
         };
+        trace!("Path to check: {:?}", path_to_check);
 
         // Try to canonicalize the path if it exists, otherwise use manual resolution
+        trace!("Attempting to canonicalize: {:?}", path_to_check);
         let canonical_path = match path_to_check.canonicalize() {
-            Ok(canonical) => canonical,
+            Ok(canonical) => {
+                trace!("Successfully canonicalized to: {:?}", canonical);
+                canonical
+            }
             Err(_) if word.contains("..") => {
+                trace!("Canonicalization failed, manually resolving path with ..");
                 // For non-existent paths with .., manually resolve components
                 match resolve_relative_path(first_sandbox, &word) {
-                    Some(resolved) => resolved,
-                    None => continue, // Can't resolve, skip
+                    Some(resolved) => {
+                        trace!("Manually resolved to: {:?}", resolved);
+                        resolved
+                    }
+                    None => {
+                        trace!("Manual resolution failed, skipping");
+                        continue; // Can't resolve, skip
+                    }
                 }
             }
             Err(_) if path_to_check.is_absolute() => {
+                trace!("Non-existent absolute path, using as-is");
                 // Non-existent absolute path - use as-is for validation
                 path_to_check
             }
             Err(_) => {
+                trace!("Non-existent relative path, skipping validation");
                 // Non-existent relative path - skip validation (Nushell will handle)
                 continue;
             }
         };
 
         // 2. Check if the canonical/resolved path is within any sandbox
+        trace!("Checking if path is in sandbox: {:?}", canonical_path);
         if is_path_in_any_sandbox(&canonical_path, &canonical_sandboxes) {
+            trace!("Path is in sandbox, allowing");
             continue; // In sandbox - allow (don't cache, handled by sandbox check)
         }
+        trace!("Path is outside sandbox");
 
         // 3. Path is outside sandbox - does it exist?
+        trace!("Checking if path exists: {:?}", canonical_path);
         if !canonical_path.exists() {
+            trace!(
+                "Path does not exist, caching as non-filesystem path: {:?}",
+                word
+            );
             // Non-existent path outside sandbox - cache it as "not a filesystem path"
             cache.remember(word.clone());
+            trace!("Successfully cached, continuing");
             continue; // Allow
         }
 
         // 4. Path exists AND outside sandbox - BLOCK
+        debug!("Path exists outside sandbox, blocking: {:?}", word);
         return Err(format!(
             "Path '{}' escapes sandbox directories. Allowed: {}",
             &word,
@@ -442,6 +486,7 @@ pub fn validate_path_safety_with_cache(
         ));
     }
 
+    debug!("All words validated successfully");
     Ok(())
 }
 
