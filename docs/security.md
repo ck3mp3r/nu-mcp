@@ -135,6 +135,56 @@ fn test_your_tool_in_allowlist() {
 - **Conservative**: When in doubt, don't whitelist (let path validation run)
 - **Documented**: Each pattern should have a comment explaining its purpose
 
+## Path Caching for Performance
+
+The security sandbox uses a **session-scoped in-memory cache** to remember strings that look like paths but aren't filesystem paths, eliminating repeated validation overhead.
+
+### How It Works
+
+The sandbox uses a **two-tier validation system**:
+
+1. **Safe Pattern Check** (Static Whitelist)
+   - Checks against known command patterns in `safe_command_patterns.txt`
+   - Fast regex match → immediate allow
+   - Covers: `gh api`, `kubectl get /apis`, `http get`, etc.
+
+2. **PathCache** (Dynamic Learning)
+   - Learns at runtime which path-like strings aren't filesystem paths
+   - Caches non-existent paths outside sandbox (API endpoints, typos, etc.)
+   - Subsequent calls skip validation (cache hit → immediate allow)
+
+### Cache Behavior
+
+**What Gets Cached:**
+- ✅ Non-existent paths outside sandbox (e.g., `/api/v1/pods`, `/metrics`, `/healthz`)
+- ✅ API endpoints that failed filesystem existence checks
+- ✅ Typos of system paths (e.g., `/ect/passwd`)
+
+**What Does NOT Get Cached:**
+- ❌ Paths inside sandbox (always allowed via sandbox check)
+- ❌ Existing files outside sandbox (always blocked for security)
+- ❌ Commands matching safe patterns (handled by pattern check)
+
+### Performance Benefits
+
+- **First call**: Full validation (path resolution, canonicalization, existence check)
+- **Subsequent calls**: Cache hit → immediate return (no I/O operations)
+- **Example**: `kubectl get --raw /metrics` runs full validation once, then cached
+
+### Lifecycle
+
+- **Session-scoped**: Cache persists for the lifetime of the MCP server process
+- **Cleared on restart**: Cache is in-memory only, not persisted to disk
+- **Thread-safe**: Uses `Arc<Mutex<PathCache>>` for concurrent access
+
+### Security Guarantees
+
+The PathCache maintains the same security boundaries:
+- ✅ Existing files outside sandbox are **always blocked** (never cached)
+- ✅ Sandbox restrictions are **always enforced** (checked before cache)
+- ✅ Only **non-existent** paths outside sandbox can be cached
+- ✅ Cache cannot be exploited to bypass security checks
+
 ## Quote-Aware Path Validation
 
 The security validator understands Nushell's quoting rules to reduce false positives:
