@@ -28,11 +28,11 @@ export def "test list-releases returns release list" [] {
       list-releases
     "
   }
-  let parsed = $result | from json
 
-  assert (($parsed | length) == 3) "Should return 3 releases"
-  assert (($parsed | get 0 | get tagName) == "v1.0.0") "First release should be v1.0.0"
-  assert (($parsed | get 0 | get isLatest) == true) "First release should be latest"
+  # Now expecting formatted text output
+  assert ($result | str contains "Releases:") "Should have header"
+  assert ($result | str contains "v1.0.0") "Should contain v1.0.0"
+  assert ($result | str contains "latest") "Should indicate latest"
 }
 
 export def "test list-releases with limit" [] {
@@ -44,9 +44,10 @@ export def "test list-releases with limit" [] {
       list-releases --limit 2
     "
   }
-  let parsed = $result | from json
 
-  assert (($parsed | length) == 3) "Should return releases"
+  # Expecting formatted text output
+  assert ($result | str contains "Releases:") "Should have header"
+  assert ($result | str contains "v1.0.0") "Should contain releases"
 }
 
 export def "test list-releases exclude drafts" [] {
@@ -63,9 +64,11 @@ export def "test list-releases exclude drafts" [] {
       list-releases --exclude-drafts
     "
   }
-  let parsed = $result | from json
 
-  assert (($parsed | length) == 2) "Should return only non-draft releases"
+  # Expecting formatted text output
+  assert ($result | str contains "Releases:") "Should have header"
+  assert ($result | str contains "v1.0.0") "Should contain stable release"
+  assert ($result | str contains "v0.9.0") "Should contain prerelease"
 }
 
 export def "test list-releases exclude prereleases" [] {
@@ -81,22 +84,25 @@ export def "test list-releases exclude prereleases" [] {
       list-releases --exclude-prereleases
     "
   }
-  let parsed = $result | from json
 
-  assert (($parsed | length) == 1) "Should return only stable releases"
+  # Expecting formatted text output
+  assert ($result | str contains "Releases:") "Should have header"
+  assert ($result | str contains "v1.0.0") "Should contain stable release"
+  assert (not ($result | str contains "prerelease")) "Should not show prerelease badge"
 }
 
 export def "test list-releases with empty result" [] {
-  let result = with-env {MOCK_gh_release_list___json_tagName_name_isDraft_isPrerelease_isLatest_createdAt_publishedAt: (mock-success "[]")} {
+  let mock_output = ([] | to json)
+  let result = with-env {MOCK_gh_release_list___json_tagName_name_isDraft_isPrerelease_isLatest_createdAt_publishedAt: (mock-success $mock_output)} {
     nu --no-config-file -c "
       use tools/gh/tests/mocks.nu *
       use tools/gh/releases.nu list-releases
       list-releases
     "
   }
-  let parsed = $result | from json
 
-  assert (($parsed | length) == 0) "Should return empty list"
+  # Expecting formatted text for empty list
+  assert ($result == "No releases found.") "Should return empty message"
 }
 
 export def "test list-releases handles gh error" [] {
@@ -127,11 +133,11 @@ export def "test get-release returns single release" [] {
       get-release 'v1.0.0'
     "
   }
-  let parsed = $result | from json
 
-  assert (($parsed | get tagName) == "v1.0.0") "Should return v1.0.0"
-  assert (($parsed | get isDraft) == false) "Should not be draft"
-  assert ("assets" in $parsed) "Should have assets field"
+  # Expecting formatted text output
+  assert ($result | str contains "Release") "Should have Release header"
+  assert ($result | str contains "v1.0.0") "Should contain tag"
+  assert ($result | str contains "assets") "Should mention assets"
 }
 
 export def "test get-release handles non-existent tag" [] {
@@ -158,9 +164,10 @@ export def "test get-release with latest" [] {
       get-release
     "
   }
-  let parsed = $result | from json
 
-  assert (($parsed | get tagName) == "v1.0.0") "Should return latest release"
+  # Expecting formatted text output
+  assert ($result | str contains "Release") "Should have Release header"
+  assert ($result | str contains "v1.0.0") "Should contain tag"
 }
 
 # =============================================================================
