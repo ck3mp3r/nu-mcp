@@ -225,6 +225,8 @@ If you forget to ask, the tool will return an error explicitly telling you to as
 - `latest` (optional): Mark as latest release (default: false)
 - `not_latest` (optional): Explicitly mark as not latest (default: false)
 - `target` (optional): Target branch or commit SHA (defaults to default branch)
+  - **Note**: Short commit SHAs (e.g., `ed970d9`) are automatically resolved to full 40-character SHAs as required by GitHub API
+  - Accepts: branch names, full SHAs, short SHAs, or git references (e.g., `HEAD`)
 - `path` (optional): Path to git repository
 
 **`edit_release`** - Update an existing release
@@ -372,6 +374,13 @@ await use_mcp_tool("gh", "create_release", {
   title: "Version 1.2.3",
   notes: "## What's New\n- Feature A\n- Bug fix B",
   latest: true
+});
+
+// Create a release from a specific commit (short SHA automatically resolved)
+await use_mcp_tool("gh", "create_release", {
+  tag: "v1.2.4",
+  target: "ed970d9",  // Short SHA - will be resolved to full SHA
+  title: "Hotfix 1.2.4"
 });
 
 // Create a draft release

@@ -213,6 +213,68 @@ export def "test create-release as prerelease" [] {
   assert true
 }
 
+export def "test create-release with short SHA resolves to full SHA" [] {
+  let short_sha = "ed970d9"
+  let full_sha = "ed970d9d17688e7d315c120cd290fdd352c4c382"
+
+  # Mock git rev-parse to return full SHA
+  # Mock gh to expect FULL SHA in target parameter
+  let result = with-env {
+    MOCK_git_rev_parse_ed970d9: (mock-success $full_sha)
+    MOCK_gh_release_create_v2_0_0___target_ed970d9d17688e7d315c120cd290fdd352c4c382: (mock-success "")
+  } {
+    nu --no-config-file -c "
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/releases.nu create-release
+      create-release 'v2.0.0' --target 'ed970d9'
+    "
+  }
+
+  # Should succeed - short SHA was resolved to full SHA
+  assert true
+}
+
+export def "test create-release with full SHA passes through" [] {
+  let full_sha = "ed970d9d17688e7d315c120cd290fdd352c4c382"
+
+  # Mock git rev-parse to return same full SHA
+  # Mock gh to expect the full SHA
+  let result = with-env {
+    MOCK_git_rev_parse_ed970d9d17688e7d315c120cd290fdd352c4c382: (mock-success $full_sha)
+    MOCK_gh_release_create_v2_0_0___target_ed970d9d17688e7d315c120cd290fdd352c4c382: (mock-success "")
+  } {
+    nu --no-config-file -c "
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/releases.nu create-release
+      create-release 'v2.0.0' --target 'ed970d9d17688e7d315c120cd290fdd352c4c382'
+    "
+  }
+
+  # Should succeed
+  assert true
+}
+
+export def "test create-release with branch name resolves to SHA" [] {
+  let branch = "main"
+  let commit_sha = "abc123def456abc123def456abc123def456abc1"
+
+  # Mock git rev-parse to resolve branch to commit SHA
+  # Mock gh to expect the resolved SHA
+  let result = with-env {
+    MOCK_git_rev_parse_main: (mock-success $commit_sha)
+    MOCK_gh_release_create_v2_0_0___target_abc123def456abc123def456abc123def456abc1: (mock-success "")
+  } {
+    nu --no-config-file -c "
+      use tools/gh/tests/mocks.nu *
+      use tools/gh/releases.nu create-release
+      create-release 'v2.0.0' --target 'main'
+    "
+  }
+
+  # Should succeed - branch name was resolved to commit SHA
+  assert true
+}
+
 # =============================================================================
 # edit-release tests
 # =============================================================================

@@ -108,7 +108,18 @@ export def create-release [
   }
 
   if $target != null {
-    $args = ($args | append ["--target" $target])
+    # Resolve target to full commit SHA
+    # This handles: short SHAs, full SHAs, branches, tags, HEAD, etc.
+    # GitHub API requires full SHAs, not short ones
+    let resolved_target = try {
+      git rev-parse $target | str trim
+    } catch {
+      error make {
+        msg: $"Error: Could not resolve target '($target)'. Please ensure it is a valid branch name, commit SHA, or git reference. Git error: ($in.msg)"
+      }
+    }
+
+    $args = ($args | append ["--target" $resolved_target])
   }
 
   run-gh $args --path ($path | default "")

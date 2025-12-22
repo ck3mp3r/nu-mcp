@@ -396,7 +396,7 @@ def "main list-tools" [] {
           }
           target: {
             type: "string"
-            description: "Target branch or commit SHA (optional, default: default branch)"
+            description: "Target branch or commit SHA (optional, default: default branch). Short commit SHAs will be automatically resolved to full 40-character SHAs as required by GitHub API."
           }
         }
         required: ["tag"]
