@@ -2,6 +2,7 @@
 # Functions for listing, viewing, creating, editing, and deleting releases
 
 use utils.nu *
+use formatters.nu *
 
 # List releases in the repository
 export def list-releases [
@@ -31,7 +32,9 @@ export def list-releases [
     $args = ($args | append "--exclude-pre-releases")
   }
 
-  run-gh $args --path ($path | default "")
+  let result = run-gh $args --path ($path | default "")
+  let releases = $result | from json
+  format-release-list $releases
 }
 
 # Get details of a specific release (or latest if no tag provided)
@@ -54,7 +57,9 @@ export def get-release [
     ]
   )
 
-  run-gh $args --path ($path | default "")
+  let result = run-gh $args --path ($path | default "")
+  let release = $result | from json
+  format-release $release
 }
 
 # Create a new release

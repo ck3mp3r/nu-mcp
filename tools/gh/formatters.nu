@@ -266,3 +266,89 @@ export def format-run-workflow-result [result: record] {
     $"Failed to trigger workflow: ($message)"
   }
 }
+
+# =============================================================================
+# Release Formatters
+# =============================================================================
+
+# Format release state with indicators
+def format-release-state [is_draft: bool is_prerelease: bool is_latest: bool] {
+  mut badges = []
+
+  if $is_draft {
+    $badges = ($badges | append "draft")
+  }
+
+  if $is_prerelease {
+    $badges = ($badges | append "prerelease")
+  }
+
+  if $is_latest {
+    $badges = ($badges | append "latest")
+  }
+
+  if ($badges | length) > 0 {
+    $badges | str join ", "
+  } else {
+    "release"
+  }
+}
+
+# Format a list of releases
+export def format-release-list [releases: list] {
+  if ($releases | length) == 0 {
+    return "No releases found."
+  }
+
+  let header = "Releases:"
+  let lines = $releases | each {|rel|
+      let state = format-release-state ($rel.isDraft? | default false) ($rel.isPrerelease? | default false) ($rel.isLatest? | default false)
+      let time = format-relative-time ($rel.publishedAt? | default ($rel.createdAt? | default ""))
+      let name = $rel.name? | default $rel.tagName
+      $"  - ($rel.tagName) ($name) [($state)] (($time))"
+    }
+
+  [$header] | append $lines | str join (char newline)
+}
+
+# Format a single release with details
+export def format-release [release: record] {
+  let state = format-release-state ($release.isDraft? | default false) ($release.isPrerelease? | default false) false
+  let author = $release.author?.login? | default "unknown"
+  let created = format-relative-time ($release.createdAt? | default "")
+
+  mut lines = [
+    $"Release ($release.name? | default $release.tagName)"
+    $"  Tag: ($release.tagName? | default 'N/A')"
+    $"  Status: ($state)"
+    $"  Author: ($author)"
+    $"  Created: ($created)"
+  ]
+
+  # Add published date if not a draft
+  if not ($release.isDraft? | default false) and "publishedAt" in $release and $release.publishedAt != null {
+    let published = format-relative-time $release.publishedAt
+    $lines = ($lines | append $"  Published: ($published)")
+  }
+
+  # Add assets count if present
+  if "assets" in $release and ($release.assets | length) > 0 {
+    $lines = ($lines | append $"  Assets: ($release.assets | length) assets")
+  }
+
+  if "url" in $release {
+    $lines = ($lines | append $"  URL: ($release.url)")
+  }
+
+  # Add body if present (truncated)
+  if "body" in $release and $release.body != null and ($release.body | str length) > 0 {
+    let body = if ($release.body | str length) > 300 {
+      ($release.body | str substring 0..300) + "..."
+    } else {
+      $release.body
+    }
+    $lines = ($lines | append "" | append "  Description:" | append $"    ($body)")
+  }
+
+  $lines | str join (char newline)
+}
