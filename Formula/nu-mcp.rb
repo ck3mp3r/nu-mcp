@@ -8,7 +8,7 @@ class NuMcp < Formula
   on_macos do
     if Hardware::CPU.arm?
       url "https://github.com/ck3mp3r/nu-mcp/releases/download/v0.5.0/nu-mcp-0.5.0-aarch64-darwin.tgz"
-      sha256 "4564f10d72ff93c2fddaee2a6697ad6dc2a60398870cf1b2979d261fcc02a051"
+      sha256 "de6fe94e465fc5af452017db0144a40542cdf992ebf3ddaf2518a56e1fddfa7f"
     else
       odie "Intel Macs are no longer supported. Please use an Apple Silicon Mac."
     end
@@ -17,10 +17,10 @@ class NuMcp < Formula
   on_linux do
     if Hardware::CPU.intel?
       url "https://github.com/ck3mp3r/nu-mcp/releases/download/v0.5.0/nu-mcp-0.5.0-x86_64-linux.tgz"
-      sha256 "48fde6d75edb5d783c6294098fa33f353ff330b5ba2e44ee53d4c3f897e26358"
+      sha256 "dd8d40e08af304fdf43d8ce4eafea31f78b8b5d70f5312249e2f2b77c5466502"
     elsif Hardware::CPU.arm?
       url "https://github.com/ck3mp3r/nu-mcp/releases/download/v0.5.0/nu-mcp-0.5.0-aarch64-linux.tgz"
-      sha256 "8932b12d440154f180ce19dde72dbba344741921998aa834c4a108fa7f4877e1"
+      sha256 "d95ab2b517b286f034bcfa05b42b13140f5f19910f9590ce25244a3dd68eb571"
     end
   end
 
