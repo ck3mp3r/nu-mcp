@@ -2,7 +2,6 @@ use anyhow::Result;
 use clap::Parser;
 use nu_mcp::{cli::Cli, config::Config, mcp::run_server};
 use std::env;
-use tracing_subscriber;
 
 #[tokio::main]
 async fn main() -> Result<()> {
