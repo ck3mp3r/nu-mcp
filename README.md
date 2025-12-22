@@ -6,7 +6,7 @@ This project exposes Nushell as an MCP server using the official Rust SDK (`rmcp
 - Exposes a tool to run arbitrary Nushell commands via MCP
 - Extensible tool system via Nushell scripts in modular directories
 - Uses the official Model Context Protocol Rust SDK
-- Security sandbox for safe command execution
+- Security sandbox with intelligent path validation and caching
 - Catalog of useful MCP tools for weather, finance, and more
 
 ## Quick Start
@@ -55,6 +55,21 @@ nu-mcp:
   args: ["--tools-dir=./tools", "--add-path=/tmp", "--add-path=/nix/store"]
 ```
 Note: Current working directory is always accessible. Use `--add-path` to grant access to additional paths.
+
+### Path Validation
+
+The security sandbox intelligently handles path-like strings that aren't filesystem paths:
+
+```bash
+# API endpoints work without escaping sandbox
+kubectl get --raw /metrics | from json
+gh api /repos/owner/repo/contents/file.yml
+
+# Path-like arguments in commands work correctly
+echo "API endpoint: /api/v1/pods"
+```
+
+The sandbox uses a two-tier system (safe patterns + runtime caching) to eliminate false positives while maintaining security.
 
 For detailed configuration options and tool development, see the [documentation](docs/).
 
