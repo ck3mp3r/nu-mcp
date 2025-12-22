@@ -14,6 +14,48 @@ The `nu-mcp` server is configured via command-line arguments or by passing argum
 - `--add-path=PATH` (can be specified multiple times)
   Add additional paths where commands can access files. The current working directory is ALWAYS accessible. Use this flag to grant access to additional paths beyond the current directory. Commands are restricted to the current directory plus any added paths and cannot access files outside them.
 
+## Environment Variables
+
+### Timeout Configuration
+
+- `MCP_NU_MCP_TIMEOUT` - Default timeout in seconds for all tool executions (default: 60)
+  - Applies to both `run_nushell` tool and all extension tools
+  - Can be overridden per-call using the `timeout_seconds` parameter (on `run_nushell` tool)
+  - Invalid values (non-numeric, zero, negative) fall back to 60-second default
+
+**Examples:**
+
+```yaml
+# Set 2-minute timeout for all tools
+nu-mcp:
+  command: "nu-mcp"
+  env:
+    MCP_NU_MCP_TIMEOUT: "120"
+```
+
+```yaml
+# Combine timeout with tools directory
+nu-mcp-tools:
+  command: "nu-mcp"
+  args:
+    - "--tools-dir=/path/to/tools"
+  env:
+    MCP_NU_MCP_TIMEOUT: "300"  # 5 minute timeout for slow operations
+```
+
+**Per-call timeout override:**
+
+The `run_nushell` tool accepts an optional `timeout_seconds` parameter that overrides the environment variable:
+
+```json
+{
+  "command": "sleep 30sec; echo done",
+  "timeout_seconds": 10
+}
+```
+
+This command will timeout after 10 seconds (overriding the default or environment variable).
+
 ## Example Configurations
 
 ### Basic Core Mode

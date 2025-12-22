@@ -4,6 +4,7 @@ This project exposes Nushell as an MCP server using the official Rust SDK (`rmcp
 
 ## Features
 - Exposes a tool to run arbitrary Nushell commands via MCP
+- **Configurable timeout support** - Set global defaults via `MCP_NU_MCP_TIMEOUT` or per-call with `timeout_seconds` parameter
 - Extensible tool system via Nushell scripts in modular directories
 - Uses the official Model Context Protocol Rust SDK
 - Security sandbox with intelligent path validation and caching
@@ -48,11 +49,16 @@ The `tools/` directory contains a growing catalog of useful MCP tools:
 - `--enable-run-nushell` - Enable generic command execution alongside tools  
 - `--add-path=PATH` - Add additional accessible paths (current directory always included)
 
+### Environment Variables
+- `MCP_NU_MCP_TIMEOUT` - Default timeout in seconds for tool execution (default: 60)
+
 ### Example MCP Configuration
 ```yaml
 nu-mcp:
   command: "nu-mcp"
   args: ["--tools-dir=./tools", "--add-path=/tmp", "--add-path=/nix/store"]
+  env:
+    MCP_NU_MCP_TIMEOUT: "120"  # 2 minute timeout
 ```
 Note: Current working directory is always accessible. Use `--add-path` to grant access to additional paths.
 

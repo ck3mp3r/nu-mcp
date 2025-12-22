@@ -7,3 +7,8 @@ IMPORTANT:
 - Use RELATIVE paths only (./file.txt, subdir/file.txt, .)
 - Absolute paths are BLOCKED (e.g., /etc/passwd, /tmp/file)
 - Path traversal (..) is BLOCKED
+
+TIMEOUT:
+- Default timeout: 60 seconds
+- Override with timeout_seconds parameter (e.g., {"command": "...", "timeout_seconds": 120})
+- Set global default via MCP_NU_MCP_TIMEOUT environment variable

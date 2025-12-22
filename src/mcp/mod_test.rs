@@ -4,10 +4,8 @@ use crate::execution::MockExecutor;
 use crate::security::PathCache;
 use crate::tools::MockToolExecutor;
 use rmcp::handler::server::ServerHandler;
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::{path::PathBuf, sync::Arc};
+use tokio::sync::RwLock;
 
 #[test]
 fn test_get_info_includes_sandbox_info() {
@@ -18,7 +16,7 @@ fn test_get_info_includes_sandbox_info() {
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());
-    let cache = Arc::new(Mutex::new(PathCache::new()));
+    let cache = Arc::new(RwLock::new(PathCache::new()));
     let router = ToolRouter::new(config, vec![], executor, tool_executor, cache);
     let tool = NushellTool { router };
     let info = tool.get_info();
@@ -36,7 +34,7 @@ fn test_get_info_default_sandbox() {
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());
-    let cache = Arc::new(Mutex::new(PathCache::new()));
+    let cache = Arc::new(RwLock::new(PathCache::new()));
     let router = ToolRouter::new(config, vec![], executor, tool_executor, cache);
     let tool = NushellTool { router };
     let info = tool.get_info();
@@ -53,7 +51,7 @@ fn test_get_info_basic_fields() {
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());
-    let cache = Arc::new(Mutex::new(PathCache::new()));
+    let cache = Arc::new(RwLock::new(PathCache::new()));
     let router = ToolRouter::new(config, vec![], executor, tool_executor, cache);
     let tool = NushellTool { router };
     let info = tool.get_info();
@@ -73,7 +71,7 @@ fn test_get_info_marks_current_directory() {
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());
-    let cache = Arc::new(Mutex::new(PathCache::new()));
+    let cache = Arc::new(RwLock::new(PathCache::new()));
     let router = ToolRouter::new(config, vec![], executor, tool_executor, cache);
     let tool = NushellTool { router };
     let info = tool.get_info();

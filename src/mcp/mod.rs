@@ -115,6 +115,8 @@ where
             schema.insert("type".to_string(), Value::String("object".to_string()));
 
             let mut properties = Map::new();
+
+            // Command property
             let mut command_prop = Map::new();
             command_prop.insert("type".to_string(), Value::String("string".to_string()));
             command_prop.insert(
@@ -122,6 +124,18 @@ where
                 Value::String("The Nushell command to execute".to_string()),
             );
             properties.insert("command".to_string(), Value::Object(command_prop));
+
+            // Timeout property (optional)
+            let mut timeout_prop = Map::new();
+            timeout_prop.insert("type".to_string(), Value::String("integer".to_string()));
+            timeout_prop.insert(
+                "description".to_string(),
+                Value::String(
+                    "Timeout in seconds (default: 60, or MCP_NU_MCP_TIMEOUT env var)".to_string(),
+                ),
+            );
+            timeout_prop.insert("minimum".to_string(), Value::Number(1.into()));
+            properties.insert("timeout_seconds".to_string(), Value::Object(timeout_prop));
 
             schema.insert("properties".to_string(), Value::Object(properties));
             schema.insert(
@@ -199,7 +213,8 @@ pub async fn run_server(config: Config) -> Result<()> {
     let tool_executor = NushellToolExecutor;
 
     // Create path cache (session-scoped, lives for server lifetime)
-    let path_cache = std::sync::Arc::new(std::sync::Mutex::new(crate::security::PathCache::new()));
+    let path_cache =
+        std::sync::Arc::new(tokio::sync::RwLock::new(crate::security::PathCache::new()));
 
     let router = ToolRouter::new(config, extensions, executor, tool_executor, path_cache);
     let tool = NushellTool { router };

@@ -3,7 +3,12 @@ use std::path::Path;
 
 #[async_trait]
 pub trait CommandExecutor: Send + Sync {
-    async fn execute(&self, command: &str, working_dir: &Path) -> Result<(String, String), String>;
+    async fn execute(
+        &self,
+        command: &str,
+        working_dir: &Path,
+        timeout_secs: Option<u64>,
+    ) -> Result<(String, String), String>;
 }
 
 pub mod nushell;
@@ -16,3 +21,5 @@ pub use mock::MockExecutor;
 
 #[cfg(test)]
 mod mock_test;
+#[cfg(test)]
+mod nushell_test;

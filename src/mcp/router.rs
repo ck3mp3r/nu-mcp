@@ -5,11 +5,8 @@ use crate::security::{PathCache, validate_path_safety_with_cache};
 use crate::tools::{ExtensionTool, NushellToolExecutor, ToolExecutor};
 use rmcp::model::{CallToolRequestParam, CallToolResult, ErrorData};
 use rmcp::serde_json;
-use std::{
-    env,
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::{env, path::PathBuf, sync::Arc};
+use tokio::sync::RwLock;
 
 #[derive(Clone)]
 pub struct ToolRouter<C = NushellExecutor, T = NushellToolExecutor>
@@ -21,8 +18,8 @@ where
     pub extensions: Vec<ExtensionTool>,
     pub executor: C,
     pub tool_executor: T,
-    /// Path cache injected as dependency (Arc allows Clone)
-    path_cache: Arc<Mutex<PathCache>>,
+    /// Path cache injected as dependency (Arc<RwLock> allows concurrent reads)
+    path_cache: Arc<RwLock<PathCache>>,
 }
 
 impl<C, T> ToolRouter<C, T>
@@ -35,7 +32,7 @@ where
         extensions: Vec<ExtensionTool>,
         executor: C,
         tool_executor: T,
-        path_cache: Arc<Mutex<PathCache>>,
+        path_cache: Arc<RwLock<PathCache>>,
     ) -> Self {
         Self {
             config,
@@ -61,20 +58,26 @@ where
         &self,
         request: CallToolRequestParam,
     ) -> Result<CallToolResult, ErrorData> {
-        let command = request
-            .arguments
-            .as_ref()
+        let args = request.arguments.as_ref();
+
+        let command = args
             .and_then(|args| args.get("command"))
             .and_then(|v| v.as_str())
             .unwrap_or("version");
+
+        // Extract optional timeout parameter
+        let timeout_secs = args
+            .and_then(|args| args.get("timeout_seconds"))
+            .and_then(|v| v.as_u64());
 
         // Determine working directory
         let work_dir = determine_working_directory(&self.config.sandbox_directories)
             .map_err(|e| ErrorData::internal_error(e, None))?;
 
         // Validate command for path safety (with injected cache)
+        // Use write lock - async-aware, no poisoning possible
         let validation_result = {
-            let mut cache = self.path_cache.lock().unwrap();
+            let mut cache = self.path_cache.write().await;
             validate_path_safety_with_cache(command, &self.config.sandbox_directories, &mut cache)
         };
 
@@ -84,7 +87,7 @@ where
 
         let (stdout, stderr) = self
             .executor
-            .execute(command, &work_dir)
+            .execute(command, &work_dir, timeout_secs)
             .await
             .map_err(|e| ErrorData::internal_error(e, None))?;
 
@@ -109,10 +112,10 @@ where
                 None => "{}".to_string(),
             };
 
-            // Execute extension tool
+            // Execute extension tool (timeout=None for now, tools don't expose it yet)
             match self
                 .tool_executor
-                .execute_tool(extension, tool_name, &args_json)
+                .execute_tool(extension, tool_name, &args_json, None)
                 .await
             {
                 Ok(output) => Ok(ResultFormatter::success(output)),

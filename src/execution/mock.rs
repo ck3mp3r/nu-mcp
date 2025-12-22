@@ -32,6 +32,7 @@ impl CommandExecutor for MockExecutor {
         &self,
         _command: &str,
         _working_dir: &Path,
+        _timeout_secs: Option<u64>,
     ) -> Result<(String, String), String> {
         if self.should_fail {
             Err(self.stderr.clone())

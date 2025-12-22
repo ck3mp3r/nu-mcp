@@ -34,6 +34,7 @@ impl ToolExecutor for MockToolExecutor {
         _extension: &ExtensionTool,
         _tool_name: &str,
         _args: &str,
+        _timeout_secs: Option<u64>,
     ) -> Result<String> {
         if self.should_fail {
             Err(anyhow!(self.error_message.clone()))
