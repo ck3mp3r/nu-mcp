@@ -1,11 +1,15 @@
 use super::formatter::ResultFormatter;
 use crate::config::Config;
 use crate::execution::{CommandExecutor, NushellExecutor};
-use crate::security::validate_path_safety;
+use crate::security::{PathCache, validate_path_safety_with_cache};
 use crate::tools::{ExtensionTool, NushellToolExecutor, ToolExecutor};
 use rmcp::model::{CallToolRequestParam, CallToolResult, ErrorData};
 use rmcp::serde_json;
-use std::{env, path::PathBuf};
+use std::{
+    env,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 #[derive(Clone)]
 pub struct ToolRouter<C = NushellExecutor, T = NushellToolExecutor>
@@ -17,6 +21,8 @@ where
     pub extensions: Vec<ExtensionTool>,
     pub executor: C,
     pub tool_executor: T,
+    /// Path cache injected as dependency (Arc allows Clone)
+    path_cache: Arc<Mutex<PathCache>>,
 }
 
 impl<C, T> ToolRouter<C, T>
@@ -29,12 +35,14 @@ where
         extensions: Vec<ExtensionTool>,
         executor: C,
         tool_executor: T,
+        path_cache: Arc<Mutex<PathCache>>,
     ) -> Self {
         Self {
             config,
             extensions,
             executor,
             tool_executor,
+            path_cache,
         }
     }
 
@@ -64,8 +72,13 @@ where
         let work_dir = determine_working_directory(&self.config.sandbox_directories)
             .map_err(|e| ErrorData::internal_error(e, None))?;
 
-        // Validate command for path safety
-        if let Err(msg) = validate_path_safety(command, &self.config.sandbox_directories) {
+        // Validate command for path safety (with injected cache)
+        let validation_result = {
+            let mut cache = self.path_cache.lock().unwrap();
+            validate_path_safety_with_cache(command, &self.config.sandbox_directories, &mut cache)
+        };
+
+        if let Err(msg) = validation_result {
             return ResultFormatter::invalid_request(msg);
         }
 

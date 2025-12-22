@@ -9,8 +9,10 @@ use super::*;
 use crate::{
     config::Config,
     execution::MockExecutor,
+    security::PathCache,
     tools::{ExtensionTool, MockToolExecutor},
 };
+use std::sync::Mutex;
 
 fn create_test_router() -> ToolRouter<MockExecutor, MockToolExecutor> {
     // Use current directory as sandbox so tests can run from anywhere
@@ -22,7 +24,8 @@ fn create_test_router() -> ToolRouter<MockExecutor, MockToolExecutor> {
     };
     let executor = MockExecutor::new("test output".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("tool output".to_string());
-    ToolRouter::new(config, vec![], executor, tool_executor)
+    let cache = Arc::new(Mutex::new(PathCache::new()));
+    ToolRouter::new(config, vec![], executor, tool_executor, cache)
 }
 
 #[tokio::test]
@@ -87,7 +90,8 @@ async fn test_router_extension_tool() {
 
     let executor = MockExecutor::new("test output".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("extension output".to_string());
-    let router = ToolRouter::new(config, vec![extension], executor, tool_executor);
+    let cache = Arc::new(Mutex::new(PathCache::new()));
+    let router = ToolRouter::new(config, vec![extension], executor, tool_executor, cache);
 
     let request = CallToolRequestParam {
         name: "test_tool".into(),
@@ -99,4 +103,76 @@ async fn test_router_extension_tool() {
 
     let call_result = result.unwrap();
     assert!(!call_result.content.is_empty());
+}
+
+// ============================================================================
+// Cache Integration Tests - TDD (Red/Green/Refactor)
+// ============================================================================
+
+#[tokio::test]
+async fn test_router_uses_injected_cache() {
+    // RED: This test will fail because router doesn't accept cache parameter yet
+    let cwd = env::current_dir().unwrap();
+    let config = Config {
+        tools_dir: None,
+        enable_run_nushell: true,
+        sandbox_directories: vec![cwd],
+    };
+    let executor = MockExecutor::new("test output".to_string(), "".to_string());
+    let tool_executor = MockToolExecutor::new("tool output".to_string());
+
+    // Create cache externally and inject it
+    let cache = Arc::new(Mutex::new(PathCache::new()));
+    let router = ToolRouter::new(
+        config,
+        vec![],
+        executor,
+        tool_executor,
+        cache.clone(), // Inject cache
+    );
+
+    // Execute command with non-existent path (API endpoint)
+    let mut args = serde_json::Map::new();
+    args.insert(
+        "command".to_string(),
+        serde_json::Value::String("tool /api/endpoint".to_string()),
+    );
+
+    let request = CallToolRequestParam {
+        name: "run_nushell".into(),
+        arguments: Some(args),
+    };
+
+    let result = router.route_call(request).await;
+    assert!(result.is_ok(), "Command should succeed");
+
+    // Verify cache was populated
+    let cache_guard = cache.lock().unwrap();
+    assert!(
+        cache_guard.contains("/api/endpoint"),
+        "Cache should contain the API endpoint path"
+    );
+}
+
+#[tokio::test]
+async fn test_router_blocks_existing_files_outside_sandbox() {
+    // Verify security is not weakened - existing files still blocked
+    let router = create_test_router();
+
+    let mut args = serde_json::Map::new();
+    args.insert(
+        "command".to_string(),
+        serde_json::Value::String("cat /etc/passwd".to_string()),
+    );
+
+    let request = CallToolRequestParam {
+        name: "run_nushell".into(),
+        arguments: Some(args),
+    };
+
+    let result = router.route_call(request).await;
+    assert!(
+        result.is_err(),
+        "Should block existing file outside sandbox"
+    );
 }

@@ -1,9 +1,13 @@
 use super::{NushellTool, ToolRouter};
 use crate::config::Config;
 use crate::execution::MockExecutor;
+use crate::security::PathCache;
 use crate::tools::MockToolExecutor;
 use rmcp::handler::server::ServerHandler;
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 #[test]
 fn test_get_info_includes_sandbox_info() {
@@ -14,7 +18,8 @@ fn test_get_info_includes_sandbox_info() {
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());
-    let router = ToolRouter::new(config, vec![], executor, tool_executor);
+    let cache = Arc::new(Mutex::new(PathCache::new()));
+    let router = ToolRouter::new(config, vec![], executor, tool_executor, cache);
     let tool = NushellTool { router };
     let info = tool.get_info();
     let instructions = info.instructions.unwrap();
@@ -31,7 +36,8 @@ fn test_get_info_default_sandbox() {
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());
-    let router = ToolRouter::new(config, vec![], executor, tool_executor);
+    let cache = Arc::new(Mutex::new(PathCache::new()));
+    let router = ToolRouter::new(config, vec![], executor, tool_executor, cache);
     let tool = NushellTool { router };
     let info = tool.get_info();
     let instructions = info.instructions.unwrap();
@@ -47,7 +53,8 @@ fn test_get_info_basic_fields() {
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());
-    let router = ToolRouter::new(config, vec![], executor, tool_executor);
+    let cache = Arc::new(Mutex::new(PathCache::new()));
+    let router = ToolRouter::new(config, vec![], executor, tool_executor, cache);
     let tool = NushellTool { router };
     let info = tool.get_info();
     assert_eq!(info.server_info.name, "nu-mcp");
@@ -66,7 +73,8 @@ fn test_get_info_marks_current_directory() {
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());
-    let router = ToolRouter::new(config, vec![], executor, tool_executor);
+    let cache = Arc::new(Mutex::new(PathCache::new()));
+    let router = ToolRouter::new(config, vec![], executor, tool_executor, cache);
     let tool = NushellTool { router };
     let info = tool.get_info();
     let instructions = info.instructions.unwrap();

@@ -197,7 +197,11 @@ pub async fn run_server(config: Config) -> Result<()> {
 
     let executor = NushellExecutor;
     let tool_executor = NushellToolExecutor;
-    let router = ToolRouter::new(config, extensions, executor, tool_executor);
+
+    // Create path cache (session-scoped, lives for server lifetime)
+    let path_cache = std::sync::Arc::new(std::sync::Mutex::new(crate::security::PathCache::new()));
+
+    let router = ToolRouter::new(config, extensions, executor, tool_executor, path_cache);
     let tool = NushellTool { router };
     let service = tool.serve(transport::stdio()).await?;
     service.waiting().await?;
