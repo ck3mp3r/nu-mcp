@@ -22,14 +22,18 @@ MCP tool for GitHub workflow and pull request management via the `gh` CLI.
 
 ## Safety Modes
 
-The tool operates in one of two modes controlled by `MCP_GITHUB_MODE`:
+The tool operates in one of three modes controlled by `MCP_GITHUB_MODE`:
 
 | Mode | Tools | Configuration |
 |------|-------|---------------|
-| **readwrite** (default) | All 11 tools | No env var needed (or `MCP_GITHUB_MODE=readwrite`) |
-| **readonly** | 7 read-only tools | Set `MCP_GITHUB_MODE=readonly` |
+| **readonly** | Read-only tools (list, get) | Set `MCP_GITHUB_MODE=readonly` |
+| **readwrite** (default) | All except destructive | No env var needed (or `MCP_GITHUB_MODE=readwrite`) |
+| **destructive** | All tools including delete | Set `MCP_GITHUB_MODE=destructive` |
 
-**Note:** The `merge_pr` tool has an additional safety requirement beyond readwrite mode - it requires explicit `confirm_merge: true` to prevent accidental merges.
+**Safety Notes:**
+- `merge_pr` requires explicit `confirm_merge: true` to prevent accidental merges
+- `delete_release` requires destructive mode and deletes releases permanently
+- `close_pr`, `reopen_pr`, and `edit_release` are reversible operations
 
 ### Read-Only Mode (Production)
 
@@ -51,7 +55,7 @@ For production environments where you only want to read GitHub data:
 
 ### Read-Write Mode (Default)
 
-Default mode allows all operations including creating/updating PRs and triggering workflows:
+Default mode allows all operations except destructive ones (delete):
 
 ```json
 {
@@ -65,10 +69,29 @@ Default mode allows all operations including creating/updating PRs and triggerin
 }
 ```
 
+### Destructive Mode (Advanced)
+
+For environments where you need to delete releases or perform other destructive operations:
+
+```json
+{
+  "mcpServers": {
+    "gh-destructive": {
+      "command": "nu-mcp",
+      "args": ["--tools-dir", "/path/to/tools/gh"],
+      "env": {
+        "MCP_GITHUB_MODE": "destructive"
+      }
+    }
+  }
+}
+```
+
 **Important Notes:**
 - `close_pr` and `reopen_pr` are reversible operations
 - `merge_pr` is **IRREVERSIBLE** and requires explicit `confirm_merge: true` flag
-- `upsert_pr` and `run_workflow` are non-destructive (won't delete data)
+- `delete_release` is **IRREVERSIBLE** and requires destructive mode
+- `upsert_pr`, `run_workflow`, and `create_release` are non-destructive (won't delete data)
 
 ## Available Tools
 
@@ -176,6 +199,58 @@ LLM: Calls merge_pr(number: 123, confirm_merge: true)
 
 If you forget to ask, the tool will return an error explicitly telling you to ask the user first.
 
+### Release Tools
+
+#### Read-Only Tools
+
+**`list_releases`** - List releases with optional filtering
+- `path` (optional): Path to git repository
+- `limit` (optional): Maximum number of releases to return (default: 30)
+- `exclude_drafts` (optional): Exclude draft releases (default: false)
+- `exclude_prereleases` (optional): Exclude pre-releases (default: false)
+
+**`get_release`** - View details of a specific release
+- `tag` (optional): Release tag name (omit to get latest release)
+- `path` (optional): Path to git repository
+
+#### Write Tools
+
+**`create_release`** - Create a new release
+- `tag` (required): Tag name for the release (e.g., "v1.2.3")
+- `title` (optional): Release title (defaults to tag name)
+- `notes` (optional): Release notes/description
+- `draft` (optional): Create as draft release (default: false)
+- `prerelease` (optional): Mark as pre-release (default: false)
+- `generate_notes` (optional): Auto-generate release notes from commits (default: false)
+- `latest` (optional): Mark as latest release (default: false)
+- `not_latest` (optional): Explicitly mark as not latest (default: false)
+- `target` (optional): Target branch or commit SHA (defaults to default branch)
+- `path` (optional): Path to git repository
+
+**`edit_release`** - Update an existing release
+- `tag` (required): Release tag name to edit
+- `notes` (optional): New release notes/description
+- `title` (optional): New release title
+- `draft` (optional): Mark as draft (default: false)
+- `no_draft` (optional): Unmark as draft (default: false)
+- `prerelease` (optional): Mark as pre-release (default: false)
+- `path` (optional): Path to git repository
+
+#### Destructive Tools
+
+**`delete_release`** - Delete a release ⚠️ **REQUIRES DESTRUCTIVE MODE**
+- `tag` (required): Release tag name to delete
+- `cleanup_tag` (optional): Also delete the git tag (default: false)
+- `path` (optional): Path to git repository
+
+**⚠️ CRITICAL: delete_release Safety Requirements**
+
+This operation is **IRREVERSIBLE** and requires destructive mode:
+
+1. Set `MCP_GITHUB_MODE=destructive` in environment
+2. The release **CANNOT be recovered** once deleted
+3. Use `cleanup_tag: true` to also delete the associated git tag
+
 ## Usage Examples
 
 These examples show how to call the tools from an MCP client (e.g., Claude Desktop, using JavaScript/TypeScript). The `await` keyword is JavaScript syntax for async operations in the MCP client, not Nushell syntax.
@@ -270,6 +345,64 @@ await use_mcp_tool("gh", "merge_pr", {
 });
 ```
 
+### Manage Releases
+
+```javascript
+// List all releases
+await use_mcp_tool("gh", "list_releases", {});
+
+// List only stable releases (no drafts or pre-releases)
+await use_mcp_tool("gh", "list_releases", {
+  exclude_drafts: true,
+  exclude_prereleases: true,
+  limit: 10
+});
+
+// Get latest release
+await use_mcp_tool("gh", "get_release", {});
+
+// Get specific release by tag
+await use_mcp_tool("gh", "get_release", {
+  tag: "v1.2.3"
+});
+
+// Create a release
+await use_mcp_tool("gh", "create_release", {
+  tag: "v1.2.3",
+  title: "Version 1.2.3",
+  notes: "## What's New\n- Feature A\n- Bug fix B",
+  latest: true
+});
+
+// Create a draft release
+await use_mcp_tool("gh", "create_release", {
+  tag: "v2.0.0-beta.1",
+  title: "Version 2.0 Beta 1",
+  draft: true,
+  prerelease: true,
+  generate_notes: true  // Auto-generate from commits
+});
+
+// Edit a release (e.g., publish a draft)
+await use_mcp_tool("gh", "edit_release", {
+  tag: "v1.2.3",
+  no_draft: true  // Remove draft status (publish)
+});
+
+// Update release notes
+await use_mcp_tool("gh", "edit_release", {
+  tag: "v1.2.3",
+  notes: "## Updated Release Notes\n- Additional fixes"
+});
+
+// Delete a release (REQUIRES DESTRUCTIVE MODE)
+// Must set MCP_GITHUB_MODE=destructive
+await use_mcp_tool("gh", "delete_release", {
+  tag: "v1.2.3-beta",
+  cleanup_tag: true  // Also delete the git tag
+});
+```
+
 ## Error Handling
 
 All tools return descriptive error messages when operations fail:
@@ -281,11 +414,11 @@ All tools return descriptive error messages when operations fail:
 
 ## Testing
 
-The tool includes comprehensive tests (37 tests covering all functionality):
+The tool includes comprehensive tests (56 tests covering all functionality):
 
 ```bash
 nu tools/gh/tests/run_tests.nu
-# Results: 37/37 passed, 0 failed
+# Results: 56/56 passed, 0 failed
 ```
 
 ### Manual Testing with Nushell
@@ -320,14 +453,16 @@ tools/gh/
 ├── mod.nu              # MCP interface (list-tools, call-tool)
 ├── utils.nu            # gh CLI wrapper, safety modes
 ├── workflows.nu        # Workflow operations
-├── prs.nu              # PR operations  
+├── prs.nu              # PR operations
+├── releases.nu         # Release operations
 ├── formatters.nu       # Human-readable output formatting (optional)
-└── tests/              # Test suite (27 tests)
+└── tests/              # Test suite (56 tests)
     ├── mocks.nu        # Mock gh/git CLI commands
     ├── test_helpers.nu # Sample data for tests
     ├── run_tests.nu    # Test runner
-    ├── test_workflows.nu
-    └── test_prs.nu
+    ├── test_workflows.nu  # 14 workflow tests
+    ├── test_prs.nu        # 23 PR tests
+    └── test_releases.nu   # 19 release tests
 ```
 
 ### Safety Implementation
