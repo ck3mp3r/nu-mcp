@@ -22,11 +22,67 @@
 //! See `docs/security.md` for detailed instructions.
 
 use regex::Regex;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 /// Load safe command patterns from file at compile time
 const SAFE_PATTERNS_FILE: &str = include_str!("safe_command_patterns.txt");
+
+/// Path cache for remembering strings that look like paths but aren't filesystem paths
+///
+/// This cache stores path-like strings (starting with `/`) that don't exist on the
+/// filesystem and are outside the sandbox. These are typically API endpoints or
+/// other non-filesystem arguments.
+///
+/// # Examples
+/// - `/metrics` - Kubernetes API endpoint
+/// - `/api/v1/pods` - API path
+/// - `/healthz` - Health check endpoint
+///
+/// # Lifecycle
+/// - Session-scoped (in-memory)
+/// - Cleared on server restart
+/// - No TTL needed (sandbox dirs are static)
+pub struct PathCache {
+    /// Strings that look like paths but aren't filesystem paths
+    not_filesystem_paths: HashSet<String>,
+}
+
+impl PathCache {
+    /// Create a new empty cache
+    pub fn new() -> Self {
+        Self {
+            not_filesystem_paths: HashSet::new(),
+        }
+    }
+
+    /// Check if a path-like string is cached as "not a filesystem path"
+    pub fn contains(&self, path: &str) -> bool {
+        self.not_filesystem_paths.contains(path)
+    }
+
+    /// Remember that this string is not a filesystem path
+    pub fn remember(&mut self, path: String) {
+        self.not_filesystem_paths.insert(path);
+    }
+
+    /// Check if cache is empty
+    pub fn is_empty(&self) -> bool {
+        self.not_filesystem_paths.is_empty()
+    }
+
+    /// Get number of cached paths
+    pub fn len(&self) -> usize {
+        self.not_filesystem_paths.len()
+    }
+}
+
+impl Default for PathCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// Parse pattern file and compile regexes
 /// Lines starting with # are comments, empty lines are ignored
@@ -259,6 +315,131 @@ pub fn validate_path_safety(
                 format_sandbox_list(&canonical_sandboxes)
             ));
         }
+    }
+
+    Ok(())
+}
+
+/// Validate path safety with caching support
+///
+/// This is the same as `validate_path_safety` but with an additional cache parameter
+/// that remembers non-filesystem path-like strings to avoid repeated validation.
+///
+/// # Cache Behavior
+/// - Checks cache first - if path is cached, skip all validation
+/// - After sandbox check, caches non-existent paths outside sandbox
+/// - Never caches paths inside sandbox (handled by sandbox check)
+/// - Never caches existing files outside sandbox (blocked)
+pub fn validate_path_safety_with_cache(
+    command: &str,
+    sandbox_dirs: &[std::path::PathBuf],
+    cache: &mut PathCache,
+) -> Result<(), String> {
+    // Check if command matches a safe pattern (commands with path-like args that aren't filesystem paths)
+    // Examples: gh api /repos/..., kubectl get /apis/..., etc.
+    if matches_safe_pattern(command) {
+        return Ok(());
+    }
+
+    // Get canonical sandbox directories (only those that exist)
+    let canonical_sandboxes: Vec<std::path::PathBuf> = sandbox_dirs
+        .iter()
+        .filter_map(|dir| dir.canonicalize().ok())
+        .collect();
+
+    // If no valid sandboxes, allow everything (shouldn't happen with defaults)
+    if canonical_sandboxes.is_empty() {
+        return Ok(());
+    }
+
+    // Get first sandbox for relative path resolution
+    let first_sandbox = &canonical_sandboxes[0];
+
+    // Extract all words from command (including quoted strings)
+    let words = extract_words(command);
+
+    // Check if command contains absolute paths or home directory paths that would escape the sandbox
+    for word in words {
+        // 1. CHECK CACHE FIRST - short circuit if we've seen this before
+        if cache.contains(&word) {
+            continue; // We know this isn't a filesystem path
+        }
+
+        // Skip common commands and flags - only check things that look like paths
+        if word.starts_with('-') || is_common_command(&word) {
+            continue;
+        }
+
+        // Skip URLs - they're not filesystem paths
+        if is_url(&word) {
+            continue;
+        }
+
+        // Determine the path to check based on word type
+        let path_to_check = if word == "~" || word.starts_with("~/") {
+            // Home directory paths
+            if let Some(home_dir) = std::env::var_os("HOME") {
+                if word == "~" {
+                    Path::new(&home_dir).to_path_buf()
+                } else {
+                    Path::new(&home_dir).join(&word[2..])
+                }
+            } else {
+                continue; // Skip if HOME is not set
+            }
+        } else if word.contains("..") {
+            // Path with traversal - resolve relative to first sandbox directory
+            // This allows cd ../ when inside the sandbox, but blocks escaping
+            first_sandbox.join(&word)
+        } else if is_likely_filesystem_path(&word) {
+            // Absolute path
+            Path::new(&word).to_path_buf()
+        } else if word.contains('/') || word.contains('\\') {
+            // Relative path with slashes (e.g., "subdir/file.txt")
+            first_sandbox.join(&word)
+        } else {
+            // Plain word without path separators - not a path, skip
+            continue;
+        };
+
+        // Try to canonicalize the path if it exists, otherwise use manual resolution
+        let canonical_path = match path_to_check.canonicalize() {
+            Ok(canonical) => canonical,
+            Err(_) if word.contains("..") => {
+                // For non-existent paths with .., manually resolve components
+                match resolve_relative_path(first_sandbox, &word) {
+                    Some(resolved) => resolved,
+                    None => continue, // Can't resolve, skip
+                }
+            }
+            Err(_) if path_to_check.is_absolute() => {
+                // Non-existent absolute path - use as-is for validation
+                path_to_check
+            }
+            Err(_) => {
+                // Non-existent relative path - skip validation (Nushell will handle)
+                continue;
+            }
+        };
+
+        // 2. Check if the canonical/resolved path is within any sandbox
+        if is_path_in_any_sandbox(&canonical_path, &canonical_sandboxes) {
+            continue; // In sandbox - allow (don't cache, handled by sandbox check)
+        }
+
+        // 3. Path is outside sandbox - does it exist?
+        if !canonical_path.exists() {
+            // Non-existent path outside sandbox - cache it as "not a filesystem path"
+            cache.remember(word.clone());
+            continue; // Allow
+        }
+
+        // 4. Path exists AND outside sandbox - BLOCK
+        return Err(format!(
+            "Path '{}' escapes sandbox directories. Allowed: {}",
+            &word,
+            format_sandbox_list(&canonical_sandboxes)
+        ));
     }
 
     Ok(())
