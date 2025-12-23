@@ -20,15 +20,13 @@ def create-temp-sync-dir [] {
 export def "test is-git-repo returns true for git directory" [] {
   use ../sync.nu is-git-repo
 
-  # Create temp directory with git init
+  # Create temp directory with .git directory (is-git-repo just checks if .git exists)
   let temp_dir = (mktemp -d)
-  cd $temp_dir
-  ^git init --quiet
+  mkdir ($temp_dir | path join ".git")
 
   let result = is-git-repo $temp_dir
 
   # Cleanup
-  cd -
   rm -rf $temp_dir
 
   assert $result "Should return true for git repo"
@@ -219,11 +217,9 @@ export def "test get-sync-dir returns correct path" [] {
 # =============================================================================
 
 export def --env "test export-db-to-sync writes all data to jsonl" [] {
-  use wrappers.nu *
   use ../sync.nu [ export-db-to-sync read-sync-files ]
-  use ../storage.nu [ init-database upsert-repo upsert-list upsert-task upsert-note ]
-
-  mimic reset
+  use ../storage.nu [ init-database upsert-list upsert-task upsert-note ]
+  use test_helpers.nu [ create-test-repo ]
 
   # Set up temp database and sync dir
   let temp_dir = (mktemp -d)
@@ -233,21 +229,11 @@ export def --env "test export-db-to-sync writes all data to jsonl" [] {
   $env.XDG_DATA_HOME = $temp_dir
   init-database
 
-  # Create temp git repo directory (but don't init git - just mkdir)
-  let git_dir = ($temp_dir | path join "git-repo")
-  mkdir $git_dir
-  mkdir ($git_dir | path join ".git") # Fake .git directory
-
-  # Mock git remote for upsert-repo to get remote URL
-  mimic register git {
-    args: ['-C' $git_dir 'remote' 'get-url' 'origin']
-    returns: "git@github.com:test/repo.git"
-  }
-
-  let repo = upsert-repo $git_dir
-  let list = upsert-list "Test List" "Description" $repo.repo_id
+  # Create test repo directly in database (no git mocking needed)
+  let repo_id = create-test-repo
+  let list = upsert-list "Test List" "Description" $repo_id
   let task = upsert-task $list.id "Test Task"
-  let note = upsert-note "Test Note" "Content" $repo.repo_id
+  let note = upsert-note "Test Note" "Content" $repo_id
 
   # Export to sync files
   export-db-to-sync $sync_dir
@@ -262,7 +248,6 @@ export def --env "test export-db-to-sync writes all data to jsonl" [] {
 
   # Cleanup
   rm -rf $temp_dir
-  mimic verify
 }
 
 # =============================================================================
@@ -305,11 +290,9 @@ export def "test import-sync-to-db imports new records" [] {
 }
 
 export def --env "test import-sync-to-db updates existing with newer timestamp" [] {
-  use wrappers.nu *
   use ../sync.nu [ import-sync-to-db write-sync-files ]
-  use ../storage.nu [ init-database upsert-repo upsert-list get-list ]
-
-  mimic reset
+  use ../storage.nu [ init-database upsert-list get-list ]
+  use test_helpers.nu [ create-test-repo ]
 
   # Set up temp database and sync dir
   let temp_dir = (mktemp -d)
@@ -319,25 +302,14 @@ export def --env "test import-sync-to-db updates existing with newer timestamp" 
   $env.XDG_DATA_HOME = $temp_dir
   init-database
 
-  # Create temp git repo directory (but don't init git - just mkdir)
-  let git_dir = ($temp_dir | path join "git-repo")
-  mkdir $git_dir
-  mkdir ($git_dir | path join ".git") # Fake .git directory
-
-  # Mock git remote for upsert-repo to get remote URL
-  mimic register git {
-    args: ['-C' $git_dir 'remote' 'get-url' 'origin']
-    returns: "git@github.com:test/repo.git"
-  }
-
-  # Create existing data with old timestamp
-  let repo = upsert-repo $git_dir
-  let list = upsert-list "Old Name" "Old Desc" $repo.repo_id
+  # Create test repo directly in database (no git mocking needed)
+  let repo_id = create-test-repo "github:test/repo"
+  let list = upsert-list "Old Name" "Old Desc" $repo_id
 
   # Create sync files with newer data (future timestamp)
   let data = {
-    repos: [{id: $repo.repo_id remote: $repo.remote path: $repo.path created_at: "2025-01-01T00:00:00Z"}]
-    lists: [{id: $list.id repo_id: $repo.repo_id name: "New Name" description: "New Desc" tags: "" notes: null status: "active" external_ref: null created_at: "2025-01-01T00:00:00Z" updated_at: "2099-01-01T00:00:00Z" archived_at: null}]
+    repos: [{id: $repo_id remote: "github:test/repo" path: "/tmp/test-repo" created_at: "2025-01-01T00:00:00Z"}]
+    lists: [{id: $list.id repo_id: $repo_id name: "New Name" description: "New Desc" tags: "" notes: null status: "active" external_ref: null created_at: "2025-01-01T00:00:00Z" updated_at: "2099-01-01T00:00:00Z" archived_at: null}]
     tasks: []
     notes: []
   }
@@ -355,7 +327,6 @@ export def --env "test import-sync-to-db updates existing with newer timestamp" 
 
   # Cleanup
   rm -rf $temp_dir
-  mimic verify
 }
 
 # =============================================================================
@@ -364,7 +335,7 @@ export def --env "test import-sync-to-db updates existing with newer timestamp" 
 
 export def --env "test sync-init creates git repo in sync dir" [] {
   use wrappers.nu *
-  use ../sync.nu [ sync-init get-sync-dir is-git-repo ]
+  use ../sync.nu [ sync-init get-sync-dir ]
 
   mimic reset
 
@@ -373,7 +344,7 @@ export def --env "test sync-init creates git repo in sync dir" [] {
   let sync_dir = ($temp_dir | path join "c5t" "sync")
   $env.XDG_DATA_HOME = $temp_dir
 
-  # Mock git init
+  # Mock git init (will be called by sync-init)
   mimic register git {
     args: ['init' '--quiet']
     returns: ""
@@ -382,8 +353,8 @@ export def --env "test sync-init creates git repo in sync dir" [] {
   let result = sync-init null
 
   assert $result.success "sync-init should succeed"
-  # Verify .git directory was created by sync-init
-  assert (is-git-repo $sync_dir) "Sync dir should be a git repo"
+  # Verify git init was called (via mimic verify)
+  # Don't check filesystem state - mocks don't create real .git directories
 
   # Cleanup
   rm -rf $temp_dir
@@ -440,8 +411,14 @@ export def --env "test sync-init returns error if already initialized" [] {
     returns: ""
   }
 
-  # Initialize twice
+  # Initialize first time
   sync-init null
+
+  # Manually create .git to simulate what real git init would do
+  # This allows is-git-repo check in second sync-init to detect existing repo
+  mkdir ($sync_dir | path join ".git")
+
+  # Second init should fail
   let result = sync-init null
 
   assert (not $result.success) "Second init should fail"
@@ -540,6 +517,7 @@ export def "test sync-refresh skips when sync not configured" [] {
 }
 
 export def --env "test sync-refresh imports data from sync files" [] {
+  use wrappers.nu *
   use ../sync.nu [ sync-init sync-refresh write-sync-files get-sync-dir ]
   use ../storage.nu [ init-database list-repos ]
 
@@ -562,6 +540,10 @@ export def --env "test sync-refresh imports data from sync files" [] {
 
   # Initialize sync
   sync-init null
+
+  # Create .git directory to simulate git init side effect
+  # (needed for is-git-repo check in sync-refresh)
+  mkdir ($sync_dir | path join ".git")
 
   # Write sync data directly (simulating a pull from remote)
   let data = {
@@ -621,7 +603,8 @@ export def "test sync-export fails when sync not configured" [] {
 export def --env "test sync-export exports data and commits" [] {
   use wrappers.nu *
   use ../sync.nu [ sync-init sync-export get-sync-dir read-sync-files ]
-  use ../storage.nu [ init-database upsert-repo upsert-list ]
+  use ../storage.nu [ init-database upsert-list ]
+  use test_helpers.nu [ create-test-repo ]
 
   mimic reset
 
@@ -632,22 +615,11 @@ export def --env "test sync-export exports data and commits" [] {
   $env.XDG_DATA_HOME = $temp_dir
   $env.C5T_DB_PATH = $db_path
 
-  # Create temp git repo directory for upsert-repo (but don't init git - just mkdir)
-  let git_dir = ($temp_dir | path join "git-repo")
-  mkdir $git_dir
-  mkdir ($git_dir | path join ".git") # Fake .git directory so is-git-repo check passes
-
-  # Mock git remote for upsert-repo to get remote URL
-  mimic register git {
-    args: ['remote' 'get-url' 'origin']
-    returns: "git@github.com:test/repo.git"
-  }
-
   init-database
 
-  # Create some data
-  let repo = upsert-repo $git_dir
-  let list = upsert-list "Test List" "Description" $repo.repo_id
+  # Create some data using test helper (no git mocking needed)
+  let repo_id = create-test-repo
+  let list = upsert-list "Test List" "Description" $repo_id
 
   # Mock git init for sync-init
   mimic register git {
@@ -657,6 +629,10 @@ export def --env "test sync-export exports data and commits" [] {
 
   # Initialize sync
   sync-init null
+
+  # Create .git directory to simulate git init side effect
+  # (needed for is-git-repo check in sync-export)
+  mkdir ($sync_dir | path join ".git")
 
   # Mock git pull (for sync-export)
   mimic register git {
