@@ -168,11 +168,9 @@
             ];
           };
 
-          ci = inputs.devenv.lib.mkShell {
-            inherit inputs pkgs;
-            modules = [
-              ./nix/ci.nix
-            ];
+          # Classic shell for CI - just toolchains, no devenv
+          ci = import ./nix/ci.nix {
+            inherit pkgs inputs system;
           };
         };
 
