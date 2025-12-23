@@ -11,11 +11,13 @@
     pkgs.topiary
     pkgs.topiary-nu
     pkgs.argocd
+    inputs.nu-mods.packages.${pkgs.system}.default
   ];
 
   env = {
     TOPIARY_CONFIG_FILE = "${pkgs.topiary-nu}/languages.ncl";
     TOPIARY_LANGUAGE_DIR = "${pkgs.topiary-nu}/languages";
+    NU_LIB_DIRS = "${inputs.nu-mods.packages.${pkgs.system}.default}/share/nushell/modules";
   };
 
   scripts = {
@@ -42,6 +44,13 @@
     build = {
       exec = "cargo build --release";
       description = "Build release binary";
+    };
+    test-tools = {
+      exec = ''
+        echo "Running tool tests with nu-mock..."
+        nu tools/gh/tests/run_tests.nu
+      '';
+      description = "Run all tool tests with nu-mock";
     };
   };
 

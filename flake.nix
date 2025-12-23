@@ -24,6 +24,10 @@
       url = "github:ck3mp3r/flakes?dir=topiary-nu";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nu-mods = {
+      url = "github:ck3mp3r/nu-mods";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs @ {
