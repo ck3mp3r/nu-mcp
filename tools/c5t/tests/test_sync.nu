@@ -546,8 +546,6 @@ export def "test sync-refresh skips when sync not configured" [] {
 }
 
 export def --env "test sync-refresh imports data from sync files" [] {
-  use nu-mock *
-  use wrappers.nu *
   use ../sync.nu [ sync-init sync-refresh write-sync-files get-sync-dir ]
   use ../storage.nu [ init-database list-repos ]
 
