@@ -713,6 +713,31 @@ def "main list-tools" [] {
 4. **Constraints**: Add `minimum`, `maximum`, `enum`, `pattern` where applicable
 5. **Required fields**: Only mark truly required fields as required
 6. **Defaults in description**: Document default values in descriptions
+7. **CRITICAL - Destructive Operations**: **MANDATORY** warning for ANY tool that:
+   - Deletes data (delete, remove, purge, drop, truncate)
+   - Destroys resources (cleanup, force, terminate)
+   - Replaces/overwrites data (import with replace, force update)
+   - Causes service disruption (scale to 0, drain nodes, force restart)
+   
+   **Required warning template:**
+   ```
+   DESTRUCTIVE OPERATION - ALWAYS ASK USER FOR EXPLICIT CONFIRMATION BEFORE EXECUTING. [Specific consequence of the operation]. This operation cannot be undone.
+   ```
+   
+   **Example:**
+   ```nushell
+   {
+     name: "delete_resource"
+     description: "DESTRUCTIVE OPERATION - ALWAYS ASK USER FOR EXPLICIT CONFIRMATION BEFORE EXECUTING. Permanently deletes the resource and all associated data. This operation cannot be undone."
+     input_schema: { ... }
+   }
+   ```
+   
+   **Why this is mandatory:**
+   - LLMs may execute tools autonomously if not explicitly warned
+   - Data loss incidents are unacceptable
+   - Users must give explicit consent for dangerous operations
+   - This is a SAFETY requirement, not a suggestion
 
 ---
 

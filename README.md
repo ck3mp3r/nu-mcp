@@ -79,6 +79,27 @@ The sandbox uses a two-tier system (safe patterns + runtime caching) to eliminat
 
 For detailed configuration options and tool development, see the [documentation](docs/).
 
+## Safety and Destructive Operations
+
+**IMPORTANT**: All destructive MCP tools require explicit user confirmation before execution.
+
+Destructive tools (delete, cleanup, force operations, etc.) include explicit warnings in their descriptions:
+
+```
+DESTRUCTIVE OPERATION - ALWAYS ASK USER FOR EXPLICIT CONFIRMATION BEFORE EXECUTING.
+[specific consequence]. This operation cannot be undone.
+```
+
+**Tools with destructive capabilities:**
+- **c5t**: `delete_task`, `delete_task_list`, `delete_note`, `import_data` (replaces all data)
+- **gh**: `delete_release` (deletes release + binaries), `close_pr` with `delete_branch`
+- **k8s**: `kube_delete`, `helm_uninstall`, `kube_cleanup`, `kube_scale` (to 0)
+- **ArgoCD**: `delete_application`, `sync_application` with `prune: true`
+
+**LLM Agents**: These warnings instruct LLMs to ALWAYS ask for user permission before executing destructive operations. Never execute these tools without explicit user confirmation.
+
+**Safety Modes**: Many tools implement safety modes (readonly/non-destructive/destructive) via environment variables. See individual tool READMEs for details.
+
 ## Installation
 
 ### Via Nix

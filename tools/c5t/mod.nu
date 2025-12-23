@@ -140,7 +140,7 @@ def "main list-tools" [] {
     }
     {
       name: "delete_task"
-      description: "Remove a task from a list permanently."
+      description: "DESTRUCTIVE OPERATION - ALWAYS ASK USER FOR EXPLICIT CONFIRMATION BEFORE EXECUTING. Permanently removes a task from a list. This operation cannot be undone."
       input_schema: {
         type: "object"
         properties: {
@@ -173,7 +173,7 @@ def "main list-tools" [] {
     }
     {
       name: "delete_task_list"
-      description: "Remove a task list. Use force=true to delete list with tasks, otherwise fails if list has tasks."
+      description: "DESTRUCTIVE OPERATION - ALWAYS ASK USER FOR EXPLICIT CONFIRMATION BEFORE EXECUTING. Permanently removes a task list. Use force=true to delete list with all its tasks. This operation cannot be undone."
       input_schema: {
         type: "object"
         properties: {
@@ -191,7 +191,7 @@ def "main list-tools" [] {
     }
     {
       name: "delete_note"
-      description: "Remove a note permanently by ID."
+      description: "DESTRUCTIVE OPERATION - ALWAYS ASK USER FOR EXPLICIT CONFIRMATION BEFORE EXECUTING. Permanently removes a note by ID. This operation cannot be undone."
       input_schema: {
         type: "object"
         properties: {
@@ -256,7 +256,7 @@ def "main list-tools" [] {
     }
     {
       name: "import_data"
-      description: "Import c5t data from JSON backup file. Replaces all existing data. Use list_backups to see available files."
+      description: "DESTRUCTIVE OPERATION - ALWAYS ASK USER FOR EXPLICIT CONFIRMATION BEFORE EXECUTING. Imports c5t data from JSON backup file and REPLACES ALL EXISTING DATA (all lists, tasks, and notes). This operation cannot be undone. Use list_backups to see available files."
       input_schema: {
         type: "object"
         properties: {

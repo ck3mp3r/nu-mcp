@@ -405,7 +405,7 @@ export def kubectl-patch-schema [] {
 export def kubectl-scale-schema [] {
   {
     name: "kube_scale"
-    description: "Scale a Kubernetes deployment"
+    description: "Scale a Kubernetes deployment. WARNING: Scaling to 0 replicas STOPS ALL PODS and causes service disruption - ALWAYS ASK USER before scaling to 0."
     input_schema: {
       type: "object"
       properties: {
@@ -664,7 +664,7 @@ export def helm-upgrade-schema [] {
 export def kubectl-delete-schema [] {
   {
     name: "kube_delete"
-    description: "Delete Kubernetes resources by resource type, name, labels, or from a manifest file"
+    description: "DESTRUCTIVE OPERATION - ALWAYS ASK USER FOR EXPLICIT CONFIRMATION BEFORE EXECUTING. Permanently deletes Kubernetes resources (pods, deployments, services, etc.). This operation cannot be undone and may cause service disruption."
     input_schema: {
       type: "object"
       properties: {
@@ -721,7 +721,7 @@ export def kubectl-delete-schema [] {
 export def helm-uninstall-schema [] {
   {
     name: "helm_uninstall"
-    description: "Uninstall a Helm chart release"
+    description: "DESTRUCTIVE OPERATION - ALWAYS ASK USER FOR EXPLICIT CONFIRMATION BEFORE EXECUTING. Permanently uninstalls a Helm chart release and deletes all associated Kubernetes resources. This operation cannot be undone and may cause service disruption."
     input_schema: {
       type: "object"
       properties: {
@@ -748,7 +748,7 @@ export def helm-uninstall-schema [] {
 export def cleanup-schema [] {
   {
     name: "kube_cleanup"
-    description: "Cleanup all managed resources (port-forwards, etc.)"
+    description: "DESTRUCTIVE OPERATION - ALWAYS ASK USER FOR EXPLICIT CONFIRMATION BEFORE EXECUTING. Terminates all managed resources including active port-forwards and connections. This may disrupt active debugging sessions."
     input_schema: {
       type: "object"
       properties: {}
