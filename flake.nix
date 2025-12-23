@@ -24,6 +24,10 @@
       url = "github:ck3mp3r/flakes?dir=topiary-nu";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nu-mods = {
+      url = "github:ck3mp3r/nu-mods";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs @ {
@@ -162,6 +166,11 @@
             modules = [
               ./nix/devenv.nix
             ];
+          };
+
+          # Classic shell for CI - just toolchains, no devenv
+          ci = import ./nix/ci.nix {
+            inherit pkgs inputs system;
           };
         };
 

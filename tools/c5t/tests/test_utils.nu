@@ -2,7 +2,6 @@
 # Focus: One valid case + one invalid case per validator
 
 use std/assert
-use mocks.nu *
 
 # --- List Validation ---
 

@@ -1,20 +1,17 @@
 ---
-name: CI
+name: CI Tools
 on:
   workflow_dispatch:
   push:
     branches-ignore:
       - main
     paths:
-      - "**/*.nix"
-      - "Cargo.lock"
-      - "Cargo.toml"
-      - "flake.lock"
+      - "tools/**"
+      - "nix/ci.nix"
       - "flake.nix"
-      - "src/**"
-      - "tests/**"
+      - "flake.lock"
 jobs:
-  test:
+  test-tools:
     runs-on: ubuntu-latest
     steps:
       - name: Code checkout
@@ -23,5 +20,5 @@ jobs:
       - name: Install Determinate Nix
         uses: DeterminateSystems/nix-installer-action@main
 
-      - name: Test build via Nix flake
-        run: nix build .#nu-mcp
+      - name: Run tool tests
+        run: nix develop .#ci --command run-tool-tests
