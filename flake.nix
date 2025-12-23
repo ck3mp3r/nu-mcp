@@ -167,6 +167,13 @@
               ./nix/devenv.nix
             ];
           };
+
+          ci = inputs.devenv.lib.mkShell {
+            inherit inputs pkgs;
+            modules = [
+              ./nix/ci.nix
+            ];
+          };
         };
 
         formatter = pkgs.alejandra;
