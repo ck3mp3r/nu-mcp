@@ -219,7 +219,6 @@ export def "test get-sync-dir returns correct path" [] {
 # =============================================================================
 
 export def --env "test export-db-to-sync writes all data to jsonl" [] {
-  use nu-mock *
   use wrappers.nu *
   use ../sync.nu [ export-db-to-sync read-sync-files ]
   use ../storage.nu [ init-database upsert-repo upsert-list upsert-task upsert-note ]
@@ -306,7 +305,6 @@ export def "test import-sync-to-db imports new records" [] {
 }
 
 export def --env "test import-sync-to-db updates existing with newer timestamp" [] {
-  use nu-mock *
   use wrappers.nu *
   use ../sync.nu [ import-sync-to-db write-sync-files ]
   use ../storage.nu [ init-database upsert-repo upsert-list get-list ]
@@ -365,7 +363,6 @@ export def --env "test import-sync-to-db updates existing with newer timestamp" 
 # =============================================================================
 
 export def --env "test sync-init creates git repo in sync dir" [] {
-  use nu-mock *
   use wrappers.nu *
   use ../sync.nu [ sync-init get-sync-dir is-git-repo ]
 
@@ -394,7 +391,6 @@ export def --env "test sync-init creates git repo in sync dir" [] {
 }
 
 export def --env "test sync-init adds remote when provided" [] {
-  use nu-mock *
   use wrappers.nu *
   use ../sync.nu [ sync-init get-sync-dir ]
 
@@ -428,7 +424,6 @@ export def --env "test sync-init adds remote when provided" [] {
 }
 
 export def --env "test sync-init returns error if already initialized" [] {
-  use nu-mock *
   use wrappers.nu *
   use ../sync.nu [ sync-init get-sync-dir ]
 
@@ -478,7 +473,6 @@ export def "test sync-status shows not configured when no git repo" [] {
 }
 
 export def --env "test sync-status shows configured status" [] {
-  use nu-mock *
   use wrappers.nu *
   use ../sync.nu [ sync-init sync-status ]
 
@@ -625,7 +619,6 @@ export def "test sync-export fails when sync not configured" [] {
 }
 
 export def --env "test sync-export exports data and commits" [] {
-  use nu-mock *
   use wrappers.nu *
   use ../sync.nu [ sync-init sync-export get-sync-dir read-sync-files ]
   use ../storage.nu [ init-database upsert-repo upsert-list ]
