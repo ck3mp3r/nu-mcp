@@ -28,7 +28,8 @@ export def cleanup-test-db [test_env: record] {
 
 # Run a test with a fresh database
 # Usage: with-test-db { ... test code ... }
-export def with-test-db [test_fn: closure] {
+# Note: Use --env on the calling function if you need mock support
+export def --env with-test-db [test_fn: closure] {
   let test_env = (setup-test-db)
   try {
     with-env $test_env {

@@ -14,7 +14,7 @@ export def is-git-repo [path: string]: nothing -> bool {
 # Check if a git repository has a clean working tree (no uncommitted changes)
 export def git-status-clean [path: string]: nothing -> bool {
   cd $path
-  let status = (^git status --porcelain | str trim)
+  let status = git status --porcelain | str trim
   cd -
   ($status | is-empty)
 }
@@ -24,7 +24,7 @@ export def git-status-clean [path: string]: nothing -> bool {
 export def git-pull [path: string]: nothing -> record<success: bool, message: string> {
   cd $path
   try {
-    let output = (do { ^git pull } | complete | get stdout | str trim)
+    let output = git pull | str trim
     cd -
     {success: true message: $output}
   } catch {|err|
@@ -38,32 +38,27 @@ export def git-pull [path: string]: nothing -> record<success: bool, message: st
 export def git-commit-push [path: string message: string]: nothing -> record<success: bool, message: string> {
   cd $path
   try {
-    ^git add -A
-    let status = (^git status --porcelain | str trim)
+    git add -A
+    let status = git status --porcelain | str trim
 
     if ($status | is-empty) {
       cd -
       return {success: true message: "Nothing to commit"}
     }
 
-    ^git commit -m $message --quiet
+    git commit -m $message --quiet
 
     # Check if remote exists
-    let remotes = (^git remote | str trim)
+    let remotes = git remote | str trim
     if ($remotes | is-empty) {
       cd -
       return {success: true message: "Committed (no remote configured)"}
     }
 
     # Use -u to set upstream tracking (needed for first push to empty remote)
-    let push_result = (do { ^git push -u origin HEAD } | complete)
+    git push -u origin HEAD
     cd -
-
-    if $push_result.exit_code != 0 {
-      {success: false message: $"Push failed: ($push_result.stderr | str trim)"}
-    } else {
-      {success: true message: "Committed and pushed"}
-    }
+    {success: true message: "Committed and pushed"}
   } catch {|err|
     cd -
     {success: false message: $"Git commit/push failed: ($err.msg)"}
@@ -361,11 +356,11 @@ export def sync-init [remote_url: any]: nothing -> record<success: bool, message
   # Create sync directory and initialize git
   mkdir $sync_dir
   cd $sync_dir
-  ^git init --quiet
+  git init --quiet
 
   # Add remote if provided
   if $remote_url != null and ($remote_url | str length) > 0 {
-    ^git remote add origin $remote_url
+    git remote add origin $remote_url
   }
 
   cd -
@@ -404,13 +399,13 @@ To set up sync:
   # Get remote info
   cd $sync_dir
   let remotes = try {
-    ^git remote -v | str trim
+    git remote -v | str trim
   } catch {
     ""
   }
 
   let status = try {
-    ^git status --short | str trim
+    git status --short | str trim
   } catch {
     ""
   }

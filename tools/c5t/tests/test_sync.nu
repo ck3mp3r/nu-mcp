@@ -2,6 +2,8 @@
 # TDD: Write tests first, then implement
 
 use std/assert
+use nu-mock *
+use wrappers.nu *
 use test_helpers.nu *
 
 # Helper to create temp sync directory
@@ -46,55 +48,42 @@ export def "test is-git-repo returns false for non-git directory" [] {
   assert (not $result) "Should return false for non-git directory"
 }
 
-export def "test git-status-clean returns true for clean repo" [] {
-  use ../sync.nu git-status-clean
+export def --env "test git-status-clean returns true for clean repo" [] {
+  mock reset
 
-  # Create temp git repo
   let temp_dir = (mktemp -d)
-  cd $temp_dir
-  ^git init --quiet
-  ^git config user.email "test@test.com"
-  ^git config user.name "Test"
 
-  # Create initial commit so we have a clean state
-  "initial" | save test.txt
-  ^git add test.txt
-  ^git commit -m "initial" --quiet
+  # Mock git status to return empty (clean repo)
+  mock register git {
+    args: ['status' '--porcelain']
+    returns: ""
+  }
 
+  use ../sync.nu git-status-clean
   let result = git-status-clean $temp_dir
 
-  # Cleanup
-  cd -
   rm -rf $temp_dir
-
   assert $result "Should return true for clean repo"
+  mock verify
 }
 
-export def "test git-status-clean returns false for dirty repo" [] {
-  use ../sync.nu git-status-clean
+export def --env "test git-status-clean returns false for dirty repo" [] {
+  mock reset
 
-  # Create temp git repo with uncommitted changes
   let temp_dir = (mktemp -d)
-  cd $temp_dir
-  ^git init --quiet
-  ^git config user.email "test@test.com"
-  ^git config user.name "Test"
 
-  # Create initial commit
-  "initial" | save test.txt
-  ^git add test.txt
-  ^git commit -m "initial" --quiet
+  # Mock git status to return changes (dirty repo)
+  mock register git {
+    args: ['status' '--porcelain']
+    returns: " M test.txt"
+  }
 
-  # Make uncommitted changes
-  "modified" | save -f test.txt
-
+  use ../sync.nu git-status-clean
   let result = git-status-clean $temp_dir
 
-  # Cleanup
-  cd -
   rm -rf $temp_dir
-
   assert (not $result) "Should return false for dirty repo"
+  mock verify
 }
 
 # =============================================================================
