@@ -12,7 +12,7 @@ def main [] {
     exit 1
   }
 
-  # Get NU_LIB_DIRS from environment for nu-mock support
+  # Get NU_LIB_DIRS from environment for nu-mimic support
   # Note: NU_LIB_DIRS from shell env is a string, convert to what nu expects
   let nu_lib_dirs = if "NU_LIB_DIRS" in $env {
     $env.NU_LIB_DIRS # Will be a string from shell env
