@@ -229,9 +229,13 @@ export def "test get-sync-dir returns correct path" [] {
 # sync-export Tests  
 # =============================================================================
 
-export def "test export-db-to-sync writes all data to jsonl" [] {
+export def --env "test export-db-to-sync writes all data to jsonl" [] {
+  use nu-mock *
+  use wrappers.nu *
   use ../sync.nu [ export-db-to-sync read-sync-files ]
   use ../storage.nu [ init-database upsert-repo upsert-list upsert-task upsert-note ]
+
+  mock reset
 
   # Set up temp database and sync dir
   let temp_dir = (mktemp -d)
@@ -241,20 +245,21 @@ export def "test export-db-to-sync writes all data to jsonl" [] {
   $env.XDG_DATA_HOME = $temp_dir
   init-database
 
-  # Create test data - upsert-repo takes optional path, uses CWD if not given
-  # We need to mock the git remote, so let's create a temp git repo
+  # Create temp git repo directory (but don't init git - just mkdir)
   let git_dir = ($temp_dir | path join "git-repo")
   mkdir $git_dir
-  cd $git_dir
-  ^git init --quiet
-  ^git remote add origin "git@github.com:test/repo.git"
+  mkdir ($git_dir | path join ".git") # Fake .git directory
+
+  # Mock git remote for upsert-repo to get remote URL
+  mock register git {
+    args: ['-C' $git_dir 'remote' 'get-url' 'origin']
+    returns: "git@github.com:test/repo.git"
+  }
 
   let repo = upsert-repo $git_dir
   let list = upsert-list "Test List" "Description" $repo.repo_id
   let task = upsert-task $list.id "Test Task"
   let note = upsert-note "Test Note" "Content" $repo.repo_id
-
-  cd -
 
   # Export to sync files
   export-db-to-sync $sync_dir
@@ -269,6 +274,7 @@ export def "test export-db-to-sync writes all data to jsonl" [] {
 
   # Cleanup
   rm -rf $temp_dir
+  mock verify
 }
 
 # =============================================================================
@@ -310,9 +316,13 @@ export def "test import-sync-to-db imports new records" [] {
   }
 }
 
-export def "test import-sync-to-db updates existing with newer timestamp" [] {
+export def --env "test import-sync-to-db updates existing with newer timestamp" [] {
+  use nu-mock *
+  use wrappers.nu *
   use ../sync.nu [ import-sync-to-db write-sync-files ]
   use ../storage.nu [ init-database upsert-repo upsert-list get-list ]
+
+  mock reset
 
   # Set up temp database and sync dir
   let temp_dir = (mktemp -d)
@@ -322,18 +332,20 @@ export def "test import-sync-to-db updates existing with newer timestamp" [] {
   $env.XDG_DATA_HOME = $temp_dir
   init-database
 
-  # Create temp git repo for upsert-repo
+  # Create temp git repo directory (but don't init git - just mkdir)
   let git_dir = ($temp_dir | path join "git-repo")
   mkdir $git_dir
-  cd $git_dir
-  ^git init --quiet
-  ^git remote add origin "git@github.com:test/repo.git"
+  mkdir ($git_dir | path join ".git") # Fake .git directory
+
+  # Mock git remote for upsert-repo to get remote URL
+  mock register git {
+    args: ['-C' $git_dir 'remote' 'get-url' 'origin']
+    returns: "git@github.com:test/repo.git"
+  }
 
   # Create existing data with old timestamp
   let repo = upsert-repo $git_dir
   let list = upsert-list "Old Name" "Old Desc" $repo.repo_id
-
-  cd -
 
   # Create sync files with newer data (future timestamp)
   let data = {
@@ -356,59 +368,93 @@ export def "test import-sync-to-db updates existing with newer timestamp" [] {
 
   # Cleanup
   rm -rf $temp_dir
+  mock verify
 }
 
 # =============================================================================
 # sync-init Tests
 # =============================================================================
 
-export def "test sync-init creates git repo in sync dir" [] {
+export def --env "test sync-init creates git repo in sync dir" [] {
+  use nu-mock *
+  use wrappers.nu *
   use ../sync.nu [ sync-init get-sync-dir is-git-repo ]
+
+  mock reset
 
   # Use temp sync dir
   let temp_dir = (mktemp -d)
   let sync_dir = ($temp_dir | path join "c5t" "sync")
   $env.XDG_DATA_HOME = $temp_dir
+
+  # Mock git init
+  mock register git {
+    args: ['init' '--quiet']
+    returns: ""
+  }
 
   let result = sync-init null
 
   assert $result.success "sync-init should succeed"
+  # Verify .git directory was created by sync-init
   assert (is-git-repo $sync_dir) "Sync dir should be a git repo"
 
   # Cleanup
   rm -rf $temp_dir
+  mock verify
 }
 
-export def "test sync-init adds remote when provided" [] {
+export def --env "test sync-init adds remote when provided" [] {
+  use nu-mock *
+  use wrappers.nu *
   use ../sync.nu [ sync-init get-sync-dir ]
+
+  mock reset
 
   # Use temp sync dir
   let temp_dir = (mktemp -d)
   let sync_dir = ($temp_dir | path join "c5t" "sync")
   $env.XDG_DATA_HOME = $temp_dir
+
+  # Mock git init
+  mock register git {
+    args: ['init' '--quiet']
+    returns: ""
+  }
+
+  # Mock git remote add
+  mock register git {
+    args: ['remote' 'add' 'origin' 'git@github.com:user/c5t-sync.git']
+    returns: ""
+  }
 
   let result = sync-init "git@github.com:user/c5t-sync.git"
 
   assert $result.success "sync-init should succeed"
-
-  # Check remote was added
-  cd $sync_dir
-  let remote = (^git remote get-url origin | str trim)
-  cd -
-
-  assert ($remote == "git@github.com:user/c5t-sync.git") "Remote should be set"
+  assert ($result.message | str contains "git@github.com:user/c5t-sync.git") "Message should mention remote"
 
   # Cleanup
   rm -rf $temp_dir
+  mock verify
 }
 
-export def "test sync-init returns error if already initialized" [] {
+export def --env "test sync-init returns error if already initialized" [] {
+  use nu-mock *
+  use wrappers.nu *
   use ../sync.nu [ sync-init get-sync-dir ]
+
+  mock reset
 
   # Use temp sync dir
   let temp_dir = (mktemp -d)
   let sync_dir = ($temp_dir | path join "c5t" "sync")
   $env.XDG_DATA_HOME = $temp_dir
+
+  # Mock git init for first call
+  mock register git {
+    args: ['init' '--quiet']
+    returns: ""
+  }
 
   # Initialize twice
   sync-init null
@@ -419,6 +465,7 @@ export def "test sync-init returns error if already initialized" [] {
 
   # Cleanup
   rm -rf $temp_dir
+  mock verify
 }
 
 # =============================================================================
@@ -441,14 +488,42 @@ export def "test sync-status shows not configured when no git repo" [] {
   rm -rf $temp_dir
 }
 
-export def "test sync-status shows configured status" [] {
+export def --env "test sync-status shows configured status" [] {
+  use nu-mock *
+  use wrappers.nu *
   use ../sync.nu [ sync-init sync-status ]
+
+  mock reset
 
   # Use temp sync dir
   let temp_dir = (mktemp -d)
   $env.XDG_DATA_HOME = $temp_dir
 
+  # Mock git init
+  mock register git {
+    args: ['init' '--quiet']
+    returns: ""
+  }
+
+  # Mock git remote add
+  mock register git {
+    args: ['remote' 'add' 'origin' 'git@github.com:user/repo.git']
+    returns: ""
+  }
+
   sync-init "git@github.com:user/repo.git"
+
+  # Mock git remote -v for sync-status
+  mock register git {
+    args: ['remote' '-v']
+    returns: "origin\tgit@github.com:user/repo.git (fetch)\norigin\tgit@github.com:user/repo.git (push)"
+  }
+
+  # Mock git status --short for sync-status
+  mock register git {
+    args: ['status' '--short']
+    returns: ""
+  }
 
   let result = sync-status
 
@@ -458,6 +533,7 @@ export def "test sync-status shows configured status" [] {
 
   # Cleanup
   rm -rf $temp_dir
+  mock verify
 }
 
 # =============================================================================
@@ -480,9 +556,13 @@ export def "test sync-refresh skips when sync not configured" [] {
   rm -rf $temp_dir
 }
 
-export def "test sync-refresh imports data from sync files" [] {
+export def --env "test sync-refresh imports data from sync files" [] {
+  use nu-mock *
+  use wrappers.nu *
   use ../sync.nu [ sync-init sync-refresh write-sync-files get-sync-dir ]
   use ../storage.nu [ init-database list-repos ]
+
+  mock reset
 
   # Set up temp environment
   let temp_dir = (mktemp -d)
@@ -492,6 +572,12 @@ export def "test sync-refresh imports data from sync files" [] {
   $env.C5T_DB_PATH = $db_path
 
   init-database
+
+  # Mock git init for sync-init
+  mock register git {
+    args: ['init' '--quiet']
+    returns: ""
+  }
 
   # Initialize sync
   sync-init null
@@ -505,11 +591,17 @@ export def "test sync-refresh imports data from sync files" [] {
   }
   write-sync-files $sync_dir $data
 
-  # Commit the sync files so repo is clean
-  cd $sync_dir
-  ^git add -A
-  ^git commit -m "test sync data" --quiet
-  cd -
+  # Mock git status check (clean repo)
+  mock register git {
+    args: ['status' '--porcelain']
+    returns: ""
+  }
+
+  # Mock git pull (successful pull)
+  mock register git {
+    args: ['pull']
+    returns: "Already up to date."
+  }
 
   # Refresh should import the data
   let result = sync-refresh
@@ -522,6 +614,7 @@ export def "test sync-refresh imports data from sync files" [] {
 
   # Cleanup
   rm -rf $temp_dir
+  mock verify
 }
 
 # =============================================================================
@@ -544,9 +637,13 @@ export def "test sync-export fails when sync not configured" [] {
   rm -rf $temp_dir
 }
 
-export def "test sync-export exports data and commits" [] {
+export def --env "test sync-export exports data and commits" [] {
+  use nu-mock *
+  use wrappers.nu *
   use ../sync.nu [ sync-init sync-export get-sync-dir read-sync-files ]
   use ../storage.nu [ init-database upsert-repo upsert-list ]
+
+  mock reset
 
   # Set up temp environment
   let temp_dir = (mktemp -d)
@@ -555,12 +652,16 @@ export def "test sync-export exports data and commits" [] {
   $env.XDG_DATA_HOME = $temp_dir
   $env.C5T_DB_PATH = $db_path
 
-  # Create temp git repo for upsert-repo
+  # Create temp git repo directory for upsert-repo (but don't init git - just mkdir)
   let git_dir = ($temp_dir | path join "git-repo")
   mkdir $git_dir
-  cd $git_dir
-  ^git init --quiet
-  ^git remote add origin "git@github.com:test/repo.git"
+  mkdir ($git_dir | path join ".git") # Fake .git directory so is-git-repo check passes
+
+  # Mock git remote for upsert-repo to get remote URL
+  mock register git {
+    args: ['remote' 'get-url' 'origin']
+    returns: "git@github.com:test/repo.git"
+  }
 
   init-database
 
@@ -568,10 +669,38 @@ export def "test sync-export exports data and commits" [] {
   let repo = upsert-repo $git_dir
   let list = upsert-list "Test List" "Description" $repo.repo_id
 
-  cd -
+  # Mock git init for sync-init
+  mock register git {
+    args: ['init' '--quiet']
+    returns: ""
+  }
 
   # Initialize sync
   sync-init null
+
+  # Mock git pull (for sync-export)
+  mock register git {
+    args: ['pull']
+    returns: "Already up to date."
+  }
+
+  # Mock git add and status for commit
+  mock register git {
+    args: ['add' '-A']
+    returns: ""
+  }
+  mock register git {
+    args: ['status' '--porcelain']
+    returns: "M repos.jsonl\nM lists.jsonl"
+  }
+  mock register git {
+    args: ['commit' '-m' 'Test export' '--quiet']
+    returns: ""
+  }
+  mock register git {
+    args: ['remote']
+    returns: ""
+  }
 
   # Export (without remote, so push will be skipped)
   let result = sync-export "Test export"
@@ -584,13 +713,7 @@ export def "test sync-export exports data and commits" [] {
   assert (($data.repos | length) >= 1) "Should have exported repos"
   assert (($data.lists | length) >= 1) "Should have exported lists"
 
-  # Verify commit was made
-  cd $sync_dir
-  let log = (^git log --oneline -1 | str trim)
-  cd -
-
-  assert ($log | str contains "Test export") "Commit message should match"
-
   # Cleanup
   rm -rf $temp_dir
+  mock verify
 }

@@ -12,6 +12,14 @@ def main [] {
     exit 1
   }
 
+  # Get NU_LIB_DIRS from environment for nu-mock support
+  # Note: NU_LIB_DIRS from shell env is a string, convert to what nu expects
+  let nu_lib_dirs = if "NU_LIB_DIRS" in $env {
+    $env.NU_LIB_DIRS # Will be a string from shell env
+  } else {
+    null
+  }
+
   # Ensure .c5t directory and dummy db file exist for tests
   # Tests use mocked query db, but storage.nu does 'open $db_path' which needs a file
   mkdir .c5t
@@ -38,7 +46,11 @@ scope commands
   | to json"
 
       # Run discovery - capture both stdout and stderr
-      let discovery_result = do { nu --no-config-file -c $discover_script } | complete
+      let discovery_result = if $nu_lib_dirs != null {
+        do { nu --no-config-file --include-path $nu_lib_dirs -c $discover_script } | complete
+      } else {
+        do { nu --no-config-file -c $discover_script } | complete
+      }
 
       if $discovery_result.exit_code != 0 {
         print $"ERROR: Failed to parse test file!"
@@ -52,7 +64,11 @@ scope commands
 
         # Run each test
         $test_commands | each {|test_name|
-          let test_result = do { nu --no-config-file -c $"source ($test_file); ($test_name)" } | complete
+          let test_result = if $nu_lib_dirs != null {
+            do { nu --no-config-file --include-path $nu_lib_dirs -c $"source ($test_file); ($test_name)" } | complete
+          } else {
+            do { nu --no-config-file -c $"source ($test_file); ($test_name)" } | complete
+          }
 
           if $test_result.exit_code == 0 {
             print $"✓ ($test_name)"
