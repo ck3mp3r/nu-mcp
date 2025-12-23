@@ -2,7 +2,7 @@
 # Mocks must be imported BEFORE the module under test
 
 use std/assert
-use nu-mock *
+use nu-mimic *
 use test_helpers.nu [ sample-pr-list sample-pr sample-pr-checks ]
 use wrappers.nu *
 
@@ -11,10 +11,10 @@ use wrappers.nu *
 # =============================================================================
 
 export def --env "test list-prs returns pr list" [] {
-  mock reset
+  mimic reset
 
   let mock_output = sample-pr-list
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'list' '--json' 'number,title,state,author,headRefName,baseRefName,createdAt,isDraft']
     returns: $mock_output
   }
@@ -27,13 +27,13 @@ export def --env "test list-prs returns pr list" [] {
   assert (($parsed | get 0 | get number) == 42) "First PR should be #42"
   assert (($parsed | get 0 | get title) == "Add new feature") "First PR title"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test list-prs with empty result" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'list' '--json' 'number,title,state,author,headRefName,baseRefName,createdAt,isDraft']
     returns: "[]"
   }
@@ -44,14 +44,14 @@ export def --env "test list-prs with empty result" [] {
 
   assert (($parsed | length) == 0) "Should return empty list"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test list-prs with state filter" [] {
-  mock reset
+  mimic reset
 
   let mock_output = sample-pr-list
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'list' '--json' 'number,title,state,author,headRefName,baseRefName,createdAt,isDraft' '--state' 'open']
     returns: $mock_output
   }
@@ -62,13 +62,13 @@ export def --env "test list-prs with state filter" [] {
 
   assert (($parsed | length) == 2) "Should return PRs"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test list-prs handles error" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'list' '--json' 'number,title,state,author,headRefName,baseRefName,createdAt,isDraft']
     returns: "not a git repository"
     exit_code: 1
@@ -85,7 +85,7 @@ export def --env "test list-prs handles error" [] {
   assert (not $result.success) "Should fail"
   assert ($result.error | str contains "not a git repository") "Should contain error"
 
-  mock verify
+  mimic verify
 }
 
 # =============================================================================
@@ -93,10 +93,10 @@ export def --env "test list-prs handles error" [] {
 # =============================================================================
 
 export def --env "test get-pr returns pr details" [] {
-  mock reset
+  mimic reset
 
   let mock_output = sample-pr
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'view' '42' '--json' 'number,title,body,state,author,headRefName,baseRefName,createdAt,updatedAt,isDraft,labels,reviewRequests,url']
     returns: $mock_output
   }
@@ -109,13 +109,13 @@ export def --env "test get-pr returns pr details" [] {
   assert (($parsed | get title) == "Add new feature") "Should return correct title"
   assert (($parsed | get labels | length) == 2) "Should have 2 labels"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test get-pr handles not found" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'view' '999' '--json' 'number,title,body,state,author,headRefName,baseRefName,createdAt,updatedAt,isDraft,labels,reviewRequests,url']
     returns: "Could not resolve to a PullRequest"
     exit_code: 1
@@ -132,7 +132,7 @@ export def --env "test get-pr handles not found" [] {
   assert (not $result.success) "Should fail"
   assert ($result.error | str contains "PullRequest") "Should contain error"
 
-  mock verify
+  mimic verify
 }
 
 # =============================================================================
@@ -140,10 +140,10 @@ export def --env "test get-pr handles not found" [] {
 # =============================================================================
 
 export def --env "test get-pr-checks returns checks" [] {
-  mock reset
+  mimic reset
 
   let mock_output = sample-pr-checks
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'checks' '42' '--json' 'name,state,bucket,workflow,completedAt']
     returns: $mock_output
   }
@@ -156,13 +156,13 @@ export def --env "test get-pr-checks returns checks" [] {
   assert (($parsed | get 0 | get name) == "CI / build") "First check name"
   assert (($parsed | get 0 | get state) == "SUCCESS") "First check state"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test get-pr-checks handles error" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'checks' '999' '--json' 'name,state,bucket,workflow,completedAt']
     returns: "Could not resolve to a PullRequest"
     exit_code: 1
@@ -178,7 +178,7 @@ export def --env "test get-pr-checks handles error" [] {
 
   assert (not $result.success) "Should fail"
 
-  mock verify
+  mimic verify
 }
 
 # =============================================================================
@@ -186,7 +186,7 @@ export def --env "test get-pr-checks handles error" [] {
 # =============================================================================
 
 export def --env "test upsert-pr blocked in readonly mode" [] {
-  mock reset
+  mimic reset
   $env.MCP_GITHUB_MODE = "readonly"
 
   use ../prs.nu upsert-pr
@@ -200,21 +200,21 @@ export def --env "test upsert-pr blocked in readonly mode" [] {
   assert (not $result.success) "Should fail"
   assert ($result.error | str contains "readwrite mode") "Should mention readwrite mode"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test upsert-pr creates new pr when none exists" [] {
-  mock reset
+  mimic reset
 
   # First: check for existing PR by head branch - returns empty (no PR)
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'list' '--head' 'feature-branch' '--json' 'number,headRefName']
     returns: "[]"
   }
 
   # Then: create new PR (returns URL to stdout)
   let mock_url = "https://github.com/owner/repo/pull/43"
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'create' '--title' 'Test PR' '--head' 'feature-branch']
     returns: $mock_url
   }
@@ -226,28 +226,28 @@ export def --env "test upsert-pr creates new pr when none exists" [] {
   assert (($parsed | get number) == 43) "Should return new PR number"
   assert (($parsed | get url) == $mock_url) "Should return PR URL"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test upsert-pr updates existing pr" [] {
-  mock reset
+  mimic reset
 
   # First: check for existing PR - returns PR #42
   let existing_pr = '[{"number": 42, "headRefName": "feature-branch"}]'
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'list' '--head' 'feature-branch' '--json' 'number,headRefName']
     returns: $existing_pr
   }
 
   # Then: update it with new title (edit doesn't return anything)
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'edit' '42' '--title' 'Updated Title']
     returns: ""
   }
 
   # Then: get the PR details
   let pr_details = (sample-pr)
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'view' '42' '--json' 'number,title,body,state,author,headRefName,baseRefName,createdAt,updatedAt,isDraft,labels,reviewRequests,url']
     returns: $pr_details
   }
@@ -258,21 +258,21 @@ export def --env "test upsert-pr updates existing pr" [] {
 
   assert (($parsed | get number) == 42) "Should return existing PR number"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test upsert-pr with body and labels creates new" [] {
-  mock reset
+  mimic reset
 
   # Check for existing PR - none found
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'list' '--head' 'my-branch' '--json' 'number,headRefName']
     returns: "[]"
   }
 
   # Create new PR with body and label
   let mock_url = "https://github.com/owner/repo/pull/44"
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'create' '--title' 'New Feature' '--head' 'my-branch' '--body' 'Description' '--label' 'enhancement']
     returns: $mock_url
   }
@@ -284,27 +284,27 @@ export def --env "test upsert-pr with body and labels creates new" [] {
   assert (($parsed | get number) == 44) "Should return new PR number"
   assert (($parsed | get url) == $mock_url) "Should return PR URL"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test upsert-pr uses current branch when head not specified" [] {
-  mock reset
+  mimic reset
 
   # When no --head, get current branch from git
-  mock register git {
+  mimic register git {
     args: ['branch' '--show-current']
     returns: "current-feature"
   }
 
   # Check for existing PR - none found
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'list' '--head' 'current-feature' '--json' 'number,headRefName']
     returns: "[]"
   }
 
   # Create new PR
   let mock_url = "https://github.com/owner/repo/pull/45"
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'create' '--title' 'My PR' '--head' 'current-feature']
     returns: $mock_url
   }
@@ -316,7 +316,7 @@ export def --env "test upsert-pr uses current branch when head not specified" []
   assert (($parsed | get number) == 45) "Should return new PR number"
   assert (($parsed | get url) == $mock_url) "Should return PR URL"
 
-  mock verify
+  mimic verify
 }
 
 # =============================================================================
@@ -324,9 +324,9 @@ export def --env "test upsert-pr uses current branch when head not specified" []
 # =============================================================================
 
 export def --env "test close-pr closes pr successfully" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'close' '42']
     returns: ""
   }
@@ -338,13 +338,13 @@ export def --env "test close-pr closes pr successfully" [] {
   assert ($parsed.success == true) "Should succeed"
   assert (($parsed.message | str contains "42") and ($parsed.message | str contains "closed")) "Should mention PR number and closed"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test close-pr with comment" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'close' '42' '--comment' 'Closing this']
     returns: ""
   }
@@ -355,13 +355,13 @@ export def --env "test close-pr with comment" [] {
 
   assert ($parsed.success == true) "Should succeed"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test close-pr with delete branch" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'close' '42' '--delete-branch']
     returns: ""
   }
@@ -372,7 +372,7 @@ export def --env "test close-pr with delete branch" [] {
 
   assert ($parsed.success == true) "Should succeed"
 
-  mock verify
+  mimic verify
 }
 
 # =============================================================================
@@ -380,9 +380,9 @@ export def --env "test close-pr with delete branch" [] {
 # =============================================================================
 
 export def --env "test reopen-pr reopens pr successfully" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'reopen' '42']
     returns: ""
   }
@@ -394,13 +394,13 @@ export def --env "test reopen-pr reopens pr successfully" [] {
   assert ($parsed.success == true) "Should succeed"
   assert (($parsed.message | str contains "42") and ($parsed.message | str contains "reopened")) "Should mention PR number and reopened"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test reopen-pr with comment" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'reopen' '42' '--comment' 'Reopening']
     returns: ""
   }
@@ -411,7 +411,7 @@ export def --env "test reopen-pr with comment" [] {
 
   assert ($parsed.success == true) "Should succeed"
 
-  mock verify
+  mimic verify
 }
 
 # =============================================================================
@@ -419,7 +419,7 @@ export def --env "test reopen-pr with comment" [] {
 # =============================================================================
 
 export def --env "test merge-pr fails without confirm-merge" [] {
-  mock reset
+  mimic reset
 
   use ../prs.nu merge-pr
   let result = try {
@@ -432,13 +432,13 @@ export def --env "test merge-pr fails without confirm-merge" [] {
   assert (not $result.success) "Should fail"
   assert ($result.error | str contains "explicit confirmation") "Should mention confirmation required"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test merge-pr succeeds with confirm-merge true" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'merge' '42' '--squash']
     returns: ""
   }
@@ -451,13 +451,13 @@ export def --env "test merge-pr succeeds with confirm-merge true" [] {
   assert (($parsed.message | str contains "42") and ($parsed.message | str contains "merged")) "Should mention PR number and merged"
   assert ($parsed.message | str contains "squash") "Should mention squash strategy (default)"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test merge-pr with merge strategy" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'merge' '42' '--merge']
     returns: ""
   }
@@ -469,13 +469,13 @@ export def --env "test merge-pr with merge strategy" [] {
   assert ($parsed.success == true) "Should succeed"
   assert ($parsed.message | str contains "merge") "Should mention merge strategy"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test merge-pr with rebase strategy" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'merge' '42' '--rebase']
     returns: ""
   }
@@ -487,13 +487,13 @@ export def --env "test merge-pr with rebase strategy" [] {
   assert ($parsed.success == true) "Should succeed"
   assert ($parsed.message | str contains "rebase") "Should mention rebase strategy"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test merge-pr with delete branch" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['pr' 'merge' '42' '--squash' '--delete-branch']
     returns: ""
   }
@@ -504,5 +504,5 @@ export def --env "test merge-pr with delete branch" [] {
 
   assert ($parsed.success == true) "Should succeed"
 
-  mock verify
+  mimic verify
 }

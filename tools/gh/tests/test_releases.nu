@@ -1,8 +1,8 @@
 # Tests for GitHub release tools
-# Uses nu-mock framework for mocking gh commands
+# Uses nu-mimic framework for mocking gh commands
 
 use std/assert
-use nu-mock *
+use nu-mimic *
 use test_helpers.nu *
 use wrappers.nu *
 
@@ -11,10 +11,10 @@ use wrappers.nu *
 # =============================================================================
 
 export def --env "test list-releases returns release list" [] {
-  mock reset
+  mimic reset
 
   let mock_output = sample-release-list
-  mock register gh {
+  mimic register gh {
     args: ['release' 'list' '--json' 'tagName,name,isDraft,isPrerelease,isLatest,createdAt,publishedAt']
     returns: $mock_output
   }
@@ -27,14 +27,14 @@ export def --env "test list-releases returns release list" [] {
   assert ($result | str contains "v1.0.0") "Should contain v1.0.0"
   assert ($result | str contains "latest") "Should indicate latest"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test list-releases with limit" [] {
-  mock reset
+  mimic reset
 
   let mock_output = sample-release-list
-  mock register gh {
+  mimic register gh {
     args: ['release' 'list' '--json' 'tagName,name,isDraft,isPrerelease,isLatest,createdAt,publishedAt' '--limit' '2']
     returns: $mock_output
   }
@@ -46,11 +46,11 @@ export def --env "test list-releases with limit" [] {
   assert ($result | str contains "Releases:") "Should have header"
   assert ($result | str contains "v1.0.0") "Should contain releases"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test list-releases exclude drafts" [] {
-  mock reset
+  mimic reset
 
   let mock_output = (
     [
@@ -59,7 +59,7 @@ export def --env "test list-releases exclude drafts" [] {
     ] | to json
   )
 
-  mock register gh {
+  mimic register gh {
     args: ['release' 'list' '--json' 'tagName,name,isDraft,isPrerelease,isLatest,createdAt,publishedAt' '--exclude-drafts']
     returns: $mock_output
   }
@@ -72,11 +72,11 @@ export def --env "test list-releases exclude drafts" [] {
   assert ($result | str contains "v1.0.0") "Should contain stable release"
   assert ($result | str contains "v0.9.0") "Should contain prerelease"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test list-releases exclude prereleases" [] {
-  mock reset
+  mimic reset
 
   let mock_output = (
     [
@@ -84,7 +84,7 @@ export def --env "test list-releases exclude prereleases" [] {
     ] | to json
   )
 
-  mock register gh {
+  mimic register gh {
     args: ['release' 'list' '--json' 'tagName,name,isDraft,isPrerelease,isLatest,createdAt,publishedAt' '--exclude-pre-releases']
     returns: $mock_output
   }
@@ -97,15 +97,15 @@ export def --env "test list-releases exclude prereleases" [] {
   assert ($result | str contains "v1.0.0") "Should contain stable release"
   assert (not ($result | str contains "prerelease")) "Should not show prerelease badge"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test list-releases with empty result" [] {
-  mock reset
+  mimic reset
 
   let mock_output = ([] | to json)
 
-  mock register gh {
+  mimic register gh {
     args: ['release' 'list' '--json' 'tagName,name,isDraft,isPrerelease,isLatest,createdAt,publishedAt']
     returns: $mock_output
   }
@@ -116,13 +116,13 @@ export def --env "test list-releases with empty result" [] {
   # Expecting formatted text for empty list
   assert ($result == "No releases found.") "Should return empty message"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test list-releases handles gh error" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['release' 'list' '--json' 'tagName,name,isDraft,isPrerelease,isLatest,createdAt,publishedAt']
     returns: "not a git repository"
     exit_code: 1
@@ -140,7 +140,7 @@ export def --env "test list-releases handles gh error" [] {
   assert (not $result.success) "Should fail"
   assert ($result.error | str contains "not a git repository") "Should contain error message"
 
-  mock verify
+  mimic verify
 }
 
 # =============================================================================
@@ -148,11 +148,11 @@ export def --env "test list-releases handles gh error" [] {
 # =============================================================================
 
 export def --env "test get-release returns single release" [] {
-  mock reset
+  mimic reset
 
   let mock_output = sample-release
 
-  mock register gh {
+  mimic register gh {
     args: ['release' 'view' 'v1.0.0' '--json' 'tagName,name,body,isDraft,isPrerelease,createdAt,publishedAt,author,url,assets']
     returns: $mock_output
   }
@@ -165,13 +165,13 @@ export def --env "test get-release returns single release" [] {
   assert ($result | str contains "v1.0.0") "Should contain tag"
   assert ($result | str contains "assets") "Should mention assets"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test get-release handles non-existent tag" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['release' 'view' 'v99.99.99' '--json' 'tagName,name,body,isDraft,isPrerelease,createdAt,publishedAt,author,url,assets']
     returns: "release not found"
     exit_code: 1
@@ -189,15 +189,15 @@ export def --env "test get-release handles non-existent tag" [] {
   assert (not $result.success) "Should fail"
   assert ($result.error | str contains "release not found") "Should contain error message"
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test get-release with latest" [] {
-  mock reset
+  mimic reset
 
   let mock_output = sample-release
 
-  mock register gh {
+  mimic register gh {
     args: ['release' 'view' '--json' 'tagName,name,body,isDraft,isPrerelease,createdAt,publishedAt,author,url,assets']
     returns: $mock_output
   }
@@ -209,7 +209,7 @@ export def --env "test get-release with latest" [] {
   assert ($result | str contains "Release") "Should have Release header"
   assert ($result | str contains "v1.0.0") "Should contain tag"
 
-  mock verify
+  mimic verify
 }
 
 # =============================================================================
@@ -217,9 +217,9 @@ export def --env "test get-release with latest" [] {
 # =============================================================================
 
 export def --env "test create-release with basic args" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['release' 'create' 'v2.0.0' '--notes' 'New release']
     returns: ""
   }
@@ -230,13 +230,13 @@ export def --env "test create-release with basic args" [] {
   # Should succeed without error
   assert true
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test create-release as draft" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['release' 'create' 'v2.0.0' '--draft']
     returns: ""
   }
@@ -247,13 +247,13 @@ export def --env "test create-release as draft" [] {
   # Should succeed
   assert true
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test create-release as prerelease" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['release' 'create' 'v2.0.0' '--prerelease']
     returns: ""
   }
@@ -264,23 +264,23 @@ export def --env "test create-release as prerelease" [] {
   # Should succeed
   assert true
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test create-release with short SHA resolves to full SHA" [] {
-  mock reset
+  mimic reset
 
   let short_sha = "ed970d9"
   let full_sha = "ed970d9d17688e7d315c120cd290fdd352c4c382"
 
   # Mock git rev-parse to return full SHA
-  mock register git {
+  mimic register git {
     args: ['rev-parse' 'ed970d9']
     returns: $full_sha
   }
 
   # Mock gh to expect FULL SHA in target parameter
-  mock register gh {
+  mimic register gh {
     args: ['release' 'create' 'v2.0.0' '--target' 'ed970d9d17688e7d315c120cd290fdd352c4c382']
     returns: ""
   }
@@ -291,22 +291,22 @@ export def --env "test create-release with short SHA resolves to full SHA" [] {
   # Should succeed - short SHA was resolved to full SHA
   assert true
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test create-release with full SHA passes through" [] {
-  mock reset
+  mimic reset
 
   let full_sha = "ed970d9d17688e7d315c120cd290fdd352c4c382"
 
   # Mock git rev-parse to return same full SHA
-  mock register git {
+  mimic register git {
     args: ['rev-parse' 'ed970d9d17688e7d315c120cd290fdd352c4c382']
     returns: $full_sha
   }
 
   # Mock gh to expect the full SHA
-  mock register gh {
+  mimic register gh {
     args: ['release' 'create' 'v2.0.0' '--target' 'ed970d9d17688e7d315c120cd290fdd352c4c382']
     returns: ""
   }
@@ -317,23 +317,23 @@ export def --env "test create-release with full SHA passes through" [] {
   # Should succeed
   assert true
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test create-release with branch name resolves to SHA" [] {
-  mock reset
+  mimic reset
 
   let branch = "main"
   let commit_sha = "abc123def456abc123def456abc123def456abc1"
 
   # Mock git rev-parse to resolve branch to commit SHA
-  mock register git {
+  mimic register git {
     args: ['rev-parse' 'main']
     returns: $commit_sha
   }
 
   # Mock gh to expect the resolved SHA
-  mock register gh {
+  mimic register gh {
     args: ['release' 'create' 'v2.0.0' '--target' 'abc123def456abc123def456abc123def456abc1']
     returns: ""
   }
@@ -344,7 +344,7 @@ export def --env "test create-release with branch name resolves to SHA" [] {
   # Should succeed - branch name was resolved to commit SHA
   assert true
 
-  mock verify
+  mimic verify
 }
 
 # =============================================================================
@@ -352,9 +352,9 @@ export def --env "test create-release with branch name resolves to SHA" [] {
 # =============================================================================
 
 export def --env "test edit-release updates notes" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['release' 'edit' 'v1.0.0' '--notes' 'New notes']
     returns: ""
   }
@@ -365,13 +365,13 @@ export def --env "test edit-release updates notes" [] {
   # Should succeed without error
   assert true
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test edit-release updates title" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['release' 'edit' 'v1.0.0' '--title' 'New Title']
     returns: ""
   }
@@ -382,13 +382,13 @@ export def --env "test edit-release updates title" [] {
   # Should succeed
   assert true
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test edit-release sets draft true" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['release' 'edit' 'v1.0.0' '--draft']
     returns: ""
   }
@@ -399,13 +399,13 @@ export def --env "test edit-release sets draft true" [] {
   # Should succeed
   assert true
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test edit-release sets draft false" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['release' 'edit' 'v1.0.0' '--draft=false']
     returns: ""
   }
@@ -416,13 +416,13 @@ export def --env "test edit-release sets draft false" [] {
   # Should succeed
   assert true
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test edit-release sets prerelease" [] {
-  mock reset
+  mimic reset
 
-  mock register gh {
+  mimic register gh {
     args: ['release' 'edit' 'v1.0.0' '--prerelease']
     returns: ""
   }
@@ -433,7 +433,7 @@ export def --env "test edit-release sets prerelease" [] {
   # Should succeed
   assert true
 
-  mock verify
+  mimic verify
 }
 
 # =============================================================================
@@ -441,11 +441,11 @@ export def --env "test edit-release sets prerelease" [] {
 # =============================================================================
 
 export def --env "test delete-release basic" [] {
-  mock reset
+  mimic reset
 
   $env.MCP_GITHUB_MODE = "destructive"
 
-  mock register gh {
+  mimic register gh {
     args: ['release' 'delete' 'v1.0.0' '--yes']
     returns: ""
   }
@@ -456,15 +456,15 @@ export def --env "test delete-release basic" [] {
   # Should succeed
   assert true
 
-  mock verify
+  mimic verify
 }
 
 export def --env "test delete-release with cleanup-tag" [] {
-  mock reset
+  mimic reset
 
   $env.MCP_GITHUB_MODE = "destructive"
 
-  mock register gh {
+  mimic register gh {
     args: ['release' 'delete' 'v1.0.0' '--yes' '--cleanup-tag']
     returns: ""
   }
@@ -475,5 +475,5 @@ export def --env "test delete-release with cleanup-tag" [] {
   # Should succeed
   assert true
 
-  mock verify
+  mimic verify
 }
