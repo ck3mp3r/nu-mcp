@@ -219,7 +219,7 @@ def "main list-tools" [] {
     }
     {
       name: "close_pr"
-      description: "Close a pull request without merging (reversible via reopen_pr)"
+      description: "Close a pull request without merging (reversible via reopen_pr). WARNING: If delete_branch=true, this DESTRUCTIVELY deletes the branch - ALWAYS ASK USER before using delete_branch option."
       input_schema: {
         type: "object"
         properties: {
@@ -442,7 +442,7 @@ def "main list-tools" [] {
     }
     {
       name: "delete_release"
-      description: "Delete a release (DESTRUCTIVE - requires MCP_GITHUB_MODE=destructive)"
+      description: "DESTRUCTIVE OPERATION - ALWAYS ASK USER FOR EXPLICIT CONFIRMATION BEFORE EXECUTING. Permanently deletes a GitHub release AND ALL ATTACHED BINARIES/ASSETS. This operation cannot be undone. Requires MCP_GITHUB_MODE=destructive."
       input_schema: {
         type: "object"
         properties: {
