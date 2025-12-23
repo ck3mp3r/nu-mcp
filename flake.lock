@@ -957,11 +957,11 @@
         "topiary-nu": "topiary-nu"
       },
       "locked": {
-        "lastModified": 1766502956,
-        "narHash": "sha256-N8BB5QRxCfFz6EOebBB8Fu9QOJURx1ZmeDO7ZCTmhas=",
+        "lastModified": 1766514509,
+        "narHash": "sha256-BXpK6jbcpQDT7YDdWBNRn/TcD+ZqZPCs6wdbuq8b9sw=",
         "owner": "ck3mp3r",
         "repo": "nu-mods",
-        "rev": "c1b0f64792adde2b9a6a4def319e9b553f6a8372",
+        "rev": "c19687c0fa2ff1341ef9d8340c4ed7b0c3e59224",
         "type": "github"
       },
       "original": {
