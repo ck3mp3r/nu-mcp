@@ -334,7 +334,6 @@ export def --env "test import-sync-to-db updates existing with newer timestamp" 
 # =============================================================================
 
 export def --env "test sync-init creates git repo in sync dir" [] {
-  use wrappers.nu *
   use ../sync.nu [ sync-init get-sync-dir ]
 
   mimic reset
@@ -362,7 +361,6 @@ export def --env "test sync-init creates git repo in sync dir" [] {
 }
 
 export def --env "test sync-init adds remote when provided" [] {
-  use wrappers.nu *
   use ../sync.nu [ sync-init get-sync-dir ]
 
   mimic reset
@@ -395,7 +393,6 @@ export def --env "test sync-init adds remote when provided" [] {
 }
 
 export def --env "test sync-init returns error if already initialized" [] {
-  use wrappers.nu *
   use ../sync.nu [ sync-init get-sync-dir ]
 
   mimic reset
@@ -450,7 +447,6 @@ export def "test sync-status shows not configured when no git repo" [] {
 }
 
 export def --env "test sync-status shows configured status" [] {
-  use wrappers.nu *
   use ../sync.nu [ sync-init sync-status ]
 
   mimic reset
@@ -517,7 +513,6 @@ export def "test sync-refresh skips when sync not configured" [] {
 }
 
 export def --env "test sync-refresh imports data from sync files" [] {
-  use wrappers.nu *
   use ../sync.nu [ sync-init sync-refresh write-sync-files get-sync-dir ]
   use ../storage.nu [ init-database list-repos ]
 
@@ -601,7 +596,6 @@ export def "test sync-export fails when sync not configured" [] {
 }
 
 export def --env "test sync-export exports data and commits" [] {
-  use wrappers.nu *
   use ../sync.nu [ sync-init sync-export get-sync-dir read-sync-files ]
   use ../storage.nu [ init-database upsert-list ]
   use test_helpers.nu [ create-test-repo ]
