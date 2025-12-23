@@ -1,53 +1,52 @@
 # Tests for GitHub release tools
-# Mocks must be imported BEFORE the module under test
+# Uses nu-mock framework for mocking gh commands
 
 use std/assert
+use nu-mock *
 use test_helpers.nu *
-
-# Helper to create mock JSON for success
-def mock-success [output: string] {
-  {exit_code: 0 output: $output} | to json
-}
-
-# Helper to create mock JSON for error
-def mock-error [error: string] {
-  {exit_code: 1 error: $error output: ""} | to json
-}
+use wrappers.nu *
 
 # =============================================================================
 # list-releases tests
 # =============================================================================
 
-export def "test list-releases returns release list" [] {
+export def --env "test list-releases returns release list" [] {
+  mock reset
+
   let mock_output = sample-release-list
-  # Key: release_list___json_tagName_name_isDraft_isPrerelease_isLatest_createdAt_publishedAt
-  let result = with-env {MOCK_gh_release_list___json_tagName_name_isDraft_isPrerelease_isLatest_createdAt_publishedAt: (mock-success $mock_output)} {
-    nu --no-config-file -c "
-      use tools/gh/tests/mocks.nu *
-      use tools/gh/releases.nu list-releases
-      list-releases
-    "
+  mock register gh {
+    args: ['release' 'list' '--json' 'tagName,name,isDraft,isPrerelease,isLatest,createdAt,publishedAt']
+    returns: $mock_output
   }
+
+  use ../releases.nu list-releases
+  let result = list-releases
 
   # Now expecting formatted text output
   assert ($result | str contains "Releases:") "Should have header"
   assert ($result | str contains "v1.0.0") "Should contain v1.0.0"
   assert ($result | str contains "latest") "Should indicate latest"
+
+  mock verify
 }
 
-export def "test list-releases with limit" [] {
+export def --env "test list-releases with limit" [] {
+  mock reset
+
   let mock_output = sample-release-list
-  let result = with-env {MOCK_gh_release_list___json_tagName_name_isDraft_isPrerelease_isLatest_createdAt_publishedAt___limit_2: (mock-success $mock_output)} {
-    nu --no-config-file -c "
-      use tools/gh/tests/mocks.nu *
-      use tools/gh/releases.nu list-releases
-      list-releases --limit 2
-    "
+  mock register gh {
+    args: ['release' 'list' '--json' 'tagName,name,isDraft,isPrerelease,isLatest,createdAt,publishedAt' '--limit' '2']
+    returns: $mock_output
   }
+
+  use ../releases.nu list-releases
+  let result = list-releases --limit 2
 
   # Expecting formatted text output
   assert ($result | str contains "Releases:") "Should have header"
   assert ($result | str contains "v1.0.0") "Should contain releases"
+
+  mock verify
 }
 
 export def "test list-releases exclude drafts" [] {
@@ -105,19 +104,28 @@ export def "test list-releases with empty result" [] {
   assert ($result == "No releases found.") "Should return empty message"
 }
 
-export def "test list-releases handles gh error" [] {
-  let result = with-env {MOCK_gh_release_list___json_tagName_name_isDraft_isPrerelease_isLatest_createdAt_publishedAt: (mock-error "not a git repository")} {
-    do {
-      nu --no-config-file -c "
-      use tools/gh/tests/mocks.nu *
-      use tools/gh/releases.nu list-releases
-      list-releases
-    "
-    } | complete
+export def --env "test list-releases handles gh error" [] {
+  mock reset
+
+  mock register gh {
+    args: ['release' 'list' '--json' 'tagName,name,isDraft,isPrerelease,isLatest,createdAt,publishedAt']
+    returns: "not a git repository"
+    exit_code: 1
   }
 
-  assert ($result.exit_code != 0) "Should fail"
-  assert ($result.stderr | str contains "not a git repository") "Should contain error message"
+  use ../releases.nu list-releases
+
+  let result = try {
+    list-releases
+    {success: true}
+  } catch {|err|
+    {success: false error: $err.msg}
+  }
+
+  assert (not $result.success) "Should fail"
+  assert ($result.error | str contains "not a git repository") "Should contain error message"
+
+  mock verify
 }
 
 # =============================================================================
