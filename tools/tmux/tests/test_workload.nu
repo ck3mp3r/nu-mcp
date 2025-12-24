@@ -229,8 +229,9 @@ export def --env "test split_pane sets mcp marker on pane" [] {
     }
 
     # Mock: set-option to mark pane with @mcp_tmux
+    # CRITICAL: Pane-level options require just pane ID, not session:pane
     mimic register tmux {
-      args: ['set-option' '-pt' 'dev:%4' '@mcp_tmux' 'true']
+      args: ['set-option' '-pt' '%4' '@mcp_tmux' 'true']
       returns: ""
     }
 
@@ -254,8 +255,9 @@ export def --env "test check-mcp-ownership returns owned for mcp-created pane" [
     }
 
     # Mock: show-options returns @mcp_tmux for MCP-created pane
+    # Pane-level options require just the pane ID (extracted from full target)
     mimic register tmux {
-      args: ['show-options' '-pt' 'dev:%4' '@mcp_tmux']
+      args: ['show-options' '-pt' '%4' '@mcp_tmux']
       returns: "@mcp_tmux true"
     }
 
@@ -336,8 +338,9 @@ export def --env "test kill_pane success with owned pane and force" [] {
     }
 
     # Mock: show-options returns @mcp_tmux (pane is MCP-created)
+    # Pane-level options require just the pane ID
     mimic register tmux {
-      args: ['show-options' '-pt' 'dev:%4' '@mcp_tmux']
+      args: ['show-options' '-pt' '%4' '@mcp_tmux']
       returns: "@mcp_tmux true"
     }
 
@@ -401,8 +404,9 @@ export def --env "test kill_pane with window targeting" [] {
     }
 
     # Mock: show-options for pane in specific window
+    # Pane-level options require just the pane ID
     mimic register tmux {
-      args: ['show-options' '-pt' 'dev:frontend.%6' '@mcp_tmux']
+      args: ['show-options' '-pt' '%6' '@mcp_tmux']
       returns: "@mcp_tmux true"
     }
 
@@ -427,8 +431,9 @@ export def --env "test kill_pane handles tmux errors" [] {
     }
 
     # Mock: show-options indicates MCP ownership
+    # Pane-level options require just the pane ID
     mimic register tmux {
-      args: ['show-options' '-pt' 'dev:%99' '@mcp_tmux']
+      args: ['show-options' '-pt' '%99' '@mcp_tmux']
       returns: "@mcp_tmux true"
     }
 

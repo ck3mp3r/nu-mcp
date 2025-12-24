@@ -148,8 +148,9 @@ export def split_pane [
     let pane_id = exec_tmux_command $cmd_args | str trim
 
     # Mark pane as MCP-created using tmux user options
+    # Note: pane-level options (-pt) require just the pane ID, not session:pane
     try {
-      exec_tmux_command ['set-option' '-pt' $"($session):($pane_id)" '@mcp_tmux' 'true']
+      exec_tmux_command ['set-option' '-pt' $pane_id '@mcp_tmux' 'true']
     } catch {
       # Continue even if marking fails - pane is created
     }
@@ -189,6 +190,23 @@ export def check-mcp-ownership [
   target: string
   level: string
 ] {
+  # Extract the appropriate target for the level
+  # For panes: need just the pane ID (%N) from targets like "session:%4" or "session:window.%4"
+  # For windows: use full session:window target
+  # For sessions: use just session name
+  let check_target = if $level == "pane" {
+    # Extract pane ID - it's after the last '.' or ':' 
+    let parts = $target | split row ":"
+    let last_part = $parts | last
+    if ($last_part | str contains ".") {
+      $last_part | split row "." | last
+    } else {
+      $last_part
+    }
+  } else {
+    $target
+  }
+
   # Build show-options command based on level
   let flag = match $level {
     "pane" => "-p"
@@ -204,9 +222,9 @@ export def check-mcp-ownership [
 
   # Build command arguments
   let cmd_args = if $level == "session" {
-    ['show-options' '-t' $target '@mcp_tmux']
+    ['show-options' '-t' $check_target '@mcp_tmux']
   } else {
-    ['show-options' $"($flag)t" $target '@mcp_tmux']
+    ['show-options' $"($flag)t" $check_target '@mcp_tmux']
   }
 
   # Try to read the @mcp_tmux marker
