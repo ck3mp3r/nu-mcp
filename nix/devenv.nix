@@ -46,16 +46,8 @@
       description = "Build release binary";
     };
     test-tools = {
-      exec = ''
-        echo "Running all tool tests..."
-        echo ""
-        echo "=== GitHub Tools ==="
-        nu tools/gh/tests/run_tests.nu
-        echo ""
-        echo "=== C5T Tools ==="
-        nu tools/c5t/tests/run_tests.nu
-      '';
-      description = "Run all tool tests";
+      exec = "nu tools/run_all_tests.nu";
+      description = "Run all tool tests (auto-discovers test suites)";
     };
   };
 

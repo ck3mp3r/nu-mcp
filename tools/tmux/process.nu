@@ -3,6 +3,11 @@
 use core.nu *
 use search.nu *
 
+# Helper function to get process info (mockable for testing)
+def get-ps-info [pid: string] {
+  ^ps -p $pid -o "pid,ppid,command"
+}
+
 # Helper function to resolve pane target with name/context support
 def resolve_pane_target_with_search [session: string window?: string pane?: string] {
   # If pane looks like a name (not just numbers), try to find it by name or context
@@ -59,7 +64,7 @@ export def get_pane_process [session: string window?: string pane?: string] {
 
     # Try to get more detailed process information
     let process_info = try {
-      run-external "ps" "-p" $pane_pid "-o" "pid,ppid,command" | lines | skip 1 | first
+      get-ps-info $pane_pid | lines | skip 1 | first
     } catch {
       $"PID ($pane_pid): ($current_command)"
     }
