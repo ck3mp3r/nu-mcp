@@ -199,6 +199,32 @@ def "main list-tools" [] {
       }
     }
     {
+      name: "create_session"
+      description: "Create a new tmux session with ownership tracking. The session will be marked as MCP-created, allowing safe destruction later with kill_session. By default, creates a detached session (does not switch focus)."
+      input_schema: {
+        type: "object"
+        properties: {
+          name: {
+            type: "string"
+            description: "Name for the new session (required). Must be unique across all tmux sessions."
+          }
+          window_name: {
+            type: "string"
+            description: "Name for the initial window (optional, defaults to tmux default)"
+          }
+          directory: {
+            type: "string"
+            description: "Starting directory for the session (optional, defaults to current directory)"
+          }
+          detached: {
+            type: "boolean"
+            description: "Create session in detached mode (optional, default: true). If false, switches to the new session."
+          }
+        }
+        required: ["name"]
+      }
+    }
+    {
       name: "create_window"
       description: "Create a new window in a tmux session. Optionally specify window name, working directory, and target index."
       input_schema: {
@@ -412,6 +438,13 @@ def "main call-tool" [
       let wait_seconds = if "wait_seconds" in $parsed_args { $parsed_args | get wait_seconds } else { 1 }
       let lines = if "lines" in $parsed_args { $parsed_args | get lines } else { null }
       send_and_capture $session $command $window $pane $wait_seconds $lines
+    }
+    "create_session" => {
+      let name = $parsed_args | get name
+      let window_name = if "window_name" in $parsed_args { $parsed_args | get window_name } else { null }
+      let directory = if "directory" in $parsed_args { $parsed_args | get directory } else { null }
+      let detached = if "detached" in $parsed_args { $parsed_args | get detached } else { true }
+      create-session $name --window-name $window_name --directory $directory --detached $detached
     }
     "create_window" => {
       let session = $parsed_args | get session
