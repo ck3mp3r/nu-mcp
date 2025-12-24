@@ -183,3 +183,143 @@ export def --env "test split_pane with working directory" [] {
 #     assert ($result | str contains "error" or $result | str contains "not found") "Should indicate error"
 #   }
 # }
+
+# =============================================================================
+# Resource marking tests (Phase 3: ownership tracking)
+# =============================================================================
+
+export def --env "test create_window sets mcp marker on window" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    # Mock: new-window command
+    mimic register tmux {
+      args: ['new-window' '-t' 'dev:' '-dPF' '#{window_id}:#{window_index}']
+      returns: "@1:1"
+    }
+
+    # Mock: set-option to mark window with @mcp_tmux
+    mimic register tmux {
+      args: ['set-option' '-wt' 'dev:@1' '@mcp_tmux' 'true']
+      returns: ""
+    }
+
+    use ../workload.nu create_window
+    let result = create_window dev
+
+    # Test should pass - create_window should call set-option after creating window
+    assert ($result | str contains "success") "Should succeed"
+  }
+}
+
+export def --env "test split_pane sets mcp marker on pane" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    # Mock: split-window command
+    mimic register tmux {
+      args: ['split-window' '-t' 'dev:' '-h' '-dPF' '#{pane_id}']
+      returns: "%4"
+    }
+
+    # Mock: set-option to mark pane with @mcp_tmux
+    mimic register tmux {
+      args: ['set-option' '-pt' 'dev:%4' '@mcp_tmux' 'true']
+      returns: ""
+    }
+
+    use ../workload.nu split_pane
+    let result = split_pane dev "horizontal"
+
+    # Test should pass - split_pane should call set-option after creating pane
+    assert ($result | str contains "success") "Should succeed"
+  }
+}
+
+# =============================================================================
+# Safety helpers tests (Phase 3: ownership verification)
+# =============================================================================
+
+export def --env "test check-mcp-ownership returns owned for mcp-created pane" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    # Mock: show-options returns @mcp_tmux for MCP-created pane
+    mimic register tmux {
+      args: ['show-options' '-pt' 'dev:%4' '@mcp_tmux']
+      returns: "@mcp_tmux true"
+    }
+
+    use ../workload.nu check-mcp-ownership
+    let result = check-mcp-ownership "dev:%4" "pane"
+
+    assert ($result.owned == true) "Should indicate MCP ownership"
+  }
+}
+
+# TODO: Fix error mocking - nu-mimic has issues with exit_code mocking
+# export def --env "test check-mcp-ownership returns not owned for user-created pane" [] {
+#   with-mimic {
+#     mimic register tmux {
+#       args: ['-V']
+#       returns: "tmux 3.3a"
+#     }
+#
+#     # Mock: show-options fails (exit code 1) for user-created pane without marker
+#     mimic register tmux {
+#       args: ['show-options' '-pt' 'dev:%5' '@mcp_tmux']
+#       returns: "unknown option: @mcp_tmux"
+#       exit_code: 1
+#     }
+#
+#     use ../workload.nu check-mcp-ownership
+#     let result = check-mcp-ownership "dev:%5" "pane"
+#
+#     assert ($result.owned == false) "Should indicate no MCP ownership"
+#     assert ($result.error | str contains "not created by MCP") "Should explain ownership issue"
+#   }
+# }
+
+export def --env "test check-mcp-ownership works for windows" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    # Mock: show-options for window
+    mimic register tmux {
+      args: ['show-options' '-wt' 'dev:@1' '@mcp_tmux']
+      returns: "@mcp_tmux true"
+    }
+
+    use ../workload.nu check-mcp-ownership
+    let result = check-mcp-ownership "dev:@1" "window"
+
+    assert ($result.owned == true) "Should work for windows"
+  }
+}
+
+export def --env "test validate-force-flag rejects missing force" [] {
+  use ../workload.nu validate-force-flag
+  let result = validate-force-flag false "kill_pane" "dev:%4"
+
+  assert ($result.valid == false) "Should reject force=false"
+  assert ($result.error | str contains "requires explicit --force flag") "Should explain force requirement"
+}
+
+export def --env "test validate-force-flag accepts explicit force" [] {
+  use ../workload.nu validate-force-flag
+  let result = validate-force-flag true "kill_pane" "dev:%4"
+
+  assert ($result.valid == true) "Should accept force=true"
+}

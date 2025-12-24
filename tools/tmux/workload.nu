@@ -47,11 +47,21 @@ export def create_window [
     let parts = $output | split row ':'
 
     if ($parts | length) >= 2 {
+      let window_id = $parts | get 0
+      let window_index = $parts | get 1 | into int
+
+      # Mark window as MCP-created using tmux user options
+      try {
+        exec_tmux_command ['set-option' '-wt' $"($session):($window_id)" '@mcp_tmux' 'true']
+      } catch {
+        # Continue even if marking fails - window is created
+      }
+
       let window_name = if $name != null { $name } else { "window" }
       {
         success: true
-        window_id: ($parts | get 0)
-        window_index: ($parts | get 1 | into int)
+        window_id: $window_id
+        window_index: $window_index
         message: $"Created window '($window_name)' in session '($session)'"
       } | to json
     } else {
@@ -135,11 +145,18 @@ export def split_pane [
 
   # Execute tmux command
   try {
-    let output = exec_tmux_command $cmd_args | str trim
+    let pane_id = exec_tmux_command $cmd_args | str trim
+
+    # Mark pane as MCP-created using tmux user options
+    try {
+      exec_tmux_command ['set-option' '-pt' $"($session):($pane_id)" '@mcp_tmux' 'true']
+    } catch {
+      # Continue even if marking fails - pane is created
+    }
 
     {
       success: true
-      pane_id: $output
+      pane_id: $pane_id
       direction: $direction
       message: $"Split pane ($direction) in session '($session)'"
     } | to json
@@ -149,5 +166,96 @@ export def split_pane [
       error: $"Failed to split pane in session '($session)'"
       message: "Could not split pane. Verify the session exists with list_sessions."
     } | to json
+  }
+}
+
+# =============================================================================
+# Safety Helpers (Phase 3: ownership verification for destructive operations)
+# =============================================================================
+
+# Check if a tmux resource (pane, window, session) was created by MCP
+#
+# This helper verifies ownership by checking for the @mcp_tmux user option marker.
+# Only resources marked by MCP can be destroyed by destructive operations.
+#
+# Parameters:
+#   target - Target identifier (e.g., "session:pane_id" or "session:@window_id")
+#   level - Resource level: "pane", "window", or "session"
+#
+# Returns: Record with 'owned' boolean and optional 'error' message
+#   { owned: true } - Resource is MCP-created
+#   { owned: false, error: "..." } - Resource not MCP-created or check failed
+export def check-mcp-ownership [
+  target: string
+  level: string
+] {
+  # Build show-options command based on level
+  let flag = match $level {
+    "pane" => "-p"
+    "window" => "-w"
+    "session" => ""
+    _ => {
+      return {
+        owned: false
+        error: $"Invalid level: ($level). Must be 'pane', 'window', or 'session'"
+      }
+    }
+  }
+
+  # Build command arguments
+  let cmd_args = if $level == "session" {
+    ['show-options' '-t' $target '@mcp_tmux']
+  } else {
+    ['show-options' $"($flag)t" $target '@mcp_tmux']
+  }
+
+  # Try to read the @mcp_tmux marker
+  try {
+    let output = exec_tmux_command $cmd_args | str trim
+
+    # If successful, check if output contains the marker
+    if ($output | str contains '@mcp_tmux') {
+      {owned: true}
+    } else {
+      {
+        owned: false
+        error: $"Resource '($target)' was not created by MCP (missing @mcp_tmux marker)."
+      }
+    }
+  } catch {
+    # show-options returns non-zero exit code if option doesn't exist
+    {
+      owned: false
+      error: $"Resource '($target)' was not created by MCP (no @mcp_tmux marker found)."
+    }
+  }
+}
+
+# Validate that the force flag is explicitly set to true for destructive operations
+#
+# All destructive operations (kill_pane, kill_window, kill_session) REQUIRE
+# the user to explicitly set force=true to confirm the operation.
+#
+# Parameters:
+#   force - The force flag value (must be exactly true)
+#   operation - Operation name (for error messages)
+#   resource - Resource identifier (for error messages)
+#
+# Returns: Record with 'valid' boolean and optional 'error'/'message'
+#   { valid: true } - Force flag is true, operation can proceed
+#   { valid: false, error: "...", message: "..." } - Force flag missing/false
+export def validate-force-flag [
+  force: bool
+  operation: string
+  resource: string
+] {
+  if $force != true {
+    {
+      valid: false
+      error: "Destructive operation requires explicit --force flag"
+      message: $"Operation '($operation)' will permanently delete '($resource)'. Set force=true to proceed."
+    }
+  } else {
+    {valid: true}
   }
 }
