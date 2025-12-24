@@ -24,8 +24,6 @@ def main [] {
   }
   print ""
 
-  mut total_passed = 0
-  mut total_failed = 0
   mut failed_suites = []
 
   # Run each test suite
@@ -34,30 +32,13 @@ def main [] {
 
     print $"=== Running ($tool_name) tests ==="
 
-    let result = (^nu $runner | complete)
+    # Run the test suite and let output stream naturally
+    ^nu $runner
 
-    # Extract pass/fail counts from output
-    let results_lines = $result.stdout | lines | where {|line| $line | str contains "Results:" }
+    # Capture exit code
+    let exit_code = $env.LAST_EXIT_CODE
 
-    if ($results_lines | length) > 0 {
-      let results_line = $results_lines | first
-
-      let parts = $results_line | parse "Results: {passed}/{total} passed, {failed} failed"
-      if ($parts | length) > 0 {
-        let counts = $parts | first
-        $total_passed = $total_passed + ($counts.passed | into int)
-        $total_failed = $total_failed + ($counts.failed | into int)
-
-        if ($counts.failed | into int) > 0 {
-          $failed_suites = ($failed_suites | append $tool_name)
-        }
-      }
-    }
-
-    print $result.stdout
-
-    if $result.exit_code != 0 {
-      print $result.stderr
+    if $exit_code != 0 {
       $failed_suites = ($failed_suites | append $tool_name)
     }
 
@@ -68,15 +49,11 @@ def main [] {
   print "===================================="
   print "Test Summary"
   print "===================================="
-  print $"Total passed: ($total_passed)"
-  print $"Total failed: ($total_failed)"
 
   if ($failed_suites | length) > 0 {
-    print ""
     print $"Failed suites: ($failed_suites | str join ', ')"
     exit 1
   } else {
-    print ""
     print "✅ All tests passed!"
     exit 0
   }
