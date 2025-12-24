@@ -6,21 +6,9 @@
 }: let
   fenix = inputs.fenix.packages.${system};
 
-  # Test runner script
+  # Test runner script - uses auto-discovery
   runToolTests = pkgs.writeShellScriptBin "run-tool-tests" ''
-    set -e
-    echo "Running all nu-mcp tool tests..."
-    echo ""
-
-    echo "=== GitHub Tools ==="
-    nu tools/gh/tests/run_tests.nu
-    echo ""
-
-    echo "=== C5T Tools ==="
-    nu tools/c5t/tests/run_tests.nu
-    echo ""
-
-    echo "✅ All tool tests passed!"
+    nu tools/run_all_tests.nu
   '';
 in
   pkgs.mkShell {
