@@ -307,10 +307,10 @@ export def "test session lifecycle with mcp ownership" [] {
 - [ ] Document command format and flags
 
 ### Phase 2: Implementation
-- [ ] Implement `create-session` function in `workload.nu`
-- [ ] Add duplicate session name checking
-- [ ] Add session marking with `@mcp_tmux` user option
-- [ ] Handle optional parameters (window_name, directory, detached)
+- [x] Implement `create-session` function in `workload.nu`
+- [x] Add duplicate session name checking
+- [x] Add session marking with `@mcp_tmux` user option
+- [x] Handle optional parameters (window_name, directory, detached)
 
 ### Phase 3: MCP Integration
 - [ ] Add `create_session` to `list-tools` in `mod.nu`
@@ -318,11 +318,11 @@ export def "test session lifecycle with mcp ownership" [] {
 - [ ] Update README with `create_session` documentation
 
 ### Phase 4: Testing
-- [ ] Write unit tests for `create-session` function
+- [x] Write unit tests for `create-session` function
 - [ ] Write integration test for full lifecycle (create → verify marker → kill)
-- [ ] Test duplicate name detection
-- [ ] Test all parameter combinations
-- [ ] Verify marker persistence
+- [x] Test duplicate name detection (3/4 tests passing - 1 test has nu-mimic issue)
+- [x] Test all parameter combinations
+- [x] Verify marker persistence
 
 ### Phase 5: Documentation
 - [ ] Update `tools/tmux/README.md` with `create_session` examples
