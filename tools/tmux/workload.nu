@@ -454,3 +454,69 @@ export def kill_session [
     } | to json
   }
 }
+
+# =============================================================================
+# Layout Management (Phase 3: non-destructive pane arrangement)
+# =============================================================================
+
+# Select a layout for panes in a tmux window
+#
+# Arranges panes in the window according to one of five predefined layouts.
+# This is a non-destructive operation that only changes visual arrangement.
+#
+# Parameters:
+#   session - Session name or ID
+#   layout - Layout name (even-horizontal, even-vertical, main-horizontal, main-vertical, tiled)
+#   --window - Optional window name or ID (defaults to current window)
+#
+# Returns: JSON with success status or error message
+export def select_layout [
+  session: string
+  layout: string
+  --window: string
+] {
+  # Validate layout parameter
+  let valid_layouts = [
+    "even-horizontal"
+    "even-vertical"
+    "main-horizontal"
+    "main-vertical"
+    "tiled"
+  ]
+
+  if $layout not-in $valid_layouts {
+    return (
+      {
+        success: false
+        error: $"Invalid layout: ($layout)"
+        message: $"Layout must be one of: ($valid_layouts | str join ', ')"
+      } | to json
+    )
+  }
+
+  # Build target (session:window or just session:)
+  let target = if $window != null {
+    $"($session):($window)"
+  } else {
+    $"($session):"
+  }
+
+  # Execute select-layout command
+  try {
+    exec_tmux_command ['select-layout' '-t' $target $layout]
+    {
+      success: true
+      layout: $layout
+      session: $session
+      window: ($window | default "current")
+      message: $"Applied '($layout)' layout to window in session '($session)'"
+    } | to json
+  } catch {
+    {
+      success: false
+      error: $"Failed to apply layout '($layout)'"
+      message: "Could not apply layout. Verify the session and window exist with list_sessions."
+      resource: $target
+    } | to json
+  }
+}

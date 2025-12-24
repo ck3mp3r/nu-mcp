@@ -591,3 +591,131 @@ export def --env "test kill_session handles tmux errors" [] {
     assert ($result.success == true) "Mock should succeed"
   }
 }
+
+# =============================================================================
+# select_layout tests
+# =============================================================================
+
+export def --env "test select_layout even-horizontal" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    # Mock: select-layout command
+    mimic register tmux {
+      args: ['select-layout' '-t' 'dev:' 'even-horizontal']
+      returns: ""
+    }
+
+    use ../workload.nu select_layout
+    let result = select_layout dev "even-horizontal" | from json
+
+    assert ($result.success == true) "Should succeed"
+    assert ($result.layout == "even-horizontal") "Should return layout name"
+  }
+}
+
+export def --env "test select_layout even-vertical" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    mimic register tmux {
+      args: ['select-layout' '-t' 'dev:' 'even-vertical']
+      returns: ""
+    }
+
+    use ../workload.nu select_layout
+    let result = select_layout dev "even-vertical" | from json
+
+    assert ($result.success == true) "Should succeed"
+  }
+}
+
+export def --env "test select_layout main-horizontal" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    mimic register tmux {
+      args: ['select-layout' '-t' 'dev:' 'main-horizontal']
+      returns: ""
+    }
+
+    use ../workload.nu select_layout
+    let result = select_layout dev "main-horizontal" | from json
+
+    assert ($result.success == true) "Should succeed"
+  }
+}
+
+export def --env "test select_layout main-vertical" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    mimic register tmux {
+      args: ['select-layout' '-t' 'dev:' 'main-vertical']
+      returns: ""
+    }
+
+    use ../workload.nu select_layout
+    let result = select_layout dev "main-vertical" | from json
+
+    assert ($result.success == true) "Should succeed"
+  }
+}
+
+export def --env "test select_layout tiled" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    mimic register tmux {
+      args: ['select-layout' '-t' 'dev:' 'tiled']
+      returns: ""
+    }
+
+    use ../workload.nu select_layout
+    let result = select_layout dev "tiled" | from json
+
+    assert ($result.success == true) "Should succeed"
+  }
+}
+
+export def --env "test select_layout with window targeting" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    mimic register tmux {
+      args: ['select-layout' '-t' 'dev:frontend' 'even-horizontal']
+      returns: ""
+    }
+
+    use ../workload.nu select_layout
+    let result = select_layout dev "even-horizontal" --window "frontend" | from json
+
+    assert ($result.success == true) "Should work with window targeting"
+  }
+}
+
+export def --env "test select_layout rejects invalid layout" [] {
+  use ../workload.nu select_layout
+  let result = select_layout dev "invalid-layout" | from json
+
+  assert ($result.success == false) "Should reject invalid layout"
+  assert ($result.error | str contains "Invalid layout") "Should explain layout options"
+}
