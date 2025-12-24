@@ -1,6 +1,6 @@
 use super::CommandExecutor;
 use async_trait::async_trait;
-use std::{env, path::Path, time::Duration};
+use std::{env, path::Path, process::Stdio, time::Duration};
 use tokio::process::Command;
 use tokio::time::timeout;
 
@@ -34,6 +34,7 @@ impl CommandExecutor for NushellExecutor {
             .arg("-c")
             .arg(command)
             .current_dir(working_dir)
+            .stdin(Stdio::null()) // Prevent blocking on stdin
             .output();
 
         // Apply timeout wrapper

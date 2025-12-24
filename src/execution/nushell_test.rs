@@ -62,3 +62,75 @@ async fn test_nushell_executor_stderr_preserved() {
     let (_stdout, stderr) = result.unwrap();
     assert!(stderr.contains("error message"));
 }
+
+#[tokio::test]
+async fn test_nushell_executor_stdin_closed_prevents_blocking() {
+    // Commands that would block waiting for stdin should complete immediately
+    // because stdin is set to Stdio::null()
+    let executor = NushellExecutor;
+    let work_dir = env::current_dir().unwrap();
+
+    use std::time::Instant;
+    let start = Instant::now();
+
+    // 'cat' without input would normally block waiting for stdin
+    // With stdin closed (Stdio::null()), it should return immediately
+    let result = executor.execute("^cat", &work_dir, Some(5)).await;
+
+    let elapsed = start.elapsed().as_millis();
+
+    // Should complete successfully (empty output) - not hang or timeout
+    assert!(
+        result.is_ok(),
+        "Command should complete, but got: {:?}",
+        result
+    );
+
+    let (stdout, _stderr) = result.unwrap();
+    assert_eq!(stdout, "", "cat with no input should produce empty output");
+
+    // CRITICAL: Should complete nearly instantly, not wait for timeout
+    assert!(
+        elapsed < 1000,
+        "Command should complete instantly, but took {} ms. Stdin not closed properly!",
+        elapsed
+    );
+}
+
+#[tokio::test]
+async fn test_nushell_executor_timeout_kills_long_running_process() {
+    // Test that timeout actually kills long-running processes
+    let executor = NushellExecutor;
+    let work_dir = env::current_dir().unwrap();
+
+    use std::time::Instant;
+    let start = Instant::now();
+
+    // Infinite loop - should be killed by timeout
+    let result = executor
+        .execute("loop { sleep 100ms }", &work_dir, Some(2))
+        .await;
+
+    let elapsed = start.elapsed().as_secs();
+
+    // Verify it timed out
+    assert!(
+        result.is_err(),
+        "Command should timeout, but got: {:?}",
+        result
+    );
+
+    let error = result.unwrap_err();
+    assert!(
+        error.contains("timed out"),
+        "Expected timeout error, got: {}",
+        error
+    );
+
+    // Should timeout within ~2 seconds (with 1 second grace)
+    assert!(
+        elapsed <= 3,
+        "Command should timeout in ~2 seconds, but took {} seconds",
+        elapsed
+    );
+}
