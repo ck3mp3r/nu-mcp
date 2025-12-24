@@ -403,3 +403,54 @@ export def kill_window [
     } | to json
   }
 }
+
+# Kill a tmux session
+#
+# DESTRUCTIVE OPERATION - Can only destroy MCP-created sessions (marked with @mcp_tmux).
+# Requires explicit --force flag.
+#
+# Parameters:
+#   session - Session name or ID to kill
+#   --force - REQUIRED: Must be true to confirm destruction
+#
+# Returns: JSON with success status or error message
+export def kill_session [
+  session: string
+  --force # Boolean flag - true if present, false if not
+] {
+  # Safety check 1: Validate force flag
+  let force_check = validate-force-flag $force "kill_session" $session
+  if $force_check.success != true {
+    return ($force_check | to json)
+  }
+
+  # Safety check 2: Verify MCP ownership
+  let ownership_check = check-mcp-ownership $session "session"
+  if $ownership_check.owned != true {
+    return (
+      {
+        success: false
+        error: "Cannot destroy user-created resource"
+        message: $ownership_check.error
+        resource: $session
+      } | to json
+    )
+  }
+
+  # Both safety checks passed - execute kill-session
+  try {
+    exec_tmux_command ['kill-session' '-t' $session]
+    {
+      success: true
+      session: $session
+      message: $"Killed session '($session)'"
+    } | to json
+  } catch {
+    {
+      success: false
+      error: $"Failed to kill session '($session)'"
+      message: "Could not kill session. It may no longer exist."
+      resource: $session
+    } | to json
+  }
+}

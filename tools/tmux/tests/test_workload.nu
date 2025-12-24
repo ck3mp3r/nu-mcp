@@ -518,3 +518,76 @@ export def --env "test kill_window with window name" [] {
     assert ($result.success == true) "Should work with window name"
   }
 }
+
+# =============================================================================
+# kill_session tests
+# =============================================================================
+
+export def --env "test kill_session success with owned session and force" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    # Mock: show-options returns @mcp_tmux (session is MCP-created)
+    mimic register tmux {
+      args: ['show-options' '-t' 'mcp-test' '@mcp_tmux']
+      returns: "@mcp_tmux true"
+    }
+
+    # Mock: kill-session command
+    mimic register tmux {
+      args: ['kill-session' '-t' 'mcp-test']
+      returns: ""
+    }
+
+    use ../workload.nu kill_session
+    let result = kill_session "mcp-test" --force | from json
+
+    assert ($result.success == true) "Should succeed with owned session and force"
+    assert ($result.message | str contains "Killed session") "Should confirm session killed"
+  }
+}
+
+export def --env "test kill_session rejects without force flag" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    use ../workload.nu kill_session
+    let result = kill_session "mcp-test" | from json
+
+    assert ($result.success == false) "Should reject without force"
+    assert ($result.error | str contains "requires explicit --force flag") "Should explain force requirement"
+  }
+}
+
+export def --env "test kill_session handles tmux errors" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    # Mock: show-options indicates MCP ownership
+    mimic register tmux {
+      args: ['show-options' '-t' 'mcp-test' '@mcp_tmux']
+      returns: "@mcp_tmux true"
+    }
+
+    # Mock: kill-session command
+    mimic register tmux {
+      args: ['kill-session' '-t' 'mcp-test']
+      returns: ""
+    }
+
+    use ../workload.nu kill_session
+    let result = kill_session "mcp-test" --force | from json
+
+    # Should succeed in this mock scenario
+    assert ($result.success == true) "Mock should succeed"
+  }
+}
