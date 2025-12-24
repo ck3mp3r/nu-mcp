@@ -8,6 +8,7 @@ Comprehensive tmux session management and control tool for the `nu-mcp` server. 
 - `list_sessions` - List all tmux sessions with windows and panes
 - `get_session_info` - Get detailed session information
 - `list_panes` - List all panes in a session
+- `create_session` - Create new tmux sessions with ownership tracking
 
 **Command Execution:**
 - `send_and_capture` - **PREFERRED**: Send commands and capture output (interactive)
@@ -129,7 +130,34 @@ nu-mcp-tmux:
 - All destructive operations require explicit `force=true` confirmation
 - Ownership tracking via `@mcp_tmux` markers (invisible to users)
 
-## Window & Pane Management Details
+## Session, Window & Pane Management Details
+
+### create_session
+Create a new tmux session with MCP ownership tracking. The session is automatically marked with `@mcp_tmux`, enabling safe destruction later with `kill_session`.
+
+**Parameters:**
+- `name` (required) - Unique name for the new session
+- `window_name` (optional) - Name for the initial window
+- `directory` (optional) - Starting directory for the session (defaults to current directory)
+- `detached` (optional) - Create in detached mode (default: `true` - doesn't switch focus)
+
+**Example:**
+```json
+{
+  "name": "my-workspace",
+  "window_name": "editor",
+  "directory": "/home/user/project",
+  "detached": true
+}
+```
+
+**Returns:** JSON with session ID, session name, and creation status
+
+**Notes:**
+- By default creates detached sessions to avoid disrupting user's current work
+- Session is marked with `@mcp_tmux` ownership marker
+- Can be safely destroyed later using `kill_session` (with `force: true`)
+- Duplicate session names are rejected with clear error message
 
 ### create_window
 Create a new window in an existing tmux session.
