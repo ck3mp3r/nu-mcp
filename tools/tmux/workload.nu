@@ -241,9 +241,9 @@ export def check-mcp-ownership [
 #   operation - Operation name (for error messages)
 #   resource - Resource identifier (for error messages)
 #
-# Returns: Record with 'valid' boolean and optional 'error'/'message'
-#   { valid: true } - Force flag is true, operation can proceed
-#   { valid: false, error: "...", message: "..." } - Force flag missing/false
+# Returns: Record with 'success' boolean and optional 'error'/'message'
+#   { success: true } - Force flag is true, operation can proceed
+#   { success: false, error: "...", message: "..." } - Force flag missing/false
 export def validate-force-flag [
   force: bool
   operation: string
@@ -251,11 +251,88 @@ export def validate-force-flag [
 ] {
   if $force != true {
     {
-      valid: false
+      success: false
       error: "Destructive operation requires explicit --force flag"
       message: $"Operation '($operation)' will permanently delete '($resource)'. Set force=true to proceed."
     }
   } else {
-    {valid: true}
+    {success: true}
+  }
+}
+
+# =============================================================================
+# Destructive Operations (Phase 3: kill operations with safety checks)
+# =============================================================================
+
+# Kill a tmux pane
+#
+# DESTRUCTIVE OPERATION - Can only destroy MCP-created panes (marked with @mcp_tmux).
+# Requires explicit --force true flag.
+#
+# Parameters:
+#   session - Session name or ID
+#   --window - Optional window name or ID
+#   --pane - Pane ID to kill (required)
+#   --force - REQUIRED: Must be true to confirm destruction
+#
+# Returns: JSON with success status or error message
+export def kill_pane [
+  session: string
+  --window: string
+  --pane: string
+  --force # Boolean flag - true if present, false if not
+] {
+  # Validate pane parameter
+  if $pane == null {
+    return (
+      {
+        success: false
+        error: "Missing required parameter: pane"
+        message: "You must specify --pane with the pane ID to kill (e.g., --pane '%4')"
+      } | to json
+    )
+  }
+
+  # Build target (session:window.pane or session:pane)
+  let target = if $window != null {
+    $"($session):($window).($pane)"
+  } else {
+    $"($session):($pane)"
+  }
+
+  # Safety check 1: Validate force flag
+  let force_check = validate-force-flag $force "kill_pane" $target
+  if $force_check.success != true {
+    return ($force_check | to json)
+  }
+
+  # Safety check 2: Verify MCP ownership
+  let ownership_check = check-mcp-ownership $target "pane"
+  if $ownership_check.owned != true {
+    return (
+      {
+        success: false
+        error: "Cannot destroy user-created resource"
+        message: $ownership_check.error
+        resource: $target
+      } | to json
+    )
+  }
+
+  # Both safety checks passed - execute kill-pane
+  try {
+    exec_tmux_command ['kill-pane' '-t' $target]
+    {
+      success: true
+      pane: $pane
+      message: $"Killed pane '($pane)' in session '($session)'"
+    } | to json
+  } catch {
+    {
+      success: false
+      error: $"Failed to kill pane '($pane)'"
+      message: "Could not kill pane. It may no longer exist."
+      resource: $target
+    } | to json
   }
 }
