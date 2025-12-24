@@ -20,7 +20,18 @@ export def --env "test list-tools contains expected tools" [] {
   let tools = $result | from json
   let names = $tools | get name
 
+  # Original tools
   assert ("list_sessions" in $names) "Should have list_sessions"
   assert ("send_and_capture" in $names) "Should have send_and_capture"
   assert ("send_command" in $names) "Should have send_command"
+
+  # Phase 2 tools
+  assert ("create_window" in $names) "Should have create_window"
+  assert ("split_pane" in $names) "Should have split_pane"
+
+  # Phase 3 tools
+  assert ("kill_pane" in $names) "Should have kill_pane"
+  assert ("kill_window" in $names) "Should have kill_window"
+  assert ("kill_session" in $names) "Should have kill_session"
+  assert ("select_layout" in $names) "Should have select_layout"
 }

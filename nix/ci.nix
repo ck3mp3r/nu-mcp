@@ -27,6 +27,9 @@ in
       # ArgoCD CLI for argocd tool tests (if needed)
       pkgs.argocd
 
+      # Tmux for tmux tool integration tests
+      pkgs.tmux
+
       # Test runner script
       runToolTests
     ];

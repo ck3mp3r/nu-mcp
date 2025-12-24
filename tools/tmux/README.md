@@ -22,6 +22,12 @@ Comprehensive tmux session management and control tool for the `nu-mcp` server. 
 **Window & Pane Management:**
 - `create_window` - Create new windows in a session
 - `split_pane` - Split panes horizontally or vertically
+- `select_layout` - Arrange panes with predefined layouts
+
+**Destructive Operations (Safety Protected):**
+- `kill_pane` - **DESTRUCTIVE**: Close MCP-created panes
+- `kill_window` - **DESTRUCTIVE**: Close MCP-created windows
+- `kill_session` - **DESTRUCTIVE**: Close MCP-created sessions
 
 ### Key Features
 
@@ -115,6 +121,13 @@ nu-mcp-tmux:
 - Split panes horizontally (side-by-side) or vertically (top-bottom)
 - Specify working directory for new windows/panes
 - Automated workspace setup for development environments
+- Arrange panes with predefined layouts (tiled, main-horizontal, etc.)
+
+**Safe Resource Cleanup:**
+- Close panes, windows, or sessions created by MCP
+- Safety checks prevent accidental destruction of user-created resources
+- All destructive operations require explicit `force=true` confirmation
+- Ownership tracking via `@mcp_tmux` markers (invisible to users)
 
 ## Window & Pane Management Details
 
@@ -159,6 +172,124 @@ Split a pane in a tmux window horizontally or vertically.
 ```
 
 **Returns:** JSON with pane ID, direction, and success message
+
+### select_layout
+Arrange panes in a window using predefined layouts. Non-destructive operation.
+
+**Parameters:**
+- `session` (required) - Session name or ID
+- `layout` (required) - Layout name (see below)
+- `window` (optional) - Window name or ID (defaults to current)
+
+**Available Layouts:**
+- `even-horizontal` - Equal width columns
+- `even-vertical` - Equal height rows
+- `main-horizontal` - Large top pane with smaller panes below
+- `main-vertical` - Large left pane with smaller panes on the right
+- `tiled` - Grid arrangement
+
+**Example:**
+```json
+{
+  "session": "dev",
+  "layout": "main-vertical",
+  "window": "frontend"
+}
+```
+
+**Returns:** JSON with layout name and success message
+
+## Destructive Operations (Phase 3)
+
+### Safety Model
+
+All destructive operations (`kill_pane`, `kill_window`, `kill_session`) implement dual safety checks:
+
+1. **Force Flag Required**: Must explicitly set `force: true` in parameters
+2. **Ownership Verification**: Can ONLY destroy resources created by MCP (marked with `@mcp_tmux`)
+
+This ensures LLMs can clean up their own work without accidentally destroying user-created tmux resources.
+
+### kill_pane
+Close a tmux pane. **DESTRUCTIVE OPERATION**.
+
+**Safety Checks:**
+- Requires `force: true` parameter
+- Only works on panes created via `split_pane` (have `@mcp_tmux` marker)
+- Returns error if pane was user-created
+
+**Parameters:**
+- `session` (required) - Session name or ID
+- `pane` (required) - Pane ID (e.g., '%4')
+- `window` (optional) - Window name or ID for targeting
+- `force` (required) - Must be `true` to confirm
+
+**Example:**
+```json
+{
+  "session": "dev",
+  "pane": "%4",
+  "force": true
+}
+```
+
+**Returns:** Success message or ownership/force error
+
+### kill_window
+Close a tmux window and all its panes. **DESTRUCTIVE OPERATION**.
+
+**Safety Checks:**
+- Requires `force: true` parameter
+- Only works on windows created via `create_window` (have `@mcp_tmux` marker)
+- Returns error if window was user-created
+
+**Parameters:**
+- `session` (required) - Session name or ID
+- `window` (required) - Window name or ID (e.g., '@2' or 'frontend')
+- `force` (required) - Must be `true` to confirm
+
+**Example:**
+```json
+{
+  "session": "dev",
+  "window": "frontend",
+  "force": true
+}
+```
+
+**Returns:** Success message or ownership/force error
+
+### kill_session
+Destroy a tmux session and all its windows/panes. **DESTRUCTIVE OPERATION**.
+
+**Safety Checks:**
+- Requires `force: true` parameter
+- Only works on sessions created by MCP (have `@mcp_tmux` marker)
+- Returns error if session was user-created
+
+**Parameters:**
+- `session` (required) - Session name or ID to destroy
+- `force` (required) - Must be `true` to confirm
+
+**Example:**
+```json
+{
+  "session": "mcp-test-session",
+  "force": true
+}
+```
+
+**Returns:** Success message or ownership/force error
+
+### Ownership Tracking
+
+When MCP creates windows or panes via `create_window` or `split_pane`, they are automatically marked with a `@mcp_tmux` user option. This marker:
+- Is invisible in the tmux UI
+- Persists until the resource is destroyed
+- Enables ownership verification for destructive operations
+- Prevents accidental destruction of user work
+
+**Note:** Future versions may add `create_session` which will also mark sessions for safe cleanup.
 
 ## Requirements
 

@@ -259,6 +259,95 @@ def "main list-tools" [] {
         required: ["session" "direction"]
       }
     }
+    {
+      name: "kill_pane"
+      description: "DESTRUCTIVE OPERATION - ALWAYS ASK USER FOR EXPLICIT CONFIRMATION BEFORE EXECUTING. Permanently closes a tmux pane. Can ONLY destroy panes created by MCP (marked with @mcp_tmux). Requires explicit force flag."
+      input_schema: {
+        type: "object"
+        properties: {
+          session: {
+            type: "string"
+            description: "Session name or ID"
+          }
+          pane: {
+            type: "string"
+            description: "Pane ID to kill (e.g., '%4'). REQUIRED."
+          }
+          window: {
+            type: "string"
+            description: "Window name or ID (optional, for targeting pane in specific window)"
+          }
+          force: {
+            type: "boolean"
+            description: "REQUIRED: Must be true to confirm destruction. This operation cannot be undone."
+          }
+        }
+        required: ["session" "pane" "force"]
+      }
+    }
+    {
+      name: "kill_window"
+      description: "DESTRUCTIVE OPERATION - ALWAYS ASK USER FOR EXPLICIT CONFIRMATION BEFORE EXECUTING. Permanently closes a tmux window and all its panes. Can ONLY destroy windows created by MCP (marked with @mcp_tmux). Requires explicit force flag."
+      input_schema: {
+        type: "object"
+        properties: {
+          session: {
+            type: "string"
+            description: "Session name or ID"
+          }
+          window: {
+            type: "string"
+            description: "Window name or ID to kill (e.g., '@2' or 'frontend'). REQUIRED."
+          }
+          force: {
+            type: "boolean"
+            description: "REQUIRED: Must be true to confirm destruction. This operation cannot be undone."
+          }
+        }
+        required: ["session" "window" "force"]
+      }
+    }
+    {
+      name: "kill_session"
+      description: "DESTRUCTIVE OPERATION - ALWAYS ASK USER FOR EXPLICIT CONFIRMATION BEFORE EXECUTING. Permanently destroys a tmux session and all its windows and panes. Can ONLY destroy sessions created by MCP (marked with @mcp_tmux). Requires explicit force flag."
+      input_schema: {
+        type: "object"
+        properties: {
+          session: {
+            type: "string"
+            description: "Session name or ID to kill. REQUIRED."
+          }
+          force: {
+            type: "boolean"
+            description: "REQUIRED: Must be true to confirm destruction. This operation cannot be undone."
+          }
+        }
+        required: ["session" "force"]
+      }
+    }
+    {
+      name: "select_layout"
+      description: "Select a layout for arranging panes in a tmux window. Non-destructive operation that only changes visual arrangement."
+      input_schema: {
+        type: "object"
+        properties: {
+          session: {
+            type: "string"
+            description: "Session name or ID"
+          }
+          layout: {
+            type: "string"
+            enum: ["even-horizontal" "even-vertical" "main-horizontal" "main-vertical" "tiled"]
+            description: "Layout name: 'even-horizontal' (equal width columns), 'even-vertical' (equal height rows), 'main-horizontal' (large top pane), 'main-vertical' (large left pane), 'tiled' (grid)"
+          }
+          window: {
+            type: "string"
+            description: "Window name or ID (optional, defaults to current window)"
+          }
+        }
+        required: ["session" "layout"]
+      }
+    }
   ] | to json
 }
 
@@ -339,6 +428,42 @@ def "main call-tool" [
       let directory = if "directory" in $parsed_args { $parsed_args | get directory } else { null }
       let size = if "size" in $parsed_args { $parsed_args | get size } else { null }
       split_pane $session $direction --window $window --pane $pane --directory $directory --size $size
+    }
+    "kill_pane" => {
+      let session = $parsed_args | get session
+      let pane = $parsed_args | get pane
+      let window = if "window" in $parsed_args { $parsed_args | get window } else { null }
+      let force = if "force" in $parsed_args { $parsed_args | get force } else { false }
+      if $force {
+        kill_pane $session --pane $pane --window $window --force
+      } else {
+        kill_pane $session --pane $pane --window $window
+      }
+    }
+    "kill_window" => {
+      let session = $parsed_args | get session
+      let window = $parsed_args | get window
+      let force = if "force" in $parsed_args { $parsed_args | get force } else { false }
+      if $force {
+        kill_window $session --window $window --force
+      } else {
+        kill_window $session --window $window
+      }
+    }
+    "kill_session" => {
+      let session = $parsed_args | get session
+      let force = if "force" in $parsed_args { $parsed_args | get force } else { false }
+      if $force {
+        kill_session $session --force
+      } else {
+        kill_session $session
+      }
+    }
+    "select_layout" => {
+      let session = $parsed_args | get session
+      let layout = $parsed_args | get layout
+      let window = if "window" in $parsed_args { $parsed_args | get window } else { null }
+      select_layout $session $layout --window $window
     }
     _ => {
       error make {msg: $"Unknown tool: ($tool_name)"}
