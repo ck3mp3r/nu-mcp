@@ -539,3 +539,84 @@ export def select_layout [
     } | to json
   }
 }
+
+# Create a new tmux session with MCP ownership marker
+#
+# Creates a detached session by default to avoid disrupting user's current work.
+# Automatically marks the session with @mcp_tmux user option for safe lifecycle management.
+#
+# Parameters:
+#   name - Session name (must be unique)
+#   --window-name - Optional: Name for initial window
+#   --directory - Optional: Starting directory
+#   --detached - Optional: Create detached (default: true)
+#
+# Returns: JSON with session info or error message
+export def create-session [
+  name: string # Session name (must be unique)
+  --window-name: string # Optional: Name for initial window
+  --directory: string # Optional: Starting directory
+  --detached = true # Optional: Create detached (default: true)
+] {
+  # Check if session already exists
+  let duplicate_exists = try {
+    let existing_sessions = exec_tmux_command ['list-sessions' '-F' '#{session_name}']
+    let session_list = $existing_sessions | lines
+    $name in $session_list
+  } catch {
+    # If list-sessions fails (no server running), we can proceed
+    false
+  }
+
+  if $duplicate_exists {
+    {
+      success: false
+      error: "SessionExists"
+      message: $"Session '($name)' already exists"
+    } | to json
+  } else {
+    # Build tmux command
+    mut cmd_args = ['new-session' '-s' $name]
+
+    # Detached or attached
+    if $detached {
+      $cmd_args = ($cmd_args | append '-d')
+    }
+
+    # Initial window name
+    if $window_name != null {
+      $cmd_args = ($cmd_args | append ['-n' $window_name])
+    }
+
+    # Starting directory
+    if $directory != null {
+      $cmd_args = ($cmd_args | append ['-c' $directory])
+    }
+
+    # Create the session
+    try {
+      exec_tmux_command $cmd_args
+
+      # Mark session as MCP-created (session-level user option)
+      exec_tmux_command ['set-option' '-t' $name '@mcp_tmux' 'true']
+
+      # Get session info
+      let session_info = exec_tmux_command ['display-message' '-t' $name '-p' '#{session_id}']
+
+      let mode = if $detached { "detached" } else { "attached" }
+
+      {
+        success: true
+        session_id: ($session_info | str trim)
+        session_name: $name
+        message: $"Created session '($name)' \(($mode))"
+      } | to json
+    } catch {|err|
+      {
+        success: false
+        error: "CreationFailed"
+        message: $"Failed to create session: ($err.msg)"
+      } | to json
+    }
+  }
+}

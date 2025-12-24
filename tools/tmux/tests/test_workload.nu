@@ -724,3 +724,140 @@ export def --env "test select_layout rejects invalid layout" [] {
   assert ($result.success == false) "Should reject invalid layout"
   assert ($result.error | str contains "Invalid layout") "Should explain layout options"
 }
+
+# =============================================================================
+# create_session tests
+# =============================================================================
+
+export def --env "test create-session with name only" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    # Mock: list-sessions (check for duplicates - returns empty)
+    mimic register tmux {
+      args: ['list-sessions' '-F' '#{session_name}']
+      returns: ""
+    }
+
+    # Mock: new-session command (detached by default)
+    mimic register tmux {
+      args: ['new-session' '-s' 'test-session' '-d']
+      returns: ""
+    }
+
+    # Mock: set-option to mark with @mcp_tmux
+    mimic register tmux {
+      args: ['set-option' '-t' 'test-session' '@mcp_tmux' 'true']
+      returns: ""
+    }
+
+    # Mock: display-message to get session ID
+    mimic register tmux {
+      args: ['display-message' '-t' 'test-session' '-p' '#{session_id}']
+      returns: "$1"
+    }
+
+    use ../workload.nu create-session
+    let result = create-session "test-session" | from json
+
+    assert ($result.success == true) "Should succeed"
+    assert ($result.session_name == "test-session") "Should return session name"
+    assert ($result.message | str contains "detached") "Should indicate detached"
+  }
+}
+
+export def --env "test create-session with all options" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    mimic register tmux {
+      args: ['list-sessions' '-F' '#{session_name}']
+      returns: ""
+    }
+
+    # Mock: new-session with all options
+    mimic register tmux {
+      args: ['new-session' '-s' 'work' '-n' 'code' '-c' '/tmp']
+      returns: ""
+    }
+
+    mimic register tmux {
+      args: ['set-option' '-t' 'work' '@mcp_tmux' 'true']
+      returns: ""
+    }
+
+    mimic register tmux {
+      args: ['display-message' '-t' 'work' '-p' '#{session_id}']
+      returns: "$2"
+    }
+
+    use ../workload.nu create-session
+    let result = create-session "work" --window-name "code" --directory "/tmp" --detached false | from json
+
+    assert ($result.success == true) "Should succeed with all options"
+    assert ($result.session_name == "work") "Should return correct session name"
+    assert ($result.message | str contains "attached") "Should indicate attached mode"
+  }
+}
+
+export def --env "test create-session rejects duplicate name" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    # Mock: list-sessions returns existing session
+    mimic register tmux {
+      args: ['list-sessions' '-F' '#{session_name}']
+      returns: "existing-session"
+    }
+
+    use ../workload.nu create-session
+    let result = create-session "existing-session" | from json
+
+    assert ($result.success == false) "Should reject duplicate"
+    assert ($result.error == "SessionExists") "Should return SessionExists error"
+  }
+}
+
+export def --env "test create-session sets mcp marker" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    mimic register tmux {
+      args: ['list-sessions' '-F' '#{session_name}']
+      returns: ""
+    }
+
+    mimic register tmux {
+      args: ['new-session' '-s' 'marked' '-d']
+      returns: ""
+    }
+
+    # This is the critical test - verify set-option is called
+    mimic register tmux {
+      args: ['set-option' '-t' 'marked' '@mcp_tmux' 'true']
+      returns: ""
+    }
+
+    mimic register tmux {
+      args: ['display-message' '-t' 'marked' '-p' '#{session_id}']
+      returns: "$3"
+    }
+
+    use ../workload.nu create-session
+    let result = create-session "marked" | from json
+
+    assert ($result.success == true) "Should succeed and set marker"
+  }
+}
