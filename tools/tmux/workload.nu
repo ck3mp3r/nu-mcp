@@ -219,14 +219,14 @@ export def check-mcp-ownership [
     } else {
       {
         owned: false
-        error: $"Resource '($target)' was not created by MCP (missing @mcp_tmux marker)."
+        error: $"Resource '($target)' was not created by MCP - missing @mcp_tmux marker."
       }
     }
   } catch {
     # show-options returns non-zero exit code if option doesn't exist
     {
       owned: false
-      error: $"Resource '($target)' was not created by MCP (no @mcp_tmux marker found)."
+      error: $"Resource '($target)' was not created by MCP - no @mcp_tmux marker found."
     }
   }
 }
