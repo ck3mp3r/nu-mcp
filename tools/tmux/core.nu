@@ -10,11 +10,9 @@ export def check_tmux [] {
   }
 }
 
-# Helper function to execute tmux commands with logging (following k8s pattern)
+# Helper function to execute tmux commands
 export def exec_tmux_command [cmd_args: list<string>] {
-  let full_cmd = (["tmux"] | append $cmd_args)
-  print $"Executing: ($full_cmd | str join ' ')"
-  run-external ...$full_cmd
+  tmux ...$cmd_args
 }
 
 # Helper function to resolve pane target (basic ID-based targeting)
