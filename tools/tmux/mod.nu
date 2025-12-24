@@ -7,6 +7,7 @@ use session.nu *
 use commands.nu *
 use process.nu *
 use search.nu *
+use workload.nu *
 
 # Default main command
 def main [] {
@@ -197,6 +198,67 @@ def "main list-tools" [] {
         required: ["session"]
       }
     }
+    {
+      name: "create_window"
+      description: "Create a new window in a tmux session. Optionally specify window name, working directory, and target index."
+      input_schema: {
+        type: "object"
+        properties: {
+          session: {
+            type: "string"
+            description: "Session name or ID"
+          }
+          name: {
+            type: "string"
+            description: "Name for the new window (optional)"
+          }
+          directory: {
+            type: "string"
+            description: "Working directory for the new window (optional, defaults to session's default)"
+          }
+          target: {
+            type: "integer"
+            description: "Target window index (optional, defaults to next available)"
+          }
+        }
+        required: ["session"]
+      }
+    }
+    {
+      name: "split_pane"
+      description: "Split a pane in a tmux window horizontally or vertically. Optionally specify working directory and size."
+      input_schema: {
+        type: "object"
+        properties: {
+          session: {
+            type: "string"
+            description: "Session name or ID"
+          }
+          direction: {
+            type: "string"
+            enum: ["horizontal" "vertical"]
+            description: "Split direction: 'horizontal' creates left/right panes, 'vertical' creates top/bottom panes"
+          }
+          window: {
+            type: "string"
+            description: "Window name or ID (optional, defaults to current window)"
+          }
+          pane: {
+            type: "string"
+            description: "Pane ID to split (optional, defaults to current pane)"
+          }
+          directory: {
+            type: "string"
+            description: "Working directory for the new pane (optional)"
+          }
+          size: {
+            type: "integer"
+            description: "Size of new pane as percentage (optional, defaults to 50)"
+          }
+        }
+        required: ["session" "direction"]
+      }
+    }
   ] | to json
 }
 
@@ -261,6 +323,22 @@ def "main call-tool" [
       let wait_seconds = if "wait_seconds" in $parsed_args { $parsed_args | get wait_seconds } else { 1 }
       let lines = if "lines" in $parsed_args { $parsed_args | get lines } else { null }
       send_and_capture $session $command $window $pane $wait_seconds $lines
+    }
+    "create_window" => {
+      let session = $parsed_args | get session
+      let name = if "name" in $parsed_args { $parsed_args | get name } else { null }
+      let directory = if "directory" in $parsed_args { $parsed_args | get directory } else { null }
+      let target = if "target" in $parsed_args { $parsed_args | get target } else { null }
+      create_window $session --name $name --directory $directory --target $target
+    }
+    "split_pane" => {
+      let session = $parsed_args | get session
+      let direction = $parsed_args | get direction
+      let window = if "window" in $parsed_args { $parsed_args | get window } else { null }
+      let pane = if "pane" in $parsed_args { $parsed_args | get pane } else { null }
+      let directory = if "directory" in $parsed_args { $parsed_args | get directory } else { null }
+      let size = if "size" in $parsed_args { $parsed_args | get size } else { null }
+      split_pane $session $direction --window $window --pane $pane --directory $directory --size $size
     }
     _ => {
       error make {msg: $"Unknown tool: ($tool_name)"}

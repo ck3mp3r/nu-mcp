@@ -4,15 +4,24 @@ Comprehensive tmux session management and control tool for the `nu-mcp` server. 
 
 ### Available Tools
 
+**Session & Information:**
 - `list_sessions` - List all tmux sessions with windows and panes
+- `get_session_info` - Get detailed session information
+- `list_panes` - List all panes in a session
+
+**Command Execution:**
 - `send_and_capture` - **PREFERRED**: Send commands and capture output (interactive)
 - `send_command` - Send commands without waiting for output (fire-and-forget)
 - `capture_pane` - Capture current visible content (static snapshot)
-- `get_session_info` - Get detailed session information
-- `get_pane_process` - Get process information for panes
+
+**Pane Discovery:**
 - `find_pane_by_name` - Find panes by exact name
 - `find_pane_by_context` - Find panes by context (directory, command, description)
-- `list_panes` - List all panes in a session
+- `get_pane_process` - Get process information for panes
+
+**Window & Pane Management:**
+- `create_window` - Create new windows in a session
+- `split_pane` - Split panes horizontally or vertically
 
 ### Key Features
 
@@ -66,6 +75,7 @@ The tool is organized into focused modules for maintainability:
 - **`commands.nu`** - Command execution with intelligent output capture
 - **`process.nu`** - Process information and management
 - **`search.nu`** - Pane discovery by name and context
+- **`workload.nu`** - Window and pane creation/management
 
 ## Usage
 
@@ -99,6 +109,56 @@ nu-mcp-tmux:
 - Get detailed process information including PIDs and command lines
 - Monitor pane status and activity
 - Track resource usage and pane dimensions
+
+**Window & Pane Management:**
+- Create new windows with optional name and working directory
+- Split panes horizontally (side-by-side) or vertically (top-bottom)
+- Specify working directory for new windows/panes
+- Automated workspace setup for development environments
+
+## Window & Pane Management Details
+
+### create_window
+Create a new window in an existing tmux session.
+
+**Parameters:**
+- `session` (required) - Session name or ID
+- `name` (optional) - Name for the new window
+- `directory` (optional) - Working directory for the new window
+- `target` (optional) - Target window index
+
+**Example:**
+```json
+{
+  "session": "dev",
+  "name": "frontend",
+  "directory": "/home/user/project/frontend"
+}
+```
+
+**Returns:** JSON with window ID, index, and success message
+
+### split_pane
+Split a pane in a tmux window horizontally or vertically.
+
+**Parameters:**
+- `session` (required) - Session name or ID
+- `direction` (required) - "horizontal" (left/right) or "vertical" (top/bottom)
+- `window` (optional) - Window name or ID (defaults to current)
+- `pane` (optional) - Pane ID to split (defaults to current)
+- `directory` (optional) - Working directory for the new pane
+- `size` (optional) - Size of new pane as percentage (default: 50)
+
+**Example:**
+```json
+{
+  "session": "dev",
+  "direction": "horizontal",
+  "directory": "/home/user/project/backend"
+}
+```
+
+**Returns:** JSON with pane ID, direction, and success message
 
 ## Requirements
 
