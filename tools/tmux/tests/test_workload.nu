@@ -446,3 +446,75 @@ export def --env "test kill_pane handles tmux errors" [] {
     assert ($result.success == true) "Mock should succeed"
   }
 }
+
+# =============================================================================
+# kill_window tests
+# =============================================================================
+
+export def --env "test kill_window success with owned window and force" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    # Mock: show-options returns @mcp_tmux (window is MCP-created)
+    mimic register tmux {
+      args: ['show-options' '-wt' 'dev:@2' '@mcp_tmux']
+      returns: "@mcp_tmux true"
+    }
+
+    # Mock: kill-window command
+    mimic register tmux {
+      args: ['kill-window' '-t' 'dev:@2']
+      returns: ""
+    }
+
+    use ../workload.nu kill_window
+    let result = kill_window dev --window "@2" --force | from json
+
+    assert ($result.success == true) "Should succeed with owned window and force"
+    assert ($result.message | str contains "Killed window") "Should confirm window killed"
+  }
+}
+
+export def --env "test kill_window rejects without force flag" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    use ../workload.nu kill_window
+    let result = kill_window dev --window "@2" | from json
+
+    assert ($result.success == false) "Should reject without force"
+    assert ($result.error | str contains "requires explicit --force flag") "Should explain force requirement"
+  }
+}
+
+export def --env "test kill_window with window name" [] {
+  with-mimic {
+    mimic register tmux {
+      args: ['-V']
+      returns: "tmux 3.3a"
+    }
+
+    # Mock: show-options for named window
+    mimic register tmux {
+      args: ['show-options' '-wt' 'dev:frontend' '@mcp_tmux']
+      returns: "@mcp_tmux true"
+    }
+
+    # Mock: kill-window with name
+    mimic register tmux {
+      args: ['kill-window' '-t' 'dev:frontend']
+      returns: ""
+    }
+
+    use ../workload.nu kill_window
+    let result = kill_window dev --window "frontend" --force | from json
+
+    assert ($result.success == true) "Should work with window name"
+  }
+}

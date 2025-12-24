@@ -336,3 +336,70 @@ export def kill_pane [
     } | to json
   }
 }
+
+# Kill a tmux window
+#
+# DESTRUCTIVE OPERATION - Can only destroy MCP-created windows (marked with @mcp_tmux).
+# Requires explicit --force flag.
+#
+# Parameters:
+#   session - Session name or ID
+#   --window - Window name or ID to kill (required)
+#   --force - REQUIRED: Must be true to confirm destruction
+#
+# Returns: JSON with success status or error message
+export def kill_window [
+  session: string
+  --window: string
+  --force # Boolean flag - true if present, false if not
+] {
+  # Validate window parameter
+  if $window == null {
+    return (
+      {
+        success: false
+        error: "Missing required parameter: window"
+        message: "You must specify --window with the window ID or name to kill (e.g., --window '@2' or --window 'frontend')"
+      } | to json
+    )
+  }
+
+  # Build target (session:window)
+  let target = $"($session):($window)"
+
+  # Safety check 1: Validate force flag
+  let force_check = validate-force-flag $force "kill_window" $target
+  if $force_check.success != true {
+    return ($force_check | to json)
+  }
+
+  # Safety check 2: Verify MCP ownership
+  let ownership_check = check-mcp-ownership $target "window"
+  if $ownership_check.owned != true {
+    return (
+      {
+        success: false
+        error: "Cannot destroy user-created resource"
+        message: $ownership_check.error
+        resource: $target
+      } | to json
+    )
+  }
+
+  # Both safety checks passed - execute kill-window
+  try {
+    exec_tmux_command ['kill-window' '-t' $target]
+    {
+      success: true
+      window: $window
+      message: $"Killed window '($window)' in session '($session)'"
+    } | to json
+  } catch {
+    {
+      success: false
+      error: $"Failed to kill window '($window)'"
+      message: "Could not kill window. It may no longer exist."
+      resource: $target
+    } | to json
+  }
+}
