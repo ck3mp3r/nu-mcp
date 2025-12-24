@@ -344,9 +344,9 @@ export def --env "test kill_pane success with owned pane and force" [] {
       returns: "@mcp_tmux true"
     }
 
-    # Mock: kill-pane command
+    # Mock: kill-pane command (requires just pane ID, not session:pane)
     mimic register tmux {
-      args: ['kill-pane' '-t' 'dev:%4']
+      args: ['kill-pane' '-t' '%4']
       returns: ""
     }
 
@@ -410,9 +410,9 @@ export def --env "test kill_pane with window targeting" [] {
       returns: "@mcp_tmux true"
     }
 
-    # Mock: kill-pane with window.pane target
+    # Mock: kill-pane (requires just pane ID)
     mimic register tmux {
-      args: ['kill-pane' '-t' 'dev:frontend.%6']
+      args: ['kill-pane' '-t' '%6']
       returns: ""
     }
 
@@ -437,10 +437,10 @@ export def --env "test kill_pane handles tmux errors" [] {
       returns: "@mcp_tmux true"
     }
 
-    # Mock: kill-pane fails (pane doesn't exist)
+    # Mock: kill-pane (requires just pane ID)
     # Note: nu-mimic doesn't support exit_code properly, but we can test the path
     mimic register tmux {
-      args: ['kill-pane' '-t' 'dev:%99']
+      args: ['kill-pane' '-t' '%99']
       returns: ""
     }
 

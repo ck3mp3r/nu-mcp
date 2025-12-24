@@ -338,8 +338,9 @@ export def kill_pane [
   }
 
   # Both safety checks passed - execute kill-pane
+  # Note: kill-pane -t requires just the pane ID, not the full session:pane target
   try {
-    exec_tmux_command ['kill-pane' '-t' $target]
+    exec_tmux_command ['kill-pane' '-t' $pane]
     {
       success: true
       pane: $pane
