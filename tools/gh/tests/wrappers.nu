@@ -1,14 +1,14 @@
 # Test wrappers for gh tool tests
-# These wrap external commands with nu-mock for testing
+# These wrap external commands with nu-mimic for testing
 
-use nu-mock *
+use nu-mimic *
 
 # Wrap gh command for testing
 export def --env --wrapped gh [...args] {
-  mock call 'gh' $args
+  mimic call 'gh' $args
 }
 
 # Wrap git command for testing
 export def --env --wrapped git [...args] {
-  mock call 'git' $args
+  mimic call 'git' $args
 }
