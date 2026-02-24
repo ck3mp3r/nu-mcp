@@ -7,12 +7,12 @@ use std::path::PathBuf;
 fn test_config_creation_default() {
     let config = Config {
         tools_dir: None,
-        enable_run_nushell: false,
+        enable_run_nu: false,
         sandbox_directories: vec![],
     };
 
     assert!(config.tools_dir.is_none());
-    assert!(!config.enable_run_nushell);
+    assert!(!config.enable_run_nu);
     assert!(config.sandbox_directories.is_empty());
 }
 
@@ -22,7 +22,7 @@ fn test_config_creation_tools_dir() {
 
     let config = Config {
         tools_dir: Some(tools_path.clone()),
-        enable_run_nushell: false,
+        enable_run_nu: false,
         sandbox_directories: vec![],
     };
 
@@ -30,14 +30,14 @@ fn test_config_creation_tools_dir() {
 }
 
 #[test]
-fn test_config_creation_enable_run_nushell() {
+fn test_config_creation_enable_run() {
     let config = Config {
         tools_dir: None,
-        enable_run_nushell: true,
+        enable_run_nu: true,
         sandbox_directories: vec![],
     };
 
-    assert!(config.enable_run_nushell);
+    assert!(config.enable_run_nu);
 }
 
 #[test]
@@ -46,7 +46,7 @@ fn test_config_creation_sandbox_directories() {
 
     let config = Config {
         tools_dir: None,
-        enable_run_nushell: false,
+        enable_run_nu: false,
         sandbox_directories: vec![sandbox_path.clone()],
     };
 
@@ -61,11 +61,11 @@ fn test_config_creation_full_configuration() {
 
     let config = Config {
         tools_dir: Some(tools_path.clone()),
-        enable_run_nushell: true,
+        enable_run_nu: true,
         sandbox_directories: vec![sandbox1.clone(), sandbox2.clone()],
     };
 
     assert_eq!(config.tools_dir, Some(tools_path));
-    assert!(config.enable_run_nushell);
+    assert!(config.enable_run_nu);
     assert_eq!(config.sandbox_directories, vec![sandbox1, sandbox2]);
 }

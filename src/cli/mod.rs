@@ -8,9 +8,9 @@ pub struct Cli {
     #[arg(long)]
     pub tools_dir: Option<PathBuf>,
 
-    /// Enable the default `run_nushell` tool when using tools-dir
+    /// Enable the default `run` tool when using tools-dir
     #[arg(long, default_value_t = false)]
-    pub enable_run_nushell: bool,
+    pub enable_run_nu: bool,
 
     /// Add additional paths where commands can access files (can be specified multiple times)
     /// The current working directory is always accessible. This adds additional paths.

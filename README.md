@@ -8,7 +8,7 @@ This project exposes Nushell as an MCP server using the official Rust SDK (`rmcp
 - Extensible tool system via Nushell scripts in modular directories
 - Uses the official Model Context Protocol Rust SDK
 - Security sandbox with intelligent path validation and caching
-- Catalog of useful MCP tools for weather, finance, and more
+- Catalog of useful MCP tools for Kubernetes, ArgoCD, Tmux, Context7 and more
 
 ## Quick Start
 
@@ -16,7 +16,7 @@ This project exposes Nushell as an MCP server using the official Rust SDK (`rmcp
 ```bash
 nu-mcp
 ```
-Provides the `run_nushell` tool for executing arbitrary Nushell commands.
+Provides the `run` tool for executing arbitrary Nushell commands.
 
 ### Extension Mode  
 ```bash
@@ -26,7 +26,7 @@ Load tools from the included catalog or your custom tool modules. Each tool is a
 
 ### Hybrid Mode
 ```bash
-nu-mcp --tools-dir=./tools --enable-run-nushell
+nu-mcp --tools-dir=./tools --enable-run-nu
 ```
 Combine both core command execution and extension tools.
 
@@ -43,7 +43,7 @@ The `tools/` directory contains a growing catalog of useful MCP tools:
 
 ### Command Line Options
 - `--tools-dir=PATH` - Directory containing tool modules
-- `--enable-run-nushell` - Enable generic command execution alongside tools  
+- `--enable-run-nu` - Enable generic command execution alongside tools  
 - `--add-path=PATH` - Add additional accessible paths (current directory always included)
 
 ### Environment Variables
@@ -88,7 +88,6 @@ DESTRUCTIVE OPERATION - ALWAYS ASK USER FOR EXPLICIT CONFIRMATION BEFORE EXECUTI
 ```
 
 **Tools with destructive capabilities:**
-- **c5t**: `delete_task`, `delete_task_list`, `delete_note`, `import_data` (replaces all data)
 - **gh**: `delete_release` (deletes release + binaries), `close_pr` with `delete_branch`
 - **k8s**: `kube_delete`, `helm_uninstall`, `kube_cleanup`, `kube_scale` (to 0)
 - **ArgoCD**: `delete_application`, `sync_application` with `prune: true`

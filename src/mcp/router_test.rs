@@ -1,7 +1,4 @@
-use rmcp::{
-    model::{CallToolRequestParam, Tool},
-    serde_json,
-};
+use rmcp::{model::Tool, serde_json};
 
 use super::*;
 use crate::{
@@ -17,7 +14,7 @@ fn create_test_router() -> ToolRouter<MockExecutor, MockToolExecutor> {
     let cwd = env::current_dir().unwrap();
     let config = Config {
         tools_dir: None,
-        enable_run_nushell: true,
+        enable_run_nu: true,
         sandbox_directories: vec![cwd],
     };
     let executor = MockExecutor::new("test output".to_string(), "".to_string());
@@ -27,7 +24,7 @@ fn create_test_router() -> ToolRouter<MockExecutor, MockToolExecutor> {
 }
 
 #[tokio::test]
-async fn test_router_run_nushell() {
+async fn test_router_run() {
     let router = create_test_router();
 
     let mut args = serde_json::Map::new();
@@ -36,9 +33,11 @@ async fn test_router_run_nushell() {
         serde_json::Value::String("echo hello".to_string()),
     );
 
-    let request = CallToolRequestParam {
-        name: "run_nushell".into(),
+    let request = CallToolRequestParams {
+        name: "run".into(),
         arguments: Some(args),
+        meta: None,
+        task: None,
     };
 
     let result = router.route_call(request).await;
@@ -53,7 +52,7 @@ async fn test_router_extension_tool() {
     let cwd = env::current_dir().unwrap();
     let config = Config {
         tools_dir: None,
-        enable_run_nushell: true,
+        enable_run_nu: true,
         sandbox_directories: vec![cwd],
     };
     let executor = MockExecutor::new("test output".to_string(), "".to_string());
@@ -72,6 +71,7 @@ async fn test_router_extension_tool() {
             output_schema: None,
             icons: None,
             meta: None,
+            execution: None,
         },
     };
 
@@ -83,9 +83,11 @@ async fn test_router_extension_tool() {
         serde_json::Value::String("value".to_string()),
     );
 
-    let request = CallToolRequestParam {
+    let request = CallToolRequestParams {
         name: "test_tool".into(),
         arguments: Some(args),
+        meta: None,
+        task: None,
     };
 
     let result = router.route_call(request).await;
@@ -96,9 +98,11 @@ async fn test_router_extension_tool() {
 async fn test_router_unknown_tool() {
     let router = create_test_router();
 
-    let request = CallToolRequestParam {
+    let request = CallToolRequestParams {
         name: "nonexistent_tool".into(),
         arguments: None,
+        meta: None,
+        task: None,
     };
 
     let result = router.route_call(request).await;
@@ -113,7 +117,7 @@ async fn test_router_uses_injected_cache() {
     let cwd = env::current_dir().unwrap();
     let config = Config {
         tools_dir: None,
-        enable_run_nushell: true,
+        enable_run_nu: true,
         sandbox_directories: vec![cwd],
     };
     let executor = MockExecutor::new("test output".to_string(), "".to_string());
@@ -134,9 +138,11 @@ async fn test_router_uses_injected_cache() {
         serde_json::Value::String("tool /api/endpoint".to_string()),
     );
 
-    let request = CallToolRequestParam {
-        name: "run_nushell".into(),
+    let request = CallToolRequestParams {
+        name: "run".into(),
         arguments: Some(args),
+        meta: None,
+        task: None,
     };
 
     let result = router.route_call(request).await;
@@ -161,9 +167,11 @@ async fn test_router_blocks_existing_files_outside_sandbox() {
         serde_json::Value::String("cat /etc/passwd".to_string()),
     );
 
-    let request = CallToolRequestParam {
-        name: "run_nushell".into(),
+    let request = CallToolRequestParams {
+        name: "run".into(),
         arguments: Some(args),
+        task: None,
+        meta: None,
     };
 
     let result = router.route_call(request).await;
@@ -189,7 +197,7 @@ async fn test_mutex_not_held_during_concurrent_requests() {
     let cwd = env::current_dir().unwrap();
     let config = Config {
         tools_dir: None,
-        enable_run_nushell: true,
+        enable_run_nu: true,
         sandbox_directories: vec![cwd],
     };
     let executor = MockExecutor::new("test output".to_string(), "".to_string());
@@ -217,9 +225,11 @@ async fn test_mutex_not_held_during_concurrent_requests() {
                 serde_json::Value::String(format!("echo test{}", i)),
             );
 
-            let request = CallToolRequestParam {
-                name: "run_nushell".into(),
+            let request = CallToolRequestParams {
+                name: "run".into(),
                 arguments: Some(args),
+                task: None,
+                meta: None,
             };
 
             let request_start = Instant::now();

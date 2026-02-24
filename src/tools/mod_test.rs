@@ -42,6 +42,7 @@ fn test_extension_tool_struct() {
         output_schema: None,
         icons: None,
         meta: None,
+        execution: None,
     };
 
     let extension = ExtensionTool {
@@ -65,6 +66,7 @@ fn test_tool_definition_edge_cases() {
         output_schema: None,
         icons: None,
         meta: None,
+        execution: None,
     };
 
     assert_eq!(minimal_tool.name, "minimal");
@@ -101,6 +103,7 @@ fn test_tool_definition_serialization() {
         output_schema: None,
         icons: None,
         meta: None,
+        execution: None,
     };
 
     // Test that we can work with the tool definition
