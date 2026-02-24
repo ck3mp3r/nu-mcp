@@ -88,7 +88,6 @@ DESTRUCTIVE OPERATION - ALWAYS ASK USER FOR EXPLICIT CONFIRMATION BEFORE EXECUTI
 ```
 
 **Tools with destructive capabilities:**
-- **c5t**: `delete_task`, `delete_task_list`, `delete_note`, `import_data` (replaces all data)
 - **gh**: `delete_release` (deletes release + binaries), `close_pr` with `delete_branch`
 - **k8s**: `kube_delete`, `helm_uninstall`, `kube_cleanup`, `kube_scale` (to 0)
 - **ArgoCD**: `delete_application`, `sync_application` with `prune: true`
