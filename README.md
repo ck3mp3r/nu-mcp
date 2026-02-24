@@ -34,11 +34,8 @@ Combine both core command execution and extension tools.
 
 The `tools/` directory contains a growing catalog of useful MCP tools:
 
-- **c5t** (`tools/c5t/`) - **[EXPERIMENTAL]** Context/memory management across LLM sessions with git-backed sync
 - **Kubernetes** (`tools/k8s/`) - Complete kubectl/Helm interface with 22 tools and three-tier safety model
 - **ArgoCD** (`tools/argocd/`) - ArgoCD application and resource management via HTTP API
-- **Weather** (`tools/weather/`) - Current weather and forecasts using Open-Meteo API
-- **Finance** (`tools/finance/`) - Stock prices and financial data using Yahoo Finance API
 - **Tmux** (`tools/tmux/`) - Tmux session and pane management with intelligent command execution
 - **Context7** (`tools/c67/`) - Up-to-date library documentation and code examples from Context7
 
