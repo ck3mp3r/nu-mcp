@@ -11,7 +11,7 @@
     nu tools/run_all_tests.nu
   '';
 in
-  pkgs.mkShell {
+  pkgs.mkShellNoCC {
     name = "nu-mcp-ci";
 
     buildInputs = [

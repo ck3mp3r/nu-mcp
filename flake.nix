@@ -7,10 +7,6 @@
       url = "github:hercules-ci/flake-parts";
       inputs.nixpkgs-lib.follows = "nixpkgs";
     };
-    devenv = {
-      url = "github:cachix/devenv";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     fenix = {
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -49,7 +45,7 @@
         ];
         pkgs = import inputs.nixpkgs {inherit system overlays;};
 
-        cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+        cargoToml = fromTOML (builtins.readFile ./Cargo.toml);
         cargoLock = {lockFile = ./Cargo.lock;};
 
         # Helper function to create tool packages
@@ -161,11 +157,9 @@
           // toolPackages;
 
         devShells = {
-          default = inputs.devenv.lib.mkShell {
-            inherit inputs pkgs;
-            modules = [
-              ./nix/devenv.nix
-            ];
+          # Regular shell for development - loaded from devenv.nix module
+          default = import ./nix/dev.nix {
+            inherit inputs pkgs system;
           };
 
           # Classic shell for CI - just toolchains, no devenv
