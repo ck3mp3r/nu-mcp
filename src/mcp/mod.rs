@@ -18,7 +18,7 @@ use crate::{
     tools::{NushellToolExecutor, ToolExecutor, discover_tools},
 };
 
-const RUN_NUSHELL_DESCRIPTION: &str = include_str!("../../docs/run_nushell_description.txt");
+const RUN_DESCRIPTION: &str = include_str!("../../docs/run_description.txt");
 
 #[derive(Clone)]
 pub struct NushellTool<C = NushellExecutor, T = NushellToolExecutor>
@@ -84,6 +84,7 @@ where
                 title: Some("Nu MCP Server".to_string()),
                 website_url: Some("https://github.com/ck3mp3r/nu-mcp".to_string()),
                 icons: None,
+                description: None,
             },
             instructions: Some(instructions),
         }
@@ -91,7 +92,7 @@ where
 
     async fn list_tools(
         &self,
-        _request: Option<PaginatedRequestParam>,
+        _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
         let mut tools = Vec::new();
@@ -101,16 +102,16 @@ where
             tools.push(extension.tool_definition.clone());
         }
 
-        // Add run_nushell tool based on configuration:
+        // Add run tool based on configuration:
         // - If no tools directory: include by default
         // - If tools directory exists: only include if explicitly enabled
-        let should_include_run_nushell = match &self.router.config.tools_dir {
-            None => true, // No tools dir = include run_nushell by default
-            Some(_) => self.router.config.enable_run_nushell, // Tools dir exists = only if explicitly enabled
+        let should_include_run = match &self.router.config.tools_dir {
+            None => true,                                // No tools dir = include run by default
+            Some(_) => self.router.config.enable_run_nu, // Tools dir exists = only if explicitly enabled
         };
 
-        if should_include_run_nushell {
-            // Create the input schema for run_nushell tool
+        if should_include_run {
+            // Create the input schema for run tool
             let mut schema = Map::new();
             schema.insert("type".to_string(), Value::String("object".to_string()));
 
@@ -171,10 +172,10 @@ where
                 note
             };
 
-            let description = format!("{}{}", RUN_NUSHELL_DESCRIPTION, sandbox_note);
+            let description = format!("{}{}", RUN_DESCRIPTION, sandbox_note);
 
             tools.push(Tool {
-                name: "run_nushell".into(),
+                name: "run".into(),
                 description: Some(description.into()),
                 input_schema: Arc::new(schema),
                 annotations: None,
@@ -182,6 +183,7 @@ where
                 output_schema: None,
                 icons: None,
                 meta: None,
+                execution: None,
             });
         }
 
@@ -194,7 +196,7 @@ where
 
     async fn call_tool(
         &self,
-        request: CallToolRequestParam,
+        request: CallToolRequestParams,
         _context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, ErrorData> {
         self.router.route_call(request).await

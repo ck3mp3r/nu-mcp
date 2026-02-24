@@ -107,6 +107,7 @@ async fn discover_tools_from_module(module_path: &Path) -> Result<Vec<ExtensionT
             output_schema: None,
             icons: None,
             meta: None,
+            execution: None,
         };
 
         extension_tools.push(ExtensionTool {

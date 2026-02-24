@@ -24,7 +24,7 @@ nu-mcp-dev:
   command: "nu-mcp"
   args:
     - "--tools-dir=/opt/mcp-tools/dev"
-    - "--enable-run-nushell"
+    - "--enable-run-nu"
     - "--add-path=/workspace/project"
 ```
 
@@ -38,4 +38,4 @@ nu-mcp-dev:
 
 ## Important Notes
 
-The `run_nushell` tool is automatically disabled in extension mode to prevent multiple instances from providing identical generic command execution tools, which would confuse MCP clients about which instance to use.
+The `run` tool is automatically disabled in extension mode to prevent multiple instances from providing identical generic command execution tools, which would confuse MCP clients about which instance to use.

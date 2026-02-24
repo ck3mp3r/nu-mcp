@@ -82,7 +82,7 @@ mod cache_tests {
         // First call - /metrics doesn't exist, should be cached
         let result = validate_with_cache(
             "kubectl get --raw /metrics",
-            &[sandbox_dir.clone()],
+            std::slice::from_ref(&sandbox_dir),
             &mut cache,
         );
         assert!(
@@ -112,7 +112,8 @@ mod cache_tests {
 
         for endpoint in &endpoints {
             let command = format!("kubectl get --raw {}", endpoint);
-            let result = validate_with_cache(&command, &[sandbox_dir.clone()], &mut cache);
+            let result =
+                validate_with_cache(&command, std::slice::from_ref(&sandbox_dir), &mut cache);
             assert!(
                 result.is_ok(),
                 "API endpoint {} should be allowed",
@@ -160,7 +161,7 @@ mod cache_tests {
         let sandbox_path = sandbox_dir.join("test_file.txt");
         let command = format!("cat {}", sandbox_path.display());
 
-        let result = validate_with_cache(&command, &[sandbox_dir.clone()], &mut cache);
+        let result = validate_with_cache(&command, std::slice::from_ref(&sandbox_dir), &mut cache);
         assert!(result.is_ok(), "Path within sandbox should be allowed");
 
         // Verify sandbox path was NOT cached (it's in sandbox, handled by sandbox check)
@@ -180,7 +181,7 @@ mod cache_tests {
         // First command with /metrics
         validate_with_cache(
             "kubectl get --raw /metrics",
-            &[sandbox_dir.clone()],
+            std::slice::from_ref(&sandbox_dir),
             &mut cache,
         )
         .expect("First call should succeed");
@@ -188,7 +189,7 @@ mod cache_tests {
         // Different command, same path
         validate_with_cache(
             "curl http://localhost:8080/metrics",
-            &[sandbox_dir.clone()],
+            std::slice::from_ref(&sandbox_dir),
             &mut cache,
         )
         .expect("Second call with cached path should succeed");
@@ -196,7 +197,7 @@ mod cache_tests {
         // Third command, different path
         validate_with_cache(
             "kubectl get --raw /healthz",
-            &[sandbox_dir.clone()],
+            std::slice::from_ref(&sandbox_dir),
             &mut cache,
         )
         .expect("Third call with new path should succeed");
@@ -230,8 +231,12 @@ mod cache_tests {
         let mut cache = PathCache::new();
 
         // First call - validates and caches
-        validate_with_cache("api-tool /api/endpoint", &[sandbox_dir.clone()], &mut cache)
-            .expect("First call should succeed");
+        validate_with_cache(
+            "api-tool /api/endpoint",
+            std::slice::from_ref(&sandbox_dir),
+            &mut cache,
+        )
+        .expect("First call should succeed");
 
         // Manually add to cache to verify short-circuit
         cache.remember("/api/endpoint".to_string());
@@ -261,11 +266,21 @@ mod cache_tests {
         assert_eq!(cache.len(), 0, "Cache should start empty");
 
         // Add first path
-        validate_with_cache("tool /path1", &[sandbox_dir.clone()], &mut cache).ok();
+        validate_with_cache(
+            "tool /path1",
+            std::slice::from_ref(&sandbox_dir),
+            &mut cache,
+        )
+        .ok();
         assert_eq!(cache.len(), 1, "Cache should have 1 entry");
 
         // Add second path
-        validate_with_cache("tool /path2", &[sandbox_dir.clone()], &mut cache).ok();
+        validate_with_cache(
+            "tool /path2",
+            std::slice::from_ref(&sandbox_dir),
+            &mut cache,
+        )
+        .ok();
         assert_eq!(cache.len(), 2, "Cache should have 2 entries");
 
         // Same path again - size shouldn't change

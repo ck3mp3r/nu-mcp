@@ -11,7 +11,7 @@ use tokio::sync::RwLock;
 fn test_get_info_includes_sandbox_info() {
     let config = Config {
         tools_dir: None,
-        enable_run_nushell: false,
+        enable_run_nu: false,
         sandbox_directories: vec![PathBuf::from("/tmp/sandbox")],
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
@@ -29,7 +29,7 @@ fn test_get_info_includes_sandbox_info() {
 fn test_get_info_default_sandbox() {
     let config = Config {
         tools_dir: None,
-        enable_run_nushell: false,
+        enable_run_nu: false,
         sandbox_directories: vec![],
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
@@ -46,7 +46,7 @@ fn test_get_info_default_sandbox() {
 fn test_get_info_basic_fields() {
     let config = Config {
         tools_dir: None,
-        enable_run_nushell: false,
+        enable_run_nu: false,
         sandbox_directories: vec![],
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
@@ -66,7 +66,7 @@ fn test_get_info_marks_current_directory() {
     let cwd = std::env::current_dir().unwrap();
     let config = Config {
         tools_dir: None,
-        enable_run_nushell: false,
+        enable_run_nu: false,
         sandbox_directories: vec![cwd.clone(), PathBuf::from("/tmp")],
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());

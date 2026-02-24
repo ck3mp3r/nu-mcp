@@ -3,8 +3,11 @@ use crate::config::Config;
 use crate::execution::{CommandExecutor, NushellExecutor};
 use crate::security::{PathCache, validate_path_safety_with_cache};
 use crate::tools::{ExtensionTool, NushellToolExecutor, ToolExecutor};
-use rmcp::model::{CallToolRequestParam, CallToolResult, ErrorData};
-use rmcp::serde_json;
+use rmcp::model::CallToolRequestParams;
+use rmcp::{
+    model::{CallToolResult, ErrorData},
+    serde_json,
+};
 use std::{env, path::PathBuf, sync::Arc};
 use tokio::sync::RwLock;
 
@@ -45,18 +48,18 @@ where
 
     pub async fn route_call(
         &self,
-        request: CallToolRequestParam,
+        request: CallToolRequestParams,
     ) -> Result<CallToolResult, ErrorData> {
         let tool_name = request.name.clone();
         match tool_name.as_ref() {
-            "run_nushell" => self.handle_run_nushell(request).await,
+            "run" => self.handle_run(request).await,
             tool_name => self.handle_extension_tool(request, tool_name).await,
         }
     }
 
-    async fn handle_run_nushell(
+    async fn handle_run(
         &self,
-        request: CallToolRequestParam,
+        request: CallToolRequestParams,
     ) -> Result<CallToolResult, ErrorData> {
         let args = request.arguments.as_ref();
 
@@ -96,7 +99,7 @@ where
 
     async fn handle_extension_tool(
         &self,
-        request: CallToolRequestParam,
+        request: CallToolRequestParams,
         tool_name: &str,
     ) -> Result<CallToolResult, ErrorData> {
         // Look for extension tool

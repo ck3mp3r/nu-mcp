@@ -22,7 +22,7 @@ async fn main() -> Result<()> {
 
     let config = Config {
         tools_dir: cli.tools_dir,
-        enable_run_nushell: cli.enable_run_nushell,
+        enable_run_nu: cli.enable_run_nu,
         sandbox_directories,
     };
 

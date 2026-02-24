@@ -3,8 +3,8 @@
 ## Command-Line Options
 
 ### Extension System
-- `--tools-dir=PATH` - Load tools from directory. **Note:** Disables `run_nushell` by default to avoid conflicts in multi-instance setups.
-- `--enable-run-nushell` - Re-enable `run_nushell` when using `--tools-dir` (hybrid mode).
+- `--tools-dir=PATH` - Load tools from directory. **Note:** Disables `run` by default to avoid conflicts in multi-instance setups.
+- `--enable-run-nu` - Re-enable `run` when using `--tools-dir` (hybrid mode).
 
 ### Security
 - `--add-path=PATH` - Grant access to additional paths beyond current directory (can be used multiple times).
@@ -13,7 +13,7 @@
 
 ### Timeout
 - `MCP_NU_MCP_TIMEOUT` - Default timeout in seconds for all tools (default: 60)
-- Can be overridden per-call with `timeout_seconds` parameter on `run_nushell` tool
+- Can be overridden per-call with `timeout_seconds` parameter on `run` tool
 
 **Example:**
 ```yaml
@@ -48,7 +48,7 @@ nu-mcp-hybrid:
   command: "nu-mcp"
   args:
     - "--tools-dir=/path/to/tools"
-    - "--enable-run-nushell"
+    - "--enable-run-nu"
 ```
 
 ### With Additional Paths
