@@ -1,8 +1,12 @@
 Execute Nushell commands and return output.
 
+CRITICAL - Nushell Syntax Only:
+- Use Nushell syntax ONLY (NOT bash/sh/zsh)
+- ❌ NEVER use: `2>&1`, `/dev/null`, `||`, `&&` (shell operators don't exist in Nushell)
+- ✅ Use: `| complete` (capture both stdout+stderr), `try { } catch { }` (error handling)
+- See AGENTS.md#Personal-Rules for Nushell bash-to-nu conversion table
+
 IMPORTANT:
-- ONLY use Nushell syntax (NOT bash/sh/zsh)
-- If unfamiliar with Nushell, use Context7 to research syntax and commands
 - Commands run in a sandbox directory
 - Use RELATIVE paths only (./file.txt, subdir/file.txt, .)
 - Absolute paths are BLOCKED (e.g., /etc/passwd, /tmp/file)
