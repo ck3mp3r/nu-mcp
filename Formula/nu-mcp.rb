@@ -1,14 +1,14 @@
 class NuMcp < Formula
   desc "nu-mcp - Model Context Protocol (MCP) Server for Nushell"
   homepage "https://github.com/ck3mp3r/nu-mcp"
-  version "0.5.0"
+  version "0.6.0"
 
   depends_on "nushell"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/ck3mp3r/nu-mcp/releases/download/v0.5.0/nu-mcp-0.5.0-aarch64-darwin.tgz"
-      sha256 "de6fe94e465fc5af452017db0144a40542cdf992ebf3ddaf2518a56e1fddfa7f"
+      url "https://github.com/ck3mp3r/nu-mcp/releases/download/v0.6.0/nu-mcp-0.6.0-aarch64-darwin.tgz"
+      sha256 "70d20b0c3bd994d49afd7bc681ad7736f80dbb0a4d89711db65fcf35324c8ee0"
     else
       odie "Intel Macs are no longer supported. Please use an Apple Silicon Mac."
     end
@@ -16,11 +16,11 @@ class NuMcp < Formula
 
   on_linux do
     if Hardware::CPU.intel?
-      url "https://github.com/ck3mp3r/nu-mcp/releases/download/v0.5.0/nu-mcp-0.5.0-x86_64-linux.tgz"
-      sha256 "dd8d40e08af304fdf43d8ce4eafea31f78b8b5d70f5312249e2f2b77c5466502"
+      url "https://github.com/ck3mp3r/nu-mcp/releases/download/v0.6.0/nu-mcp-0.6.0-x86_64-linux.tgz"
+      sha256 "5e2b305cc26cbfecf84ed336d00f61a546558bcbca414ecff358189c4c4bdbe6"
     elsif Hardware::CPU.arm?
-      url "https://github.com/ck3mp3r/nu-mcp/releases/download/v0.5.0/nu-mcp-0.5.0-aarch64-linux.tgz"
-      sha256 "d95ab2b517b286f034bcfa05b42b13140f5f19910f9590ce25244a3dd68eb571"
+      url "https://github.com/ck3mp3r/nu-mcp/releases/download/v0.6.0/nu-mcp-0.6.0-aarch64-linux.tgz"
+      sha256 "6f3441ea335f6860e7d0807bcbcd584e750a6ff58dd66f7ef557d44e5bdb4068"
     end
   end
 
