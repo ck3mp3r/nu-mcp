@@ -1,6 +1,7 @@
 # Context7 API interaction module
 # Handles API requests to Context7 service
 
+use http-client.nu [http-get]
 use utils.nu [
   validate_search_response
   validate_documentation_response
@@ -37,7 +38,7 @@ export def search_libraries [
     let url = $"($CONTEXT7_API_BASE_URL)/v1/search?query=($query | url encode)"
     let headers = generate_headers $api_key
 
-    let response = http get --headers $headers $url
+    let response = http-get $url $headers
 
     # Validate response structure
     let validation = validate_search_response $response
@@ -97,7 +98,7 @@ export def fetch_library_documentation [
 
     let headers = generate_headers $api_key | insert "X-Context7-Source" "mcp-server"
 
-    let response = http get --headers $headers $url
+    let response = http-get $url $headers
 
     # Check if response is empty or contains error indicators
     let is_invalid = (
