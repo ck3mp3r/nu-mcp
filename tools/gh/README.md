@@ -174,10 +174,10 @@ This makes it safe to call repeatedly - it won't create duplicate PRs.
 **`merge_pr`** - Merge a pull request ⚠️ **IRREVERSIBLE - REQUIRES EXPLICIT CONFIRMATION**
 - `number` (required): PR number to merge
 - `confirm_merge` (required): **MUST be `true`** - safety flag to prevent accidental merges
-- `squash` (optional): Squash commits (default strategy if none specified)
-- `merge` (optional): Create merge commit
-- `rebase` (optional): Rebase and merge
-- `delete_branch` (optional): Delete branch after merge (default: false)
+- `squash` (optional): Squash commits (default: **true**)
+- `merge` (optional): Create merge commit (set to true to override default squash)
+- `rebase` (optional): Rebase and merge (set to true to override default squash)
+- `delete_branch` (optional): Delete branch after merge (default: **true**)
 - `auto` (optional): Enable auto-merge when requirements met (default: false)
 - `path` (optional): Path to git repository
 
@@ -188,7 +188,7 @@ This operation is **IRREVERSIBLE** and requires explicit user permission:
 1. **ALWAYS ask the user first** before calling `merge_pr`
 2. **MUST set `confirm_merge: true`** - the tool will fail without this
 3. The merge **CANNOT be undone** once completed
-4. Default merge strategy is **squash** (use `merge: true` or `rebase: true` for alternatives)
+4. Default merge strategy is **squash with branch deletion** (use `merge: true` or `rebase: true` for alternative strategies, or `delete_branch: false` to keep the branch)
 
 **Example workflow:**
 ```
