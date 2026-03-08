@@ -85,7 +85,9 @@ def resolve_library_id [
   let api_key = $env.CONTEXT7_API_KEY? | default ""
 
   # Search for libraries using the API
-  let search_result = search_libraries $library_name $api_key
+  # v2 API: libraryName is what we search, query is for ranking context
+  let query = $"($library_name) library documentation"
+  let search_result = search_libraries $library_name $query $api_key
 
   if not $search_result.success {
     return (format_error $search_result.error)
@@ -98,17 +100,18 @@ def resolve_library_id [
 # Get library documentation using Context7-compatible library ID
 def get_library_docs [
   library_id: string # Context7-compatible library ID
-  topic: string = "" # Optional topic to focus on
-  tokens: int = 5000 # Maximum tokens to retrieve
+  topic: string = "" # Topic or query for documentation
+  tokens: int = 5000 # Ignored in v2 API (kept for backward compatibility)
 ] {
-  # Ensure minimum tokens using idiomatic comparison
-  let actual_tokens = if $tokens < 1000 { 1000 } else { $tokens }
-
   # Get API key from environment if available
   let api_key = $env.CONTEXT7_API_KEY? | default ""
 
+  # v2 API: use topic as query parameter (same purpose, renamed)
+  # If no topic provided, use generic query
+  let query = if ($topic | is-empty) { "library documentation" } else { $topic }
+
   # Fetch documentation using the API
-  let doc_result = fetch_library_documentation $library_id $topic $actual_tokens $api_key
+  let doc_result = fetch_library_documentation $library_id $query $api_key
 
   if not $doc_result.success {
     return (format_error $doc_result.error)
