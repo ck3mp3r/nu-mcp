@@ -31,11 +31,13 @@ export def generate_headers [
 
 # Search for libraries matching the given query
 export def search_libraries [
-  query: string # Search query for libraries
+  library_name: string # Library name to search for
+  query: string # User's original question/task for intelligent ranking
   api_key: string = "" # Optional API key for authentication
 ] {
   try {
-    let url = $"($CONTEXT7_API_BASE_URL)/v1/search?query=($query | url encode)"
+    # v2 endpoint - requires both libraryName and query parameters
+    let url = $"($CONTEXT7_API_BASE_URL)/v2/libs/search?libraryName=($library_name | url encode)&query=($query | url encode)"
     let headers = generate_headers $api_key
 
     let response = http-get $url $headers
