@@ -80,7 +80,7 @@ def "main call-tool" [
 # Resolve library name to Context7-compatible library ID
 def resolve_library_id [
   library_name: string # Name of library to search for
-]: nothing -> string {
+] {
   # Get API key from environment if available
   let api_key = $env.CONTEXT7_API_KEY? | default ""
 
@@ -100,7 +100,7 @@ def get_library_docs [
   library_id: string # Context7-compatible library ID
   topic: string = "" # Optional topic to focus on
   tokens: int = 5000 # Maximum tokens to retrieve
-]: nothing -> string {
+] {
   # Ensure minimum tokens using idiomatic comparison
   let actual_tokens = if $tokens < 1000 { 1000 } else { $tokens }
 

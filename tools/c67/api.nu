@@ -15,7 +15,7 @@ const DEFAULT_TYPE = "txt"
 # Generate headers for API requests
 export def generate_headers [
   api_key: string = "" # API key for authentication
-]: nothing -> record {
+] {
   let base_headers = {
     "Content-Type": "application/json"
     "User-Agent": "nu-mcp-context7/1.0"
@@ -32,7 +32,7 @@ export def generate_headers [
 export def search_libraries [
   query: string # Search query for libraries
   api_key: string = "" # Optional API key for authentication
-]: nothing -> record {
+] {
   try {
     let url = $"($CONTEXT7_API_BASE_URL)/v1/search?query=($query | url encode)"
     let headers = generate_headers $api_key
@@ -80,7 +80,7 @@ export def fetch_library_documentation [
   topic: string = "" # Optional topic to focus on
   tokens: int = 5000 # Maximum tokens to retrieve
   api_key: string = "" # Optional API key for authentication
-]: nothing -> record {
+] {
   try {
     # Remove leading slash if present
     let clean_id = $library_id | str trim --left --char '/'

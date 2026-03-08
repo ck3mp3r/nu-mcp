@@ -98,8 +98,8 @@ export def get_market_trend [change_percent: float] {
 # Validate that required numeric fields are present and valid
 export def validate_numeric_data [data: record required_fields: list] {
   let missing_fields = $required_fields | where {|field|
-    $field not-in $data or ($data | get $field | describe) != "float"
-  }
+      $field not-in $data or ($data | get $field | describe) != "float"
+    }
 
   if ($missing_fields | length) > 0 {
     {

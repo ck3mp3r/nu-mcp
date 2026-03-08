@@ -130,8 +130,8 @@ def try-secret [
 
     # Decode base64 values
     let decoded = $secret_data
-    | items {|k v| {$k: ($v | decode base64 | decode utf-8 | str trim)} }
-    | into record
+      | items {|k v| {$k: ($v | decode base64 | decode utf-8 | str trim)} }
+      | into record
 
     # Apply transform
     do $transform $decoded

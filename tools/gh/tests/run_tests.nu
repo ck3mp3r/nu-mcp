@@ -12,12 +12,19 @@ def main [] {
     exit 1
   }
 
-  # Get NU_LIB_DIRS from environment for nu-mock support
-  # Note: NU_LIB_DIRS from shell env is a string, convert to what nu expects
+  # Get NU_LIB_DIRS from environment for nu-mimic support
+  # Filter out non-existent paths to avoid --include-path errors
   let nu_lib_dirs = if "NU_LIB_DIRS" in $env {
-    $env.NU_LIB_DIRS # Will be a string from shell env
+    $env.NU_LIB_DIRS | where { |path| $path | path exists }
   } else {
-    null
+    []
+  }
+  
+  # Debug: Show library paths being used
+  if ($nu_lib_dirs | is-not-empty) {
+    print $"Using library paths: ($nu_lib_dirs | str join ', ')\n"
+  } else {
+    print "No library paths available (NU_LIB_DIRS not set or all paths invalid)\n"
   }
 
   # Discover all test files
@@ -44,8 +51,8 @@ scope commands
   | to json"
 
       # Run discovery - capture both stdout and stderr
-      let discovery_result = if $nu_lib_dirs != null {
-        do { nu --no-config-file --include-path $nu_lib_dirs -c $discover_script } | complete
+      let discovery_result = if ($nu_lib_dirs | is-not-empty) {
+        do { nu --no-config-file --include-path ...$nu_lib_dirs -c $discover_script } | complete
       } else {
         do { nu --no-config-file -c $discover_script } | complete
       }
@@ -62,8 +69,8 @@ scope commands
 
         # Run each test
         $test_commands | each {|test_name|
-          let test_result = if $nu_lib_dirs != null {
-            do { nu --no-config-file --include-path $nu_lib_dirs -c $"source ($test_file); ($test_name)" } | complete
+          let test_result = if ($nu_lib_dirs | is-not-empty) {
+            do { nu --no-config-file --include-path ...$nu_lib_dirs -c $"source ($test_file); ($test_name)" } | complete
           } else {
             do { nu --no-config-file -c $"source ($test_file); ($test_name)" } | complete
           }
