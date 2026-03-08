@@ -33,7 +33,15 @@ def main [] {
     print $"=== Running ($tool_name) tests ==="
 
     # Run the test suite and let output stream naturally
-    ^nu $runner
+    # Convert NU_LIB_DIRS list back to colon-separated string for child process
+    if "NU_LIB_DIRS" in $env {
+      let lib_dirs_str = $env.NU_LIB_DIRS | path expand | str join ':'
+      with-env { NU_LIB_DIRS: $lib_dirs_str } {
+        ^nu $runner
+      }
+    } else {
+      ^nu $runner
+    }
 
     # Capture exit code
     let exit_code = $env.LAST_EXIT_CODE

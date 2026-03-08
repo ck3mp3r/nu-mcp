@@ -229,19 +229,19 @@ export def list-api-resources [
   # Parse the wide output into structured data if JSON requested
   if $output == "json" {
     let resources = $result
-    | lines
-    | skip 1 # Skip header
-    | each {|line|
-      let parts = $line | split row --regex '\s+'
-      {
-        name: ($parts | get 0)
-        shortnames: ($parts | get 1)
-        apiversion: ($parts | get 2)
-        namespaced: ($parts | get 3)
-        kind: ($parts | get 4)
-        verbs: (if ($parts | length) > 5 { $parts | get 5 } else { "" })
+      | lines
+      | skip 1 # Skip header
+      | each {|line|
+        let parts = $line | split row --regex '\s+'
+        {
+          name: ($parts | get 0)
+          shortnames: ($parts | get 1)
+          apiversion: ($parts | get 2)
+          namespaced: ($parts | get 3)
+          kind: ($parts | get 4)
+          verbs: (if ($parts | length) > 5 { $parts | get 5 } else { "" })
+        }
       }
-    }
 
     format-tool-response {
       apiGroup: $api_group

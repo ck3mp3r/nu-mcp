@@ -157,14 +157,14 @@ export def "to toon" [] {
       # Check if table is uniform (all rows have same keys)
       let first_keys = $input | first | columns | sort
       let is_uniform = $input | all {|row|
-        ($row | columns | sort) == $first_keys
-      }
+          ($row | columns | sort) == $first_keys
+        }
 
       if $is_uniform {
         # Additional check: all values must be primitives for tabular format
         let all_primitive = $input | all {|row|
-          are-all-values-primitive $row
-        }
+            are-all-values-primitive $row
+          }
 
         if $all_primitive {
           # Tabular format: [N]{fields}: row,row,row
@@ -173,12 +173,12 @@ export def "to toon" [] {
           let fields = $first_keys | str join ','
           let header = $"[($count)]{($fields)}:"
           let rows = $input | each {|row|
-            "  " + (
-              $first_keys | each {|key|
-                format-primitive ($row | get $key)
-              } | str join ','
-            )
-          } | str join (char newline)
+              "  " + (
+                $first_keys | each {|key|
+                  format-primitive ($row | get $key)
+                } | str join ','
+              )
+            } | str join (char newline)
           $header + (char newline) + $rows
         } else {
           # Has nested structures - use list format

@@ -3,7 +3,7 @@
 # Validate library ID format
 export def validate_library_id [
   library_id: string # Library ID to validate
-]: nothing -> record {
+] {
   # Context7 IDs should be in format: /org/project or /org/project/version
   if not ($library_id | str starts-with "/") {
     return {
@@ -29,7 +29,7 @@ export def validate_library_id [
 }
 
 # URL encode a string for query parameters
-export def url_encode []: string -> string {
+export def url_encode [] {
   # Assign input to descriptive variable (best practice)
   let text = $in
 
@@ -60,7 +60,7 @@ export def url_encode []: string -> string {
 # Extract HTTP status code from error message
 export def extract_http_status [
   error_msg: string # Error message to parse
-]: nothing -> int {
+] {
   # Try to extract HTTP status codes from common error message patterns
   match $error_msg {
     $msg if ($msg | str contains "400") => 400
@@ -81,7 +81,7 @@ export def extract_http_status [
 export def get_search_error_message [
   status_code: int # HTTP status code
   api_key: string = "" # API key for context
-]: nothing -> string {
+] {
   match $status_code {
     400 => "Bad request. The library name query parameter may be invalid or malformed."
     401 => $"Unauthorized. Please check your API key. The API key you provided is: ($api_key). API keys should start with 'ctx7sk'"
@@ -107,7 +107,7 @@ export def get_search_error_message [
 export def get_docs_error_message [
   status_code: int # HTTP status code
   api_key: string = "" # API key for context
-]: nothing -> string {
+] {
   match $status_code {
     400 => "Bad request. The library ID, topic, or tokens parameter may be invalid."
     401 => $"Unauthorized. Please check your API key. The API key you provided is: ($api_key). API keys should start with 'ctx7sk'"
@@ -132,7 +132,7 @@ export def get_docs_error_message [
 # Parse tokens parameter ensuring minimum value
 export def parse_tokens [
   tokens: any # Token value to parse (can be int, string, or other)
-]: nothing -> int {
+] {
   let value = match ($tokens | describe) {
     "int" => $tokens
     "string" => ($tokens | into int)
@@ -146,7 +146,7 @@ export def parse_tokens [
 # Validate search response structure
 export def validate_search_response [
   response: any # Response from search API to validate
-]: nothing -> record {
+] {
   # Check if response is a record
   let response_type = $response | describe
   if not ($response_type | str contains "record") {
@@ -203,7 +203,7 @@ export def validate_search_response [
 # Validate documentation response
 export def validate_documentation_response [
   response: any # Response from documentation API to validate
-]: nothing -> record {
+] {
   # Check if response is a string
   let response_type = $response | describe
   if ($response_type != "string") {

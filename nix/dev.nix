@@ -15,7 +15,6 @@ in
       fenix.stable.toolchain
       pkgs.nushell
       pkgs.cargo-tarpaulin
-      pkgs.topiary
       pkgs.topiary-nu
       pkgs.argocd
       nuMods

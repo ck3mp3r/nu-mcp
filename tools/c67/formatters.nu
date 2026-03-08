@@ -3,7 +3,7 @@
 # Format a single search result
 export def format_search_result [
   result: record # Search result to format
-]: nothing -> string {
+] {
   # Build base information (always present)
   let base_info = [
     $"- Title: ($result.title)"
@@ -57,7 +57,7 @@ export def format_search_result [
 # Format search results response
 export def format_search_results [
   search_response: record # Response from search API
-]: nothing -> string {
+] {
   # Assign to descriptive variable (best practice)
   let results = $search_response.results? | default []
 
@@ -67,8 +67,8 @@ export def format_search_results [
 
   # Format all results using pipeline
   let results_text = $results
-  | each {|result| format_search_result $result }
-  | str join "\n----------\n"
+    | each {|result| format_search_result $result }
+    | str join "\n----------\n"
 
   let header = "Available Libraries (top matches):
 
@@ -94,6 +94,6 @@ For best results, select libraries based on name match, source reputation, bench
 # Format error messages
 export def format_error [
   error_msg: string # Error message to format
-]: nothing -> string {
+] {
   $"❌ Error: ($error_msg)"
 }
