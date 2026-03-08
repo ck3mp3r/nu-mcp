@@ -11,9 +11,8 @@ Comprehensive tmux session management and control tool for the `nu-mcp` server. 
 - `create_session` - Create new tmux sessions with ownership tracking
 
 **Command Execution:**
-- `send_and_capture` - **PREFERRED**: Send commands and capture output (interactive)
-- `send_command` - Send commands without waiting for output (fire-and-forget)
-- `capture_pane` - Capture current visible content (static snapshot)
+- `send_and_capture` - Start executing a new command and capture initial output
+- `capture_pane` - Check on already-running commands (use repeatedly to monitor progress)
 
 **Pane Discovery:**
 - `find_pane_by_name` - Find panes by exact name
@@ -32,7 +31,7 @@ Comprehensive tmux session management and control tool for the `nu-mcp` server. 
 
 ### Key Features
 
-- **Intelligent command execution**: `send_and_capture` with exponential back-off polling
+- **Iterative command monitoring**: Start with `send_and_capture`, follow with `capture_pane` calls
 - **LLM-optimized tool selection**: Clear naming patterns guide AI assistants to the right tool
 - **Context-aware pane finding**: Find panes by name, directory, or process (e.g., "docs", "build")
 - **Structured table output**: All results formatted for easy reading
@@ -40,20 +39,30 @@ Comprehensive tmux session management and control tool for the `nu-mcp` server. 
 
 ### Tool Selection Guide
 
-**For interactive commands that need output** (builds, tests, git status):
+**Workflow for executing commands:**
 ```
-send_and_capture - Automatically handles timing and captures results
+1. send_and_capture - START a new command (e.g., 'cargo build')
+   - Sends command and waits briefly for initial output
+   
+2. capture_pane - CHECK progress on the running command
+   - Call repeatedly to monitor long-running processes
+   - Continue until command completes or you see the output you need
 ```
 
-**For fire-and-forget commands** (starting processes, background tasks):
+**Example for long-running command:**
 ```
-send_command - Returns immediately without waiting
+send_and_capture "cargo build"  -> Starts build, captures first output
+(build is still running)
+capture_pane                    -> Check current progress
+(still building)
+capture_pane                    -> Check again
+(build complete)
 ```
 
-**For viewing current pane content** (checking status, reading logs):
-```
-capture_pane - Static snapshot of what's currently displayed
-```
+**DO NOT:**
+- Use send_and_capture with echo/dummy commands to check status
+- Use send_and_capture repeatedly for the same command
+- Always use capture_pane to check on already-running commands
 
 ## Installation
 
@@ -103,9 +112,8 @@ nu-mcp-tmux:
 - Monitor session status and attachment state
 
 **Command Execution:**
-- **Interactive commands**: `send_and_capture` with smart polling for builds, tests, git operations
-- **Background tasks**: `send_command` for fire-and-forget process starting
-- **Content viewing**: `capture_pane` for reading logs or current terminal state
+- **Start commands**: `send_and_capture` - Execute new commands (builds, tests, git operations)
+- **Monitor progress**: `capture_pane` - Check on running commands iteratively until complete
 
 **Intelligent Pane Discovery:**
 - Find panes by exact name match
