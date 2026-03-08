@@ -233,7 +233,7 @@ def "main list-tools" [] {
           }
           delete_branch: {
             type: "boolean"
-            description: "Delete the local and remote branch after close (optional, default: false)"
+            description: "Delete the local and remote branch after close (optional, default: false). When true, automatically handles all cleanup - no manual git commands needed."
           }
           path: {
             type: "string"
@@ -293,7 +293,7 @@ def "main list-tools" [] {
           }
           delete_branch: {
             type: "boolean"
-            description: "Delete the local and remote branch after merge (optional, default: true)"
+            description: "Delete the local and remote branch after merge (optional, default: true). When true, automatically handles all cleanup - no manual git commands needed."
           }
           auto: {
             type: "boolean"
