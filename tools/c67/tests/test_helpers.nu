@@ -16,7 +16,7 @@ export def sample-v2-search-response [] {
         stars: 220000
         trustScore: 10
         benchmarkScore: 98.5
-        versions: ["v18.2.0", "v17.0.2"]
+        versions: ["v18.2.0" "v17.0.2"]
       }
     ]
   }
@@ -38,4 +38,3 @@ function Counter() {
 }
 ```"
 }
-

@@ -1,7 +1,7 @@
 # Context7 API interaction module
 # Handles API requests to Context7 service
 
-use http-client.nu [http-get]
+use http-client.nu [ http-get ]
 use utils.nu [
   validate_search_response
   validate_documentation_response

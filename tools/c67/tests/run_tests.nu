@@ -12,7 +12,7 @@ def main [] {
   # Get NU_LIB_DIRS from environment for nu-mimic support
   # Filter out non-existent paths to avoid --include-path errors
   let nu_lib_dirs = if "NU_LIB_DIRS" in $env {
-    $env.NU_LIB_DIRS | where { |path| $path | path exists }
+    $env.NU_LIB_DIRS | where {|path| $path | path exists }
   } else {
     []
   }
