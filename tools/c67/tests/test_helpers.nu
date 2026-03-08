@@ -21,3 +21,21 @@ export def sample-v2-search-response [] {
     ]
   }
 }
+
+# Sample v2 context response
+export def sample-v2-context-response [] {
+  "### React Hooks
+
+React Hooks let you use state and other React features without writing a class.
+
+Example:
+```jsx
+import { useState } from 'react';
+
+function Counter() {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount(count + 1)}>{count}</button>;
+}
+```"
+}
+

@@ -80,23 +80,15 @@ export def search_libraries [
 # Fetch documentation for a specific library
 export def fetch_library_documentation [
   library_id: string # Context7-compatible library ID
-  topic: string = "" # Optional topic to focus on
-  tokens: int = 5000 # Maximum tokens to retrieve
+  query: string # User's question/task for intelligent ranking
   api_key: string = "" # Optional API key for authentication
 ] {
   try {
     # Remove leading slash if present
     let clean_id = $library_id | str trim --left --char '/'
 
-    # Build base URL with required parameters
-    let base_url = $"($CONTEXT7_API_BASE_URL)/v1/($clean_id)?tokens=($tokens)&type=($DEFAULT_TYPE)"
-
-    # Add optional topic parameter using pipeline idiom
-    let url = if ($topic | is-empty) {
-      $base_url
-    } else {
-      $"($base_url)&topic=($topic | url encode)"
-    }
+    # v2 endpoint - libraryId as query param, query is required
+    let url = $"($CONTEXT7_API_BASE_URL)/v2/context?libraryId=($clean_id | url encode)&query=($query | url encode)&type=($DEFAULT_TYPE)"
 
     let headers = generate_headers $api_key | insert "X-Context7-Source" "mcp-server"
 
