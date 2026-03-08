@@ -1,13 +1,10 @@
-#!/usr/bin/env nu
-
-# Test runner for GitHub tool
-# Must be run from project root directory
+# Test runner for c67 tool
 
 def main [] {
-  print "Running GitHub tool tests...\n"
+  print "Running c67 tool tests...\n"
 
   # Verify we're in the project root
-  if not ("tools/gh/mod.nu" | path exists) {
+  if not ("tools/c67/mod.nu" | path exists) {
     print "Error: Must run from project root directory"
     exit 1
   }
@@ -20,18 +17,11 @@ def main [] {
     []
   }
 
-  # Debug: Show library paths being used
-  if ($nu_lib_dirs | is-not-empty) {
-    print $"Using library paths: ($nu_lib_dirs | str join ', ')\n"
-  } else {
-    print "No library paths available (NU_LIB_DIRS not set or all paths invalid)\n"
-  }
-
   # Discover all test files
-  let test_files = glob tools/gh/tests/test_*.nu
+  let test_files = glob tools/c67/tests/test_*.nu
 
   if ($test_files | is-empty) {
-    print "No test files found (looking for tools/gh/tests/test_*.nu)"
+    print "No test files found (looking for tools/c67/tests/test_*.nu)"
     exit 0
   }
 
@@ -50,7 +40,7 @@ scope commands
   | get name 
   | to json"
 
-      # Run discovery - capture both stdout and stderr
+      # Run discovery
       let discovery_result = if ($nu_lib_dirs | is-not-empty) {
         do { nu --no-config-file --include-path ...$nu_lib_dirs -c $discover_script } | complete
       } else {
@@ -60,11 +50,9 @@ scope commands
       if $discovery_result.exit_code != 0 {
         print $"ERROR: Failed to parse test file!"
         print $discovery_result.stderr
-        # Return a failure record for the parse error
         [{file: $test_file test: "PARSE_ERROR" status: "fail" error: $"Parse error in ($test_file)"}]
       } else {
         let test_commands = ($discovery_result.stdout | from json)
-
         print $"Found ($test_commands | length) tests\n"
 
         # Run each test

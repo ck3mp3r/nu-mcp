@@ -1,6 +1,7 @@
 # Context7 API interaction module
 # Handles API requests to Context7 service
 
+use http-client.nu [ http-get ]
 use utils.nu [
   validate_search_response
   validate_documentation_response
@@ -30,14 +31,16 @@ export def generate_headers [
 
 # Search for libraries matching the given query
 export def search_libraries [
-  query: string # Search query for libraries
+  library_name: string # Library name to search for
+  query: string # User's original question/task for intelligent ranking
   api_key: string = "" # Optional API key for authentication
 ] {
   try {
-    let url = $"($CONTEXT7_API_BASE_URL)/v1/search?query=($query | url encode)"
+    # v2 endpoint - requires both libraryName and query parameters
+    let url = $"($CONTEXT7_API_BASE_URL)/v2/libs/search?libraryName=($library_name | url encode)&query=($query | url encode)"
     let headers = generate_headers $api_key
 
-    let response = http get --headers $headers $url
+    let response = http-get $url $headers
 
     # Validate response structure
     let validation = validate_search_response $response
@@ -77,27 +80,19 @@ export def search_libraries [
 # Fetch documentation for a specific library
 export def fetch_library_documentation [
   library_id: string # Context7-compatible library ID
-  topic: string = "" # Optional topic to focus on
-  tokens: int = 5000 # Maximum tokens to retrieve
+  query: string # User's question/task for intelligent ranking
   api_key: string = "" # Optional API key for authentication
 ] {
   try {
     # Remove leading slash if present
     let clean_id = $library_id | str trim --left --char '/'
 
-    # Build base URL with required parameters
-    let base_url = $"($CONTEXT7_API_BASE_URL)/v1/($clean_id)?tokens=($tokens)&type=($DEFAULT_TYPE)"
-
-    # Add optional topic parameter using pipeline idiom
-    let url = if ($topic | is-empty) {
-      $base_url
-    } else {
-      $"($base_url)&topic=($topic | url encode)"
-    }
+    # v2 endpoint - libraryId as query param, query is required
+    let url = $"($CONTEXT7_API_BASE_URL)/v2/context?libraryId=($clean_id | url encode)&query=($query | url encode)&type=($DEFAULT_TYPE)"
 
     let headers = generate_headers $api_key | insert "X-Context7-Source" "mcp-server"
 
-    let response = http get --headers $headers $url
+    let response = http-get $url $headers
 
     # Check if response is empty or contains error indicators
     let is_invalid = (

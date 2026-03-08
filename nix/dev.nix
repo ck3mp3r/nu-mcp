@@ -7,6 +7,15 @@
 }: let
   fenix = inputs.fenix.packages.${pkgs.system};
   nuMods = inputs.nu-mods.packages.${pkgs.system}.default;
+
+  # Development helper scripts
+  check = pkgs.writeShellScriptBin "check" ''cargo check'';
+  fmt = pkgs.writeShellScriptBin "fmt" ''cargo fmt'';
+  tests = pkgs.writeShellScriptBin "tests" ''cargo test'';
+  clippy = pkgs.writeShellScriptBin "clippy" ''cargo clippy'';
+  coverage = pkgs.writeShellScriptBin "coverage" ''cargo tarpaulin --out Html'';
+  build = pkgs.writeShellScriptBin "build" ''cargo build --release'';
+  test-tools = pkgs.writeShellScriptBin "test-tools" ''nu tools/run_all_tests.nu'';
 in
   pkgs.mkShellNoCC {
     name = "nu-mcp-dev";
@@ -19,6 +28,15 @@ in
       pkgs.argocd
       nuMods
       pkgs.tmux
+
+      # Development scripts
+      check
+      fmt
+      tests
+      clippy
+      coverage
+      build
+      test-tools
     ];
 
     env = {
@@ -33,14 +51,12 @@ in
       echo "Nu: $(nu --version)"
       echo ""
       echo "Available commands:"
-      echo "  check     - Run cargo check"
-      echo "  fmt       - Run cargo fmt"
-      echo "  tests     - Run cargo test"
-      echo "  clippy    - Run cargo clippy"
-      echo "  coverage  - Generate code coverage report"
-      echo "  build     - Build release binary"
-      echo "  test-tools - Run all tool tests"
-      echo ""
-      echo "Run 'help' to see all commands"
+      echo "  check       - Run cargo check"
+      echo "  fmt         - Run cargo fmt"
+      echo "  tests       - Run cargo test"
+      echo "  clippy      - Run cargo clippy"
+      echo "  coverage    - Generate code coverage report"
+      echo "  build       - Build release binary"
+      echo "  test-tools  - Run all tool tests"
     '';
   }

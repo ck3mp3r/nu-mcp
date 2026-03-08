@@ -168,12 +168,12 @@ export def validate_search_response [
       }
     }
 
-    # Check if results is a list
+    # Check if results is a list or table
     let results_type = $results | describe
-    if not ($results_type | str contains "list") {
+    if not (($results_type | str contains "list") or ($results_type | str contains "table")) {
       return {
         valid: false
-        error: $"Invalid response: 'results' must be a list, got ($results_type)"
+        error: $"Invalid response: 'results' must be a list or table, got ($results_type)"
       }
     }
 
