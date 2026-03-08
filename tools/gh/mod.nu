@@ -281,19 +281,19 @@ def "main list-tools" [] {
           }
           squash: {
             type: "boolean"
-            description: "Squash commits and merge (optional, default strategy if none specified)"
+            description: "Squash commits and merge (optional, default: true)"
           }
           merge: {
             type: "boolean"
-            description: "Create a merge commit (optional)"
+            description: "Create a merge commit (optional, set to true to override default squash)"
           }
           rebase: {
             type: "boolean"
-            description: "Rebase and merge (optional)"
+            description: "Rebase and merge (optional, set to true to override default squash)"
           }
           delete_branch: {
             type: "boolean"
-            description: "Delete the local and remote branch after merge (optional, default: false)"
+            description: "Delete the local and remote branch after merge (optional, default: true)"
           }
           auto: {
             type: "boolean"
@@ -556,10 +556,10 @@ def "main call-tool" [
       let number = $parsed_args | get number
       let path = get-optional $parsed_args "path" null
       let confirm_merge = get-optional $parsed_args "confirm_merge" false
-      let squash = get-optional $parsed_args "squash" false
+      let squash = get-optional $parsed_args "squash" true
       let merge = get-optional $parsed_args "merge" false
       let rebase = get-optional $parsed_args "rebase" false
-      let delete_branch = get-optional $parsed_args "delete_branch" false
+      let delete_branch = get-optional $parsed_args "delete_branch" true
       let auto = get-optional $parsed_args "auto" false
 
       if $delete_branch and $auto {
