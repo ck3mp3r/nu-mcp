@@ -7,7 +7,7 @@
 }: let
   fenix = inputs.fenix.packages.${pkgs.system};
   nuMods = inputs.nu-mods.packages.${pkgs.system}.default;
-  
+
   # Development helper scripts
   check = pkgs.writeShellScriptBin "check" ''cargo check'';
   fmt = pkgs.writeShellScriptBin "fmt" ''cargo fmt'';
@@ -28,7 +28,7 @@ in
       pkgs.argocd
       nuMods
       pkgs.tmux
-      
+
       # Development scripts
       check
       fmt
