@@ -28,7 +28,7 @@ def "main list-tools" [] {
     }
     {
       name: "send_and_capture"
-      description: "DEFAULT: Send a command to a tmux pane and capture its output. This is the standard way to interact with tmux panes."
+      description: "Send a NEW command to a tmux pane and capture initial output. Use this to START executing a command. For long-running commands, follow up with capture_pane to check progress iteratively."
       input_schema: {
         type: "object"
         properties: {
@@ -60,35 +60,10 @@ def "main list-tools" [] {
         required: ["session" "command"]
       }
     }
-    {
-      name: "send_command"
-      description: "Send command to tmux pane without capturing output (fire-and-forget). Use only when you don't need output or for long-running processes."
-      input_schema: {
-        type: "object"
-        properties: {
-          session: {
-            type: "string"
-            description: "Session name or ID"
-          }
-          window: {
-            type: "string"
-            description: "Window name or ID (optional, defaults to current window)"
-          }
-          pane: {
-            type: "string"
-            description: "Pane ID (optional, defaults to current pane)"
-          }
-          command: {
-            type: "string"
-            description: "Command to send to the pane (for fire-and-forget only - use send_and_capture if you need output)"
-          }
-        }
-        required: ["session" "command"]
-      }
-    }
+
     {
       name: "capture_pane"
-      description: "Capture current visible content of a tmux pane. For running commands and getting output, use send_and_capture instead."
+      description: "Capture current visible content of a tmux pane WITHOUT sending any commands. Use this to check on ALREADY-RUNNING commands started with send_and_capture. Call repeatedly to monitor long-running processes until completion."
       input_schema: {
         type: "object"
         properties: {
@@ -391,13 +366,6 @@ def "main call-tool" [
   match $tool_name {
     "list_sessions" => {
       list_sessions
-    }
-    "send_command" => {
-      let session = $parsed_args | get session
-      let command = $parsed_args | get command
-      let window = if "window" in $parsed_args { $parsed_args | get window } else { null }
-      let pane = if "pane" in $parsed_args { $parsed_args | get pane } else { null }
-      send_command $session $command $window $pane
     }
     "capture_pane" => {
       let session = $parsed_args | get session

@@ -23,7 +23,7 @@ export def --env "test list-tools contains expected tools" [] {
   # Original tools
   assert ("list_sessions" in $names) "Should have list_sessions"
   assert ("send_and_capture" in $names) "Should have send_and_capture"
-  assert ("send_command" in $names) "Should have send_command"
+  assert ("capture_pane" in $names) "Should have capture_pane"
 
   # Phase 2 tools
   assert ("create_window" in $names) "Should have create_window"
