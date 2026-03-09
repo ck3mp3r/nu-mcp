@@ -18,7 +18,7 @@ version = "0.3.22"
 features = ["env-filter"]
 
 [dependencies.tokio]
-version = "1.49.0"
+version = "1.50.0"
 features = ["full"]
 
 [dependencies.rmcp]
