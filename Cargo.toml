@@ -18,7 +18,7 @@ version = "0.3.22"
 features = ["env-filter"]
 
 [dependencies.tokio]
-version = "1.49.0"
+version = "1.50.0"
 features = ["full"]
 
 [dependencies.rmcp]
@@ -30,7 +30,7 @@ version = "1.0.228"
 features = ["derive"]
 
 [dependencies.clap]
-version = "4.5.60"
+version = "4.6.0"
 features = ["derive"]
 
 [dev-dependencies]
