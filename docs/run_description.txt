@@ -8,6 +8,7 @@ CRITICAL - Nushell Syntax Only:
 
 IMPORTANT:
 - Commands run in a sandbox directory
+- Commands already execute in the current working directory - DO NOT prefix with `cd` commands
 - Use RELATIVE paths only (./file.txt, subdir/file.txt, .)
 - Absolute paths are BLOCKED (e.g., /etc/passwd, /tmp/file)
 - Path traversal (..) is BLOCKED

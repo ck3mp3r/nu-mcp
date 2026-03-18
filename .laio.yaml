@@ -3,12 +3,21 @@ name: nu-mcp
 
 path: .
 
+pane_cmd_delay: 2000
+
 windows:
   - name: code
-    flex_direction: column
     panes:
-      - commands:
+      - name: Editor
+        flex: 3
+        commands:
           - command: nvim
+      - name: Opencode
+        flex: 2
+        commands:
+          - command: ^opencode
+            args:
+              - --port
 
   - name: misc
     panes:
