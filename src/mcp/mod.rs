@@ -72,22 +72,18 @@ where
             }
         }
 
-        InitializeResult {
-            protocol_version: ProtocolVersion::LATEST,
-            capabilities: ServerCapabilities {
-                tools: Some(ToolsCapability::default()),
-                ..Default::default()
-            },
-            server_info: Implementation {
-                name: "nu-mcp".to_string(),
-                version: env!("CARGO_PKG_VERSION").to_string(),
-                title: Some("Nu MCP Server".to_string()),
-                website_url: Some("https://github.com/ck3mp3r/nu-mcp".to_string()),
-                icons: None,
-                description: None,
-            },
-            instructions: Some(instructions),
-        }
+        let capabilities = ServerCapabilities::builder()
+            .enable_tools()
+            .build();
+
+        let server_info = Implementation::new("nu-mcp", env!("CARGO_PKG_VERSION"))
+            .with_title("Nu MCP Server")
+            .with_website_url("https://github.com/ck3mp3r/nu-mcp");
+
+        InitializeResult::new(capabilities)
+            .with_server_info(server_info)
+            .with_instructions(&instructions)
+            .with_protocol_version(ProtocolVersion::LATEST)
     }
 
     async fn list_tools(
@@ -174,17 +170,10 @@ where
 
             let description = format!("{}{}", RUN_DESCRIPTION, sandbox_note);
 
-            tools.push(Tool {
-                name: "run".into(),
-                description: Some(description.into()),
-                input_schema: Arc::new(schema),
-                annotations: None,
-                title: Some("Run Nushell Command".to_string()),
-                output_schema: None,
-                icons: None,
-                meta: None,
-                execution: None,
-            });
+            tools.push(
+                Tool::new("run", description, Arc::new(schema))
+                    .with_title("Run Nushell Command")
+            );
         }
 
         Ok(ListToolsResult {

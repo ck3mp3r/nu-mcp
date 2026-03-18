@@ -33,17 +33,7 @@ fn test_path_validation() {
 
 #[test]
 fn test_extension_tool_struct() {
-    let tool_def = Tool {
-        name: "test_tool".into(),
-        description: Some("Test tool".into()),
-        input_schema: Arc::new(Map::new()),
-        annotations: None,
-        title: None,
-        output_schema: None,
-        icons: None,
-        meta: None,
-        execution: None,
-    };
+    let tool_def = Tool::new("test_tool", "Test tool", Arc::new(Map::new()));
 
     let extension = ExtensionTool {
         module_path: PathBuf::from("/test/path"),
@@ -56,18 +46,8 @@ fn test_extension_tool_struct() {
 
 #[test]
 fn test_tool_definition_edge_cases() {
-    // Test with minimal tool definition
-    let minimal_tool = Tool {
-        name: "minimal".into(),
-        description: None,
-        input_schema: Arc::new(Map::new()),
-        annotations: None,
-        title: None,
-        output_schema: None,
-        icons: None,
-        meta: None,
-        execution: None,
-    };
+    // Test with minimal tool definition (no description)
+    let minimal_tool = Tool::new_with_raw("minimal", None, Arc::new(Map::new()));
 
     assert_eq!(minimal_tool.name, "minimal");
     assert!(minimal_tool.description.is_none());
@@ -94,17 +74,12 @@ fn test_tool_schema_validation() {
 
 #[test]
 fn test_tool_definition_serialization() {
-    let tool = Tool {
-        name: "serialization_test".into(),
-        description: Some("Test serialization".into()),
-        input_schema: Arc::new(Map::new()),
-        annotations: None,
-        title: Some("Serialization Test".to_string()),
-        output_schema: None,
-        icons: None,
-        meta: None,
-        execution: None,
-    };
+    let tool = Tool::new(
+        "serialization_test",
+        "Test serialization",
+        Arc::new(Map::new()),
+    )
+    .with_title("Serialization Test");
 
     // Test that we can work with the tool definition
     assert!(!tool.name.is_empty());

@@ -189,17 +189,7 @@ async fn test_execute_extension_tool_with_nonexistent_script() {
     // Create a fake tool with nonexistent script path
     let fake_tool = ExtensionTool {
         module_path: PathBuf::from("/nonexistent/path"),
-        tool_definition: Tool {
-            name: "fake_tool".into(),
-            description: Some("Fake tool for testing".into()),
-            input_schema: Arc::new(Map::new()),
-            annotations: None,
-            title: None,
-            output_schema: None,
-            icons: None,
-            meta: None,
-            execution: None,
-        },
+        tool_definition: Tool::new("fake_tool", "Fake tool for testing", Arc::new(Map::new())),
     };
 
     let result = execute_extension_tool_helper(&fake_tool, "fake_tool", "{}", None).await;

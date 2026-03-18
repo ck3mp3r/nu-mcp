@@ -33,12 +33,8 @@ async fn test_router_run() {
         serde_json::Value::String("echo hello".to_string()),
     );
 
-    let request = CallToolRequestParams {
-        name: "run".into(),
-        arguments: Some(args),
-        meta: None,
-        task: None,
-    };
+    let request = CallToolRequestParams::new("run")
+        .with_arguments(args);
 
     let result = router.route_call(request).await;
     if let Err(e) = &result {
@@ -62,17 +58,7 @@ async fn test_router_extension_tool() {
     // Create a fake extension tool
     let extension = ExtensionTool {
         module_path: std::path::PathBuf::from("/fake/path"),
-        tool_definition: Tool {
-            name: "test_tool".into(),
-            description: Some("Test tool".into()),
-            input_schema: Arc::new(serde_json::Map::new()),
-            annotations: None,
-            title: None,
-            output_schema: None,
-            icons: None,
-            meta: None,
-            execution: None,
-        },
+        tool_definition: Tool::new("test_tool", "Test tool", Arc::new(serde_json::Map::new())),
     };
 
     let router = ToolRouter::new(config, vec![extension], executor, tool_executor, cache);
@@ -83,12 +69,8 @@ async fn test_router_extension_tool() {
         serde_json::Value::String("value".to_string()),
     );
 
-    let request = CallToolRequestParams {
-        name: "test_tool".into(),
-        arguments: Some(args),
-        meta: None,
-        task: None,
-    };
+    let request = CallToolRequestParams::new("test_tool")
+        .with_arguments(args);
 
     let result = router.route_call(request).await;
     assert!(result.is_ok());
@@ -98,12 +80,7 @@ async fn test_router_extension_tool() {
 async fn test_router_unknown_tool() {
     let router = create_test_router();
 
-    let request = CallToolRequestParams {
-        name: "nonexistent_tool".into(),
-        arguments: None,
-        meta: None,
-        task: None,
-    };
+    let request = CallToolRequestParams::new("nonexistent_tool");
 
     let result = router.route_call(request).await;
     assert!(result.is_err());
@@ -138,12 +115,8 @@ async fn test_router_uses_injected_cache() {
         serde_json::Value::String("tool /api/endpoint".to_string()),
     );
 
-    let request = CallToolRequestParams {
-        name: "run".into(),
-        arguments: Some(args),
-        meta: None,
-        task: None,
-    };
+    let request = CallToolRequestParams::new("run")
+        .with_arguments(args);
 
     let result = router.route_call(request).await;
     assert!(result.is_ok(), "Command should succeed");
@@ -167,12 +140,8 @@ async fn test_router_blocks_existing_files_outside_sandbox() {
         serde_json::Value::String("cat /etc/passwd".to_string()),
     );
 
-    let request = CallToolRequestParams {
-        name: "run".into(),
-        arguments: Some(args),
-        task: None,
-        meta: None,
-    };
+    let request = CallToolRequestParams::new("run")
+        .with_arguments(args);
 
     let result = router.route_call(request).await;
     assert!(
@@ -225,12 +194,8 @@ async fn test_mutex_not_held_during_concurrent_requests() {
                 serde_json::Value::String(format!("echo test{}", i)),
             );
 
-            let request = CallToolRequestParams {
-                name: "run".into(),
-                arguments: Some(args),
-                task: None,
-                meta: None,
-            };
+            let request = CallToolRequestParams::new("run")
+                .with_arguments(args);
 
             let request_start = Instant::now();
             let result = router_clone.route_call(request).await;
