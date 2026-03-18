@@ -98,16 +98,10 @@ async fn discover_tools_from_module(module_path: &Path) -> Result<Vec<ExtensionT
     let mut extension_tools = Vec::new();
 
     for def in tool_definitions {
-        let tool = Tool {
-            name: def.name.into(),
-            description: def.description.map(std::convert::Into::into),
-            input_schema: Arc::new(def.input_schema),
-            annotations: None,
-            title: None,
-            output_schema: None,
-            icons: None,
-            meta: None,
-            execution: None,
+        let tool = if let Some(description) = def.description {
+            Tool::new(def.name.clone(), description, Arc::new(def.input_schema))
+        } else {
+            Tool::new_with_raw(def.name.clone(), None, Arc::new(def.input_schema))
         };
 
         extension_tools.push(ExtensionTool {
