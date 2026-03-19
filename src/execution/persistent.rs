@@ -41,6 +41,9 @@ impl PersistentShell {
         let mut cmd = CommandBuilder::new("nu");
         cmd.cwd(std::env::current_dir().map_err(|e| e.to_string())?);
 
+        // Set environment variables to ensure Nushell sees this as a terminal
+        cmd.env("TERM", "xterm-256color");
+        cmd.env("COLORTERM", "truecolor");
         let child = pair
             .slave
             .spawn_command(cmd)

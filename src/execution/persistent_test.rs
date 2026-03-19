@@ -16,20 +16,16 @@ fn test_detects_osc_133_at_startup() {
 fn test_execute_simple_command() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
-    // Use a simpler command first
-    let result = shell.execute("echo test");
+    // Use Nushell built-in, not external echo
+    let result = shell.execute("1 + 1");
 
     assert!(result.is_ok(), "Execute failed: {:?}", result.err());
     let output = result.unwrap();
 
-    eprintln!("OUTPUT: {:?}", output);
-    eprintln!("STDOUT: {:?}", output.stdout);
-    eprintln!("EXIT_CODE: {}", output.exit_code);
-
-    // Should contain "test" somewhere in output
+    // Should contain "2"
     assert!(
-        output.stdout.contains("test"),
-        "Expected 'test' in output, got: {:?}",
+        output.stdout.contains("2"),
+        "Expected '2' in output, got: {:?}",
         output.stdout
     );
     assert_eq!(output.exit_code, 0);
@@ -52,7 +48,7 @@ fn test_state_persistence() {
     let result1 = shell.execute("let x = 5");
     assert!(result1.is_ok(), "First command failed: {:?}", result1.err());
 
-    let result2 = shell.execute("print $x");
+    let result2 = shell.execute("$x");
     assert!(
         result2.is_ok(),
         "Second command failed: {:?}",
@@ -60,7 +56,7 @@ fn test_state_persistence() {
     );
     let output = result2.unwrap();
 
-    // Should contain "5" somewhere in output
+    // Should contain "5"
     assert!(
         output.stdout.contains("5"),
         "Expected '5' in output, got: {:?}",
