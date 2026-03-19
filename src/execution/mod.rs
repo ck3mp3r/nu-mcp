@@ -15,6 +15,7 @@ pub mod nushell;
 pub use nushell::NushellExecutor;
 
 pub mod osc133;
+pub mod persistent;
 
 #[cfg(test)]
 pub mod mock;
