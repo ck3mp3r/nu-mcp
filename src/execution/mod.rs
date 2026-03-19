@@ -26,3 +26,5 @@ pub use mock::MockExecutor;
 mod mock_test;
 #[cfg(test)]
 mod nushell_test;
+#[cfg(test)]
+mod persistent_test;

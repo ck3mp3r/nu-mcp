@@ -36,9 +36,24 @@ pub enum Event {
     CommandFinished { exit_code: Option<i32> },
 }
 
+/// The current semantic zone as determined by the most recent OSC 133 marker
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum Zone {
+    /// No marker seen yet, or after a D marker (between commands)
+    #[default]
+    Unknown,
+    /// Between A and B — the shell is rendering its prompt
+    Prompt,
+    /// Between B and C — the user is editing a command line
+    Input,
+    /// Between C and D — command output is being produced
+    Output,
+}
+
 /// Streaming parser for OSC 133 sequences
 pub struct Parser {
     state: State,
+    zone: Zone,
     param_buf: [u8; PARAM_BUF_CAP],
     param_len: usize,
 }
@@ -48,9 +63,15 @@ impl Parser {
     pub fn new() -> Self {
         Self {
             state: State::Ground,
+            zone: Zone::Unknown,
             param_buf: [0u8; PARAM_BUF_CAP],
             param_len: 0,
         }
+    }
+
+    /// Get the current zone
+    pub fn zone(&self) -> Zone {
+        self.zone
     }
 
     /// Process a chunk of bytes, calling callback for each OSC 133 event detected
@@ -101,9 +122,18 @@ impl Parser {
 
         let cmd = params[4];
         let event = match cmd {
-            b'A' => Event::PromptStart,
-            b'B' => Event::CommandStart,
-            b'C' => Event::CommandExecuted,
+            b'A' => {
+                self.zone = Zone::Prompt;
+                Event::PromptStart
+            }
+            b'B' => {
+                self.zone = Zone::Input;
+                Event::CommandStart
+            }
+            b'C' => {
+                self.zone = Zone::Output;
+                Event::CommandExecuted
+            }
             b'D' => {
                 let exit_code = if params.len() > 6 && params[5] == b';' {
                     std::str::from_utf8(&params[6..])
@@ -112,6 +142,7 @@ impl Parser {
                 } else {
                     None
                 };
+                self.zone = Zone::Unknown;
                 Event::CommandFinished { exit_code }
             }
             _ => return,

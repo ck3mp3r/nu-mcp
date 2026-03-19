@@ -7,14 +7,17 @@
 
 use super::osc133;
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
-use std::io::Read;
+use std::env;
+use std::io::{Read, Write};
 use std::time::{Duration, Instant};
 
 const BUFFER_SIZE: usize = 8192;
 const STARTUP_TIMEOUT_SECS: u64 = 5;
+const DEFAULT_COMMAND_TIMEOUT_SECS: u64 = 60;
 
 pub struct PersistentShell {
     master: Box<dyn MasterPty + Send>,
+    writer: Box<dyn Write + Send>,
     osc_parser: osc133::Parser,
     _buffer: [u8; BUFFER_SIZE],
     _child: Box<dyn Child + Send + Sync>,
@@ -46,9 +49,13 @@ impl PersistentShell {
         drop(pair.slave);
 
         let master = pair.master;
+        let writer = master
+            .take_writer()
+            .map_err(|e| format!("Failed to take writer: {}", e))?;
 
         let mut shell = Self {
             master,
+            writer,
             osc_parser: osc133::Parser::new(),
             _buffer: [0u8; BUFFER_SIZE],
             _child: child,
@@ -65,7 +72,10 @@ impl PersistentShell {
 
         loop {
             if start.elapsed() > timeout {
-                return Err("Timeout waiting for Nushell. OSC 133 may be disabled.".to_string());
+                return Err(format!(
+                    "Timeout waiting for Nushell. OSC 133 may be disabled. Final zone: {:?}",
+                    self.osc_parser.zone()
+                ));
             }
 
             let mut reader = self
@@ -77,10 +87,14 @@ impl PersistentShell {
             match reader.read(&mut temp_buf) {
                 Ok(0) => return Err("PTY EOF during startup".to_string()),
                 Ok(n) => {
-                    self.osc_parser.push(&temp_buf[..n], |_event| {
+                    self.osc_parser.push(&temp_buf[..n], |event| {
+                        eprintln!("STARTUP OSC EVENT: {:?}", event);
+                        // Accept ANY OSC marker as sign that shell integration is working
                         got_marker = true;
                     });
+
                     if got_marker {
+                        eprintln!("Shell ready! Final zone: {:?}", self.osc_parser.zone());
                         return Ok(());
                     }
                 }
@@ -90,25 +104,108 @@ impl PersistentShell {
             }
         }
     }
+
+    /// Execute a command and collect output
+    ///
+    /// Event-driven architecture following Atuin pattern:
+    /// - Parser tracks Zone state internally (Unknown/Prompt/Input/Output)
+    /// - Collect ALL bytes while parser.zone() == Zone::Output
+    /// - Return when CommandFinished event received
+    pub fn execute(&mut self, command: &str) -> Result<CommandOutput, String> {
+        let timeout_secs = env::var("MCP_NU_MCP_TIMEOUT")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(DEFAULT_COMMAND_TIMEOUT_SECS);
+        let timeout = Duration::from_secs(timeout_secs);
+
+        // Write command to PTY
+        writeln!(self.writer, "{}", command).map_err(|e| format!("Write failed: {}", e))?;
+        self.writer
+            .flush()
+            .map_err(|e| format!("Flush failed: {}", e))?;
+
+        let start = Instant::now();
+        let mut output_buffer = Vec::new();
+        let mut final_exit_code: Option<i32> = None;
+        let mut finished = false;
+
+        // Event loop: read PTY until command finishes
+        loop {
+            if start.elapsed() > timeout {
+                return Err(format!(
+                    "Timeout after {} seconds (zone: {:?}, collected: {} bytes)",
+                    timeout_secs,
+                    self.osc_parser.zone(),
+                    output_buffer.len()
+                ));
+            }
+
+            let mut reader = self
+                .master
+                .try_clone_reader()
+                .map_err(|e| format!("Clone reader failed: {}", e))?;
+
+            let mut chunk = [0u8; BUFFER_SIZE];
+            match reader.read(&mut chunk) {
+                Ok(0) => return Err("PTY EOF".to_string()),
+                Ok(n) => {
+                    let data = &chunk[..n];
+
+                    // HEXDUMP for debugging
+                    eprintln!("READ {} bytes: {:?}", n, String::from_utf8_lossy(data));
+
+                    // Capture zone before parsing
+                    let zone_before = self.osc_parser.zone();
+
+                    // Parse OSC events - parser updates its internal zone
+                    self.osc_parser.push(data, |event| {
+                        eprintln!(
+                            "OSC EVENT: {:?}, zone before push: {:?}",
+                            event, zone_before
+                        );
+                        if let osc133::Event::CommandFinished { exit_code } = event {
+                            final_exit_code = exit_code;
+                            finished = true;
+                        }
+                    });
+
+                    let zone_after = self.osc_parser.zone();
+                    eprintln!(
+                        "After parse: zone_before={:?}, zone_after={:?}, finished={}",
+                        zone_before, zone_after, finished
+                    );
+
+                    // Collect ALL bytes until command finishes
+                    // (Nushell doesn't emit OSC 133;C in PTY mode, so we can't use Zone::Output)
+                    if !finished {
+                        eprintln!("COLLECTING {} bytes", data.len());
+                        output_buffer.extend_from_slice(data);
+                    }
+
+                    // Command finished - process and return
+                    if finished {
+                        // Strip ANSI escape codes (including OSC sequences)
+                        let clean = strip_ansi_escapes::strip(&output_buffer);
+                        let stdout = String::from_utf8_lossy(&clean).to_string();
+
+                        return Ok(CommandOutput {
+                            stdout,
+                            exit_code: final_exit_code.unwrap_or(0),
+                        });
+                    }
+                }
+                Err(_) => {
+                    // Non-blocking read, sleep briefly
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+            }
+        }
+    }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_persistent_shell_creates() {
-        let result = PersistentShell::new();
-        assert!(
-            result.is_ok(),
-            "Failed to create persistent shell: {:?}",
-            result.err()
-        );
-    }
-
-    #[test]
-    fn test_detects_osc_133_at_startup() {
-        let shell = PersistentShell::new();
-        assert!(shell.is_ok(), "Should detect OSC 133 during startup");
-    }
+/// Output from a command execution
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CommandOutput {
+    pub stdout: String,
+    pub exit_code: i32,
 }
