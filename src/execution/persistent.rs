@@ -126,6 +126,7 @@ impl PersistentShell {
         let mut output_buffer = Vec::new();
         let mut final_exit_code: Option<i32> = None;
         let mut finished = false;
+        let mut read_one_more = false; // Read one more chunk after OSC 133;D
 
         // Event loop: read PTY until command finishes
         loop {
@@ -149,7 +150,10 @@ impl PersistentShell {
                 Ok(n) => {
                     let data = &chunk[..n];
 
-                    // Parse OSC events - parser updates its internal zone
+                    // Collect BEFORE parsing (so we get this chunk even if it contains OSC 133;D)
+                    output_buffer.extend_from_slice(data);
+
+                    // Parse OSC events
                     self.osc_parser.push(data, |event| {
                         if let osc133::Event::CommandFinished { exit_code } = event {
                             final_exit_code = exit_code;
@@ -157,17 +161,43 @@ impl PersistentShell {
                         }
                     });
 
-                    // Collect ALL bytes until command finishes
-                    // (Nushell doesn't emit OSC 133;C in PTY mode, so we can't use Zone::Output)
-                    if !finished {
-                        output_buffer.extend_from_slice(data);
+                    // If we just saw OSC 133;D, read one more chunk to get trailing output
+                    if finished && !read_one_more {
+                        read_one_more = true;
+                        finished = false; // Keep going for one more iteration
+                        continue;
                     }
 
-                    // Command finished - process and return
-                    if finished {
+                    // Command finished AND we've read the extra chunk - process and return
+                    if read_one_more {
+                        eprintln!(
+                            "RAW BUFFER ({} bytes): {:?}",
+                            output_buffer.len(),
+                            output_buffer
+                        );
+
                         // Strip ANSI escape codes (including OSC sequences)
                         let clean = strip_ansi_escapes::strip(&output_buffer);
-                        let stdout = String::from_utf8_lossy(&clean).to_string();
+                        eprintln!(
+                            "AFTER STRIP ({} bytes): {:?}",
+                            clean.len(),
+                            String::from_utf8_lossy(&clean)
+                        );
+
+                        let mut stdout = String::from_utf8_lossy(&clean).to_string();
+
+                        // Remove the command echo (first line in PTY output)
+                        // The command we wrote is echoed back, followed by actual output
+                        let lines: Vec<&str> = stdout.lines().collect();
+                        eprintln!("LINES: {:?}", lines);
+
+                        if lines.len() > 1 {
+                            // Skip first line (command echo), join the rest
+                            stdout = lines[1..].join("\n");
+                        } else if lines.len() == 1 {
+                            // Only one line - it's the command echo with no output
+                            stdout = String::new();
+                        }
 
                         // Trim whitespace
                         let stdout = stdout.trim().to_string();
