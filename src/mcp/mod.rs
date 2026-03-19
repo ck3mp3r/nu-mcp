@@ -72,9 +72,7 @@ where
             }
         }
 
-        let capabilities = ServerCapabilities::builder()
-            .enable_tools()
-            .build();
+        let capabilities = ServerCapabilities::builder().enable_tools().build();
 
         let server_info = Implementation::new("nu-mcp", env!("CARGO_PKG_VERSION"))
             .with_title("Nu MCP Server")
@@ -171,8 +169,7 @@ where
             let description = format!("{}{}", RUN_DESCRIPTION, sandbox_note);
 
             tools.push(
-                Tool::new("run", description, Arc::new(schema))
-                    .with_title("Run Nushell Command")
+                Tool::new("run", description, Arc::new(schema)).with_title("Run Nushell Command"),
             );
         }
 

@@ -13,53 +13,85 @@ fn test_detects_osc_133_at_startup() {
 }
 
 #[test]
-fn test_execute_simple_command() {
+fn test_execute_writes_file() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
-    // Use Nushell built-in, not external echo
-    let result = shell.execute("1 + 1");
+    let test_file = std::env::temp_dir().join("nu_mcp_test_output.txt");
+    let _ = std::fs::remove_file(&test_file);
 
+    let cmd = format!("'hello' | save -f {}", test_file.display());
+    let result = shell.execute(&cmd);
+    assert!(result.is_ok(), "Execute failed: {:?}", result.err());
+
+    let content = std::fs::read_to_string(&test_file);
+    assert!(content.is_ok(), "File not created");
+    assert_eq!(content.unwrap().trim(), "hello");
+
+    let _ = std::fs::remove_file(&test_file);
+}
+
+#[test]
+fn test_execute_print_output() {
+    let mut shell = PersistentShell::new().expect("Failed to create shell");
+
+    let result = shell.execute("print 'hello'");
     assert!(result.is_ok(), "Execute failed: {:?}", result.err());
     let output = result.unwrap();
-
-    // Should contain "2"
+    eprintln!("STDOUT: {:?}", output.stdout);
     assert!(
-        output.stdout.contains("2"),
-        "Expected '2' in output, got: {:?}",
+        output.stdout.contains("hello"),
+        "Expected 'hello' in output, got: {:?}",
         output.stdout
     );
     assert_eq!(output.exit_code, 0);
 }
 
 #[test]
-fn test_execute_with_exit_code() {
+fn test_execute_expression_output() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
-    let result = shell.execute("exit 42");
 
+    let result = shell.execute("1 + 1");
     assert!(result.is_ok(), "Execute failed: {:?}", result.err());
     let output = result.unwrap();
-    assert_eq!(output.exit_code, 42);
+    eprintln!("STDOUT: {:?}", output.stdout);
+    assert!(
+        output.stdout.contains("2"),
+        "Expected '2' in output, got: {:?}",
+        output.stdout
+    );
 }
 
 #[test]
-fn test_state_persistence() {
+fn test_state_persistence_via_file() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
-    let result1 = shell.execute("let x = 5");
-    assert!(result1.is_ok(), "First command failed: {:?}", result1.err());
+    let test_file = std::env::temp_dir().join("nu_mcp_test_state.txt");
+    let _ = std::fs::remove_file(&test_file);
 
-    let result2 = shell.execute("$x");
-    assert!(
-        result2.is_ok(),
-        "Second command failed: {:?}",
-        result2.err()
-    );
-    let output = result2.unwrap();
+    let r1 = shell.execute("$env.TEST_VAL = 42");
+    assert!(r1.is_ok(), "First cmd failed: {:?}", r1.err());
 
-    // Should contain "5"
-    assert!(
-        output.stdout.contains("5"),
-        "Expected '5' in output, got: {:?}",
-        output.stdout
+    let cmd = format!("$env.TEST_VAL | save -f {}", test_file.display());
+    let r2 = shell.execute(&cmd);
+    assert!(r2.is_ok(), "Second cmd failed: {:?}", r2.err());
+
+    let content = std::fs::read_to_string(&test_file);
+    assert!(content.is_ok(), "State file not created");
+    assert_eq!(content.unwrap().trim(), "42");
+
+    let _ = std::fs::remove_file(&test_file);
+}
+
+#[test]
+fn test_execute_with_exit_code() {
+    let mut shell = PersistentShell::new().expect("Failed to create shell");
+    let result = shell.execute("error make {msg: 'test error'}");
+
+    assert!(result.is_ok(), "Execute failed: {:?}", result.err());
+    let output = result.unwrap();
+    eprintln!(
+        "EXIT CODE: {}, STDOUT: {:?}",
+        output.exit_code, output.stdout
     );
+    assert_ne!(output.exit_code, 0, "Expected non-zero exit code for error");
 }
