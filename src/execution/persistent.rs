@@ -87,14 +87,12 @@ impl PersistentShell {
             match reader.read(&mut temp_buf) {
                 Ok(0) => return Err("PTY EOF during startup".to_string()),
                 Ok(n) => {
-                    self.osc_parser.push(&temp_buf[..n], |event| {
-                        eprintln!("STARTUP OSC EVENT: {:?}", event);
+                    self.osc_parser.push(&temp_buf[..n], |_event| {
                         // Accept ANY OSC marker as sign that shell integration is working
                         got_marker = true;
                     });
 
                     if got_marker {
-                        eprintln!("Shell ready! Final zone: {:?}", self.osc_parser.zone());
                         return Ok(());
                     }
                 }
@@ -151,34 +149,17 @@ impl PersistentShell {
                 Ok(n) => {
                     let data = &chunk[..n];
 
-                    // HEXDUMP for debugging
-                    eprintln!("READ {} bytes: {:?}", n, String::from_utf8_lossy(data));
-
-                    // Capture zone before parsing
-                    let zone_before = self.osc_parser.zone();
-
                     // Parse OSC events - parser updates its internal zone
                     self.osc_parser.push(data, |event| {
-                        eprintln!(
-                            "OSC EVENT: {:?}, zone before push: {:?}",
-                            event, zone_before
-                        );
                         if let osc133::Event::CommandFinished { exit_code } = event {
                             final_exit_code = exit_code;
                             finished = true;
                         }
                     });
 
-                    let zone_after = self.osc_parser.zone();
-                    eprintln!(
-                        "After parse: zone_before={:?}, zone_after={:?}, finished={}",
-                        zone_before, zone_after, finished
-                    );
-
                     // Collect ALL bytes until command finishes
                     // (Nushell doesn't emit OSC 133;C in PTY mode, so we can't use Zone::Output)
                     if !finished {
-                        eprintln!("COLLECTING {} bytes", data.len());
                         output_buffer.extend_from_slice(data);
                     }
 
@@ -187,6 +168,9 @@ impl PersistentShell {
                         // Strip ANSI escape codes (including OSC sequences)
                         let clean = strip_ansi_escapes::strip(&output_buffer);
                         let stdout = String::from_utf8_lossy(&clean).to_string();
+
+                        // Trim whitespace
+                        let stdout = stdout.trim().to_string();
 
                         return Ok(CommandOutput {
                             stdout,
