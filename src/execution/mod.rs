@@ -14,6 +14,8 @@ pub trait CommandExecutor: Send + Sync {
 pub mod nushell;
 pub use nushell::NushellExecutor;
 
+pub mod osc133;
+
 #[cfg(test)]
 pub mod mock;
 #[cfg(test)]
