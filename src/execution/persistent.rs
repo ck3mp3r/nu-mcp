@@ -1,4 +1,9 @@
 //! Persistent Nushell shell using PTY and OSC 133 for completion detection
+//!
+//! Note: Uses `Box<dyn MasterPty>` and `Box<dyn Child>` from portable-pty.
+//! This is the library's API design for cross-platform support.
+//! The overhead is negligible for a long-lived, I/O-bound object.
+//! Can be optimized later with platform-specific code if needed.
 
 use super::osc133;
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
