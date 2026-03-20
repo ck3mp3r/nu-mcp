@@ -1,21 +1,25 @@
 use crate::execution::persistent::PersistentShell;
+use serial_test::serial;
 use std::time::Duration;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[test]
+#[serial]
 fn test_persistent_shell_creates() {
     let result = PersistentShell::new();
     assert!(result.is_ok(), "Failed: {:?}", result.err());
 }
 
 #[test]
+#[serial]
 fn test_detects_osc_133_at_startup() {
     let shell = PersistentShell::new();
     assert!(shell.is_ok());
 }
 
 #[test]
+#[serial]
 fn test_execute_writes_file() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
@@ -34,6 +38,7 @@ fn test_execute_writes_file() {
 }
 
 #[test]
+#[serial]
 fn test_execute_print_output() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
@@ -49,6 +54,7 @@ fn test_execute_print_output() {
 }
 
 #[test]
+#[serial]
 fn test_execute_expression_output() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
@@ -63,6 +69,7 @@ fn test_execute_expression_output() {
 }
 
 #[test]
+#[serial]
 fn test_state_persistence_via_file() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
@@ -84,6 +91,7 @@ fn test_state_persistence_via_file() {
 }
 
 #[test]
+#[serial]
 fn test_execute_with_exit_code() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
     let result = shell.execute("error make {msg: 'test error'}", DEFAULT_TIMEOUT);
@@ -96,6 +104,7 @@ fn test_execute_with_exit_code() {
 // --- Edge case tests ---
 
 #[test]
+#[serial]
 fn test_multiline_output() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
@@ -113,6 +122,7 @@ fn test_multiline_output() {
 }
 
 #[test]
+#[serial]
 fn test_no_output_command() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
@@ -128,6 +138,7 @@ fn test_no_output_command() {
 }
 
 #[test]
+#[serial]
 fn test_large_output() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
@@ -144,6 +155,7 @@ fn test_large_output() {
 }
 
 #[test]
+#[serial]
 fn test_many_sequential_commands() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
@@ -163,6 +175,7 @@ fn test_many_sequential_commands() {
 }
 
 #[test]
+#[serial]
 fn test_special_characters() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
@@ -177,6 +190,7 @@ fn test_special_characters() {
 }
 
 #[test]
+#[serial]
 fn test_timeout() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
@@ -192,6 +206,7 @@ fn test_timeout() {
 }
 
 #[test]
+#[serial]
 fn test_str_join_pipeline() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
@@ -202,6 +217,7 @@ fn test_str_join_pipeline() {
 }
 
 #[test]
+#[serial]
 fn test_each_with_str_join() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
@@ -215,6 +231,7 @@ fn test_each_with_str_join() {
 }
 
 #[test]
+#[serial]
 fn test_str_join_after_prior_command() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 

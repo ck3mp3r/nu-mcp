@@ -275,6 +275,25 @@ impl PersistentShell {
         let clean = strip_ansi_escapes::strip(&output_buffer);
         let stdout = String::from_utf8_lossy(&clean).trim().to_string();
 
+        // After D, the next prompt cycle starts (DSR queries → A → B).
+        // Drain until B (CommandStart) so Reedline is back at event::read()
+        // before we return. This prevents CPR response bytes from leaking
+        // into the next command's input.
+        let mut saw_next_ready = false;
+        let _ = self.drain_until(Duration::from_secs(10), |shell, data| {
+            shell.respond_to_dsr(data);
+            shell.osc_parser.push(data, |event| {
+                if matches!(event, osc133::Event::CommandStart) {
+                    saw_next_ready = true;
+                }
+            });
+            if saw_next_ready {
+                ControlFlow::Break
+            } else {
+                ControlFlow::Continue
+            }
+        });
+
         trace_log!("=== RETURNING stdout={:?} exit={:?} ===", stdout, final_exit_code);
 
         Ok(CommandOutput {
