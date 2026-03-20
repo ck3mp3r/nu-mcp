@@ -6,6 +6,7 @@ nu-mcp enables AI agents to execute Nushell commands and access a growing catalo
 
 Key features:
 - **Core Mode**: Execute arbitrary Nushell commands via `run` tool
+- **Persistent Mode**: Stateful Nushell shell via PTY with OSC 133 markers (`--persistent` flag)
 - **Extension Mode**: Load tools from directories (kubernetes, argocd, weather, finance, tmux, context7)
 - **Hybrid Mode**: Combine both core execution and extension tools
 - **Security Sandbox**: Configurable directory restrictions for command execution
