@@ -15,6 +15,9 @@
 - `MCP_NU_MCP_TIMEOUT` - Default timeout in seconds for all tools (default: 60)
 - Can be overridden per-call with `timeout_seconds` parameter on `run` tool
 
+### Debugging
+- `MCP_PTY_TRACE` - Set to `1` to enable PTY trace logging to `/tmp/pty_trace.log` (persistent mode only)
+
 **Example:**
 ```yaml
 nu-mcp:
@@ -26,11 +29,13 @@ nu-mcp:
 ## Usage Modes
 
 ### Core Mode
-Generic Nushell command execution:
+Nushell command execution with persistent state:
 ```yaml
 nu-mcp-core:
   command: "nu-mcp"
 ```
+
+The `run` tool maintains a persistent Nushell shell. Environment variables, aliases, and definitions persist across calls. Use the `reset` parameter to get a clean shell when needed.
 
 ### Extension Mode
 Tool-specific functionality:

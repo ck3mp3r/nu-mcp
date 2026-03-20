@@ -33,8 +33,7 @@ async fn test_router_run() {
         serde_json::Value::String("echo hello".to_string()),
     );
 
-    let request = CallToolRequestParams::new("run")
-        .with_arguments(args);
+    let request = CallToolRequestParams::new("run").with_arguments(args);
 
     let result = router.route_call(request).await;
     if let Err(e) = &result {
@@ -69,8 +68,7 @@ async fn test_router_extension_tool() {
         serde_json::Value::String("value".to_string()),
     );
 
-    let request = CallToolRequestParams::new("test_tool")
-        .with_arguments(args);
+    let request = CallToolRequestParams::new("test_tool").with_arguments(args);
 
     let result = router.route_call(request).await;
     assert!(result.is_ok());
@@ -115,8 +113,7 @@ async fn test_router_uses_injected_cache() {
         serde_json::Value::String("tool /api/endpoint".to_string()),
     );
 
-    let request = CallToolRequestParams::new("run")
-        .with_arguments(args);
+    let request = CallToolRequestParams::new("run").with_arguments(args);
 
     let result = router.route_call(request).await;
     assert!(result.is_ok(), "Command should succeed");
@@ -140,8 +137,7 @@ async fn test_router_blocks_existing_files_outside_sandbox() {
         serde_json::Value::String("cat /etc/passwd".to_string()),
     );
 
-    let request = CallToolRequestParams::new("run")
-        .with_arguments(args);
+    let request = CallToolRequestParams::new("run").with_arguments(args);
 
     let result = router.route_call(request).await;
     assert!(
@@ -194,8 +190,7 @@ async fn test_mutex_not_held_during_concurrent_requests() {
                 serde_json::Value::String(format!("echo test{}", i)),
             );
 
-            let request = CallToolRequestParams::new("run")
-                .with_arguments(args);
+            let request = CallToolRequestParams::new("run").with_arguments(args);
 
             let request_start = Instant::now();
             let result = router_clone.route_call(request).await;

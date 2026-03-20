@@ -4,6 +4,8 @@ This project exposes Nushell as an MCP server using the official Rust SDK (`rmcp
 
 ## Features
 - Exposes a tool to run arbitrary Nushell commands via MCP
+- **Persistent shell** - State (environment variables, aliases, definitions) is preserved between commands
+- **Shell reset** - Use `reset: true` to get a clean shell when needed
 - **Configurable timeout support** - Set global defaults via `MCP_NU_MCP_TIMEOUT` or per-call with `timeout_seconds` parameter
 - Extensible tool system via Nushell scripts in modular directories
 - Uses the official Model Context Protocol Rust SDK
@@ -16,7 +18,7 @@ This project exposes Nushell as an MCP server using the official Rust SDK (`rmcp
 ```bash
 nu-mcp
 ```
-Provides the `run` tool for executing arbitrary Nushell commands.
+Provides the `run` tool for executing Nushell commands in a persistent shell. Environment variables, aliases, and definitions are preserved between calls. Use `reset: true` to get a clean environment when needed.
 
 ### Extension Mode  
 ```bash
@@ -48,6 +50,7 @@ The `tools/` directory contains a growing catalog of useful MCP tools:
 
 ### Environment Variables
 - `MCP_NU_MCP_TIMEOUT` - Default timeout in seconds for tool execution (default: 60)
+- `MCP_PTY_TRACE` - Set to `1` to enable PTY trace logging to `/tmp/pty_trace.log` (persistent mode only, for debugging)
 
 ### Example MCP Configuration
 ```yaml

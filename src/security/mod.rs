@@ -164,9 +164,10 @@ fn extract_words(command: &str) -> Vec<String> {
         .map(|s| {
             // Strip surrounding quotes to get the actual argument value
             let s = s.trim();
-            let s = if (s.starts_with('"') && s.ends_with('"'))
-                || (s.starts_with('\'') && s.ends_with('\''))
-                || (s.starts_with('`') && s.ends_with('`'))
+            let s = if s.len() >= 2
+                && ((s.starts_with('"') && s.ends_with('"'))
+                    || (s.starts_with('\'') && s.ends_with('\''))
+                    || (s.starts_with('`') && s.ends_with('`')))
             {
                 &s[1..s.len() - 1]
             } else {

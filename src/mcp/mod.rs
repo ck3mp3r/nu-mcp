@@ -14,14 +14,14 @@ use rmcp::{
 
 use crate::{
     config::Config,
-    execution::{CommandExecutor, NushellExecutor},
+    execution::{CommandExecutor, persistent::PersistentNuExecutor},
     tools::{NushellToolExecutor, ToolExecutor, discover_tools},
 };
 
 const RUN_DESCRIPTION: &str = include_str!("../../docs/run_description.txt");
 
 #[derive(Clone)]
-pub struct NushellTool<C = NushellExecutor, T = NushellToolExecutor>
+pub struct NushellTool<C = PersistentNuExecutor, T = NushellToolExecutor>
 where
     C: CommandExecutor + 'static,
     T: ToolExecutor + 'static,
@@ -72,9 +72,7 @@ where
             }
         }
 
-        let capabilities = ServerCapabilities::builder()
-            .enable_tools()
-            .build();
+        let capabilities = ServerCapabilities::builder().enable_tools().build();
 
         let server_info = Implementation::new("nu-mcp", env!("CARGO_PKG_VERSION"))
             .with_title("Nu MCP Server")
@@ -134,6 +132,18 @@ where
             timeout_prop.insert("minimum".to_string(), Value::Number(1.into()));
             properties.insert("timeout_seconds".to_string(), Value::Object(timeout_prop));
 
+            // Reset property (optional)
+            let mut reset_prop = Map::new();
+            reset_prop.insert("type".to_string(), Value::String("boolean".to_string()));
+            reset_prop.insert(
+                "description".to_string(),
+                Value::String(
+                    "Reset the shell to a clean state before executing. Clears all environment variables, aliases, and definitions. Use when you need a fresh environment."
+                        .to_string(),
+                ),
+            );
+            properties.insert("reset".to_string(), Value::Object(reset_prop));
+
             schema.insert("properties".to_string(), Value::Object(properties));
             schema.insert(
                 "required".to_string(),
@@ -171,8 +181,7 @@ where
             let description = format!("{}{}", RUN_DESCRIPTION, sandbox_note);
 
             tools.push(
-                Tool::new("run", description, Arc::new(schema))
-                    .with_title("Run Nushell Command")
+                Tool::new("run", description, Arc::new(schema)).with_title("Run Nushell Command"),
             );
         }
 
@@ -200,17 +209,19 @@ pub async fn run_server(config: Config) -> Result<()> {
         Vec::new()
     };
 
-    let executor = NushellExecutor;
     let tool_executor = NushellToolExecutor;
 
     // Create path cache (session-scoped, lives for server lifetime)
     let path_cache =
         std::sync::Arc::new(tokio::sync::RwLock::new(crate::security::PathCache::new()));
 
+    let executor = PersistentNuExecutor::new()
+        .map_err(|e| anyhow::anyhow!("Failed to create persistent shell: {}", e))?;
     let router = ToolRouter::new(config, extensions, executor, tool_executor, path_cache);
     let tool = NushellTool { router };
     let service = tool.serve(transport::stdio()).await?;
     service.waiting().await?;
+
     Ok(())
 }
 
