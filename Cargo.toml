@@ -1,6 +1,6 @@
 [package]
 name = "nu-mcp"
-version = "0.6.1"
+version = "0.7.0"
 description = ""
 edition = "2024"
 
@@ -36,5 +36,5 @@ version = "4.6.0"
 features = ["derive"]
 
 [dev-dependencies]
-serial_test = "3.2"
+serial_test = "3.4.0"
 tokio-util = "0.7.18"
