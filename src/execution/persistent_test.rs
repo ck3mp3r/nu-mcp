@@ -190,3 +190,26 @@ fn test_timeout() {
         err
     );
 }
+
+#[test]
+fn test_str_join_pipeline() {
+    let mut shell = PersistentShell::new().expect("Failed to create shell");
+
+    let result = shell.execute(r#"["a" "b" "c"] | str join ", ""#, DEFAULT_TIMEOUT);
+    assert!(result.is_ok(), "Execute failed: {:?}", result.err());
+    let output = result.unwrap();
+    assert_eq!(output.stdout, "a, b, c");
+}
+
+#[test]
+fn test_each_with_str_join() {
+    let mut shell = PersistentShell::new().expect("Failed to create shell");
+
+    let result = shell.execute(
+        "[1 2 3 4 5] | each { |n| $n * $n } | str join \", \"",
+        DEFAULT_TIMEOUT,
+    );
+    assert!(result.is_ok(), "Execute failed: {:?}", result.err());
+    let output = result.unwrap();
+    assert_eq!(output.stdout, "1, 4, 9, 16, 25");
+}

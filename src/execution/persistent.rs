@@ -206,10 +206,8 @@ impl PersistentShell {
         let mut saw_command_executed = false;
 
         self.drain_until(timeout, |shell, data| {
-            // Before C: respond to DSR so Reedline can render prompt
-            if !saw_command_executed {
-                shell.respond_to_dsr(data);
-            }
+            // Always respond to DSR - Reedline may query cursor position at any point
+            shell.respond_to_dsr(data);
 
             // Collect output bytes only after C
             if saw_command_executed {
