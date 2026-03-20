@@ -7,9 +7,20 @@ use std::time::Duration;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// Skip test when running in CI — persistent shell tests need a real PTY with Nushell.
+macro_rules! skip_in_ci {
+    () => {
+        if std::env::var("CI").is_ok() {
+            eprintln!("Skipping PTY test in CI environment");
+            return;
+        }
+    };
+}
+
 #[test]
 #[serial]
 fn test_persistent_shell_creates() {
+    skip_in_ci!();
     let result = PersistentShell::new();
     assert!(result.is_ok(), "Failed: {:?}", result.err());
 }
@@ -17,6 +28,7 @@ fn test_persistent_shell_creates() {
 #[test]
 #[serial]
 fn test_detects_osc_133_at_startup() {
+    skip_in_ci!();
     let shell = PersistentShell::new();
     assert!(shell.is_ok());
 }
@@ -24,6 +36,7 @@ fn test_detects_osc_133_at_startup() {
 #[test]
 #[serial]
 fn test_execute_writes_file() {
+    skip_in_ci!();
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
     let test_file = std::env::temp_dir().join("nu_mcp_test_output.txt");
@@ -43,6 +56,7 @@ fn test_execute_writes_file() {
 #[test]
 #[serial]
 fn test_execute_print_output() {
+    skip_in_ci!();
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
     let result = shell.execute("print 'hello'", DEFAULT_TIMEOUT);
@@ -59,6 +73,7 @@ fn test_execute_print_output() {
 #[test]
 #[serial]
 fn test_execute_expression_output() {
+    skip_in_ci!();
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
     let result = shell.execute("1 + 1", DEFAULT_TIMEOUT);
@@ -74,6 +89,7 @@ fn test_execute_expression_output() {
 #[test]
 #[serial]
 fn test_state_persistence_via_file() {
+    skip_in_ci!();
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
     let test_file = std::env::temp_dir().join("nu_mcp_test_state.txt");
@@ -96,6 +112,7 @@ fn test_state_persistence_via_file() {
 #[test]
 #[serial]
 fn test_execute_with_exit_code() {
+    skip_in_ci!();
     let mut shell = PersistentShell::new().expect("Failed to create shell");
     let result = shell.execute("error make {msg: 'test error'}", DEFAULT_TIMEOUT);
 
@@ -109,6 +126,7 @@ fn test_execute_with_exit_code() {
 #[test]
 #[serial]
 fn test_multiline_output() {
+    skip_in_ci!();
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
     let result = shell.execute("[1 2 3 4 5] | each { |n| print $n }", DEFAULT_TIMEOUT);
@@ -127,6 +145,7 @@ fn test_multiline_output() {
 #[test]
 #[serial]
 fn test_no_output_command() {
+    skip_in_ci!();
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
     let result = shell.execute("let x = 1", DEFAULT_TIMEOUT);
@@ -143,6 +162,7 @@ fn test_no_output_command() {
 #[test]
 #[serial]
 fn test_large_output() {
+    skip_in_ci!();
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
     let result = shell.execute("1..500 | each { |n| $'line ($n): some padding text to make this longer' } | str join (char newline) | print", DEFAULT_TIMEOUT);
@@ -160,6 +180,7 @@ fn test_large_output() {
 #[test]
 #[serial]
 fn test_many_sequential_commands() {
+    skip_in_ci!();
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
     for i in 1..=10 {
@@ -180,6 +201,7 @@ fn test_many_sequential_commands() {
 #[test]
 #[serial]
 fn test_special_characters() {
+    skip_in_ci!();
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
     let result = shell.execute(
@@ -195,6 +217,7 @@ fn test_special_characters() {
 #[test]
 #[serial]
 fn test_timeout() {
+    skip_in_ci!();
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
     let result = shell.execute("sleep 10sec", Duration::from_secs(1));
@@ -211,6 +234,7 @@ fn test_timeout() {
 #[test]
 #[serial]
 fn test_str_join_pipeline() {
+    skip_in_ci!();
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
     let result = shell.execute(r#"["a" "b" "c"] | str join ", ""#, DEFAULT_TIMEOUT);
@@ -222,6 +246,7 @@ fn test_str_join_pipeline() {
 #[test]
 #[serial]
 fn test_each_with_str_join() {
+    skip_in_ci!();
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
     let result = shell.execute(
@@ -236,6 +261,7 @@ fn test_each_with_str_join() {
 #[test]
 #[serial]
 fn test_str_join_after_prior_command() {
+    skip_in_ci!();
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
     // First a simple command
@@ -254,6 +280,7 @@ fn test_str_join_after_prior_command() {
 #[tokio::test]
 #[serial]
 async fn test_reset_clears_state() {
+    skip_in_ci!();
     let executor = PersistentNuExecutor::new().expect("Failed to create executor");
     let work_dir = PathBuf::from(".");
 
@@ -290,6 +317,7 @@ async fn test_reset_clears_state() {
 #[tokio::test]
 #[serial]
 async fn test_reset_shell_still_works() {
+    skip_in_ci!();
     let executor = PersistentNuExecutor::new().expect("Failed to create executor");
     let work_dir = PathBuf::from(".");
 
