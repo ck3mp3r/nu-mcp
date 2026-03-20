@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex, mpsc};
 use std::time::Duration;
 
 const BUFFER_SIZE: usize = 8192;
-const STARTUP_TIMEOUT_SECS: u64 = 5;
+const STARTUP_TIMEOUT_SECS: u64 = 10;
 
 /// DSR (Device Status Report) sequence: ESC [ 6 n
 /// Reedline/crossterm sends this to query cursor position.
@@ -210,37 +210,32 @@ impl PersistentShell {
 
     /// Execute a command and collect output.
     ///
-    /// OSC 133 sequence for each command in Nushell's REPL:
-    ///   [leftover D from prev prompt] → A (prompt) → B (input) → C (executing) → D (finished)
-    ///
-    /// Reedline sends exactly 2 DSR queries per prompt cycle. We respond to
-    /// at most `MAX_DSR_RESPONSES_PER_PROMPT` with a stable CPR value (row 1,
-    /// col 1) that avoids redraw loops. The counter resets on each PromptStart.
+    /// After wait_for_prompt / previous execute, Reedline is in event::read()
+    /// waiting for input (A and B markers already emitted and consumed).
     ///
     /// We:
-    /// 1. Respond to capped DSR queries during prompt phase (before C)
-    /// 2. Stop all DSR responses after C
-    /// 3. Collect output bytes between C and D
-    /// 4. Stop at D (CommandFinished) after C
+    /// 1. Write the command — Reedline processes it and returns to Nushell
+    /// 2. Wait for C (CommandExecuted) — Nushell is about to run the command
+    /// 3. Collect output between C and D (CommandFinished)
+    /// 4. Respond to DSR during the next prompt phase (between D and the
+    ///    next B) so Reedline can initialize the next prompt
     pub fn execute(&mut self, command: &str, timeout: Duration) -> Result<CommandOutput, String> {
         // Reset DSR counter for the new prompt cycle
         self.dsr_response_count = 0;
 
-        // Write command to PTY
+        // Write command — Reedline is in event::read(), ready for input
         writeln!(self.writer, "{}", command).map_err(|e| format!("Write failed: {}", e))?;
         self.writer
             .flush()
             .map_err(|e| format!("Flush failed: {}", e))?;
 
+        // Wait for C→D, respond to DSR during prompt rendering phase
         let mut output_buffer = Vec::new();
         let mut final_exit_code: Option<i32> = None;
         let mut saw_command_executed = false;
 
         self.drain_until(timeout, |shell, data| {
-            // Respond to DSR only during the prompt phase (before C).
-            // After C our command is executing; responding causes Reedline
-            // redraw loops on the *next* prompt. Reedline has a 2-second
-            // timeout and handles the Err gracefully, so skipping is safe.
+            // Respond to DSR during prompt phase (before C and after D for next prompt)
             if !saw_command_executed {
                 shell.respond_to_dsr(data);
             }
@@ -253,7 +248,6 @@ impl PersistentShell {
             let mut done = false;
             shell.osc_parser.push(data, |event| match event {
                 osc133::Event::PromptStart => {
-                    // New prompt cycle — reset DSR counter
                     shell.dsr_response_count = 0;
                 }
                 osc133::Event::CommandExecuted => {
@@ -274,6 +268,32 @@ impl PersistentShell {
                 ControlFlow::Continue
             }
         })?;
+
+        // After D, drain until we see the next B (Reedline ready for input).
+        // This ensures DSR queries for the next prompt are handled now,
+        // not deferred to the next execute() call.
+        let mut saw_next_ready = false;
+        let post_deadline = std::time::Instant::now() + timeout;
+        let post_remaining = post_deadline
+            .checked_duration_since(std::time::Instant::now())
+            .unwrap_or(Duration::from_secs(10));
+        let _ = self.drain_until(post_remaining, |shell, data| {
+            shell.respond_to_dsr(data);
+            shell.osc_parser.push(data, |event| {
+                if matches!(event, osc133::Event::CommandStart) {
+                    saw_next_ready = true;
+                }
+                if matches!(event, osc133::Event::PromptStart) {
+                    shell.dsr_response_count = 0;
+                }
+            });
+            if saw_next_ready {
+                ControlFlow::Break
+            } else {
+                ControlFlow::Continue
+            }
+        });
+        // If we didn't see B, that's OK — next execute() will handle it.
 
         // Strip ANSI escape codes
         let clean = strip_ansi_escapes::strip(&output_buffer);
