@@ -16,6 +16,9 @@ use std::time::Duration;
 
 const BUFFER_SIZE: usize = 8192;
 const STARTUP_TIMEOUT_SECS: u64 = 10;
+/// Max queued PTY read chunks before the reader thread blocks (backpressure).
+/// 64 chunks * 8KB = 512KB max buffered data.
+const CHANNEL_CAPACITY: usize = 64;
 
 /// DSR (Device Status Report) sequence: ESC [ 6 n
 /// Reedline/crossterm sends this to query cursor position.
@@ -78,7 +81,7 @@ impl PersistentShell {
         let mut reader = master
             .try_clone_reader()
             .map_err(|e| format!("Failed to clone reader: {}", e))?;
-        let (tx, rx) = mpsc::channel();
+        let (tx, rx) = mpsc::sync_channel(CHANNEL_CAPACITY);
         std::thread::spawn(move || {
             let mut buf = [0u8; BUFFER_SIZE];
             loop {
