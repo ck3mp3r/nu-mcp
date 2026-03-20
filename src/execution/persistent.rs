@@ -6,24 +6,30 @@
 //! Can be optimized later with platform-specific code if needed.
 
 use super::osc133;
-use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
-use std::env;
+use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
 use std::io::{Read, Write};
-use std::time::{Duration, Instant};
+use std::sync::mpsc;
+use std::time::Duration;
 
 const BUFFER_SIZE: usize = 8192;
 const STARTUP_TIMEOUT_SECS: u64 = 5;
-const DEFAULT_COMMAND_TIMEOUT_SECS: u64 = 60;
 
 /// DSR (Device Status Report) sequence: ESC [ 6 n
 /// Reedline/crossterm sends this to query cursor position.
 const DSR_SEQUENCE: &[u8] = b"\x1b[6n";
 
+/// Messages sent from the background reader thread to the main thread.
+enum PtyRead {
+    Data(Vec<u8>),
+    Eof,
+    Error(String),
+}
+
 pub struct PersistentShell {
-    master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
     osc_parser: osc133::Parser,
-    _buffer: [u8; BUFFER_SIZE],
+    reader_rx: mpsc::Receiver<PtyRead>,
+    _master: Box<dyn MasterPty + Send>,
     _child: Box<dyn Child + Send + Sync>,
 }
 
@@ -45,12 +51,10 @@ impl PersistentShell {
         let mut cmd = CommandBuilder::new("nu");
         cmd.cwd(std::env::current_dir().map_err(|e| e.to_string())?);
 
-        // Set environment variables to ensure Nushell sees this as a terminal
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");
-
-        // Disable bracketed paste which might interfere
         cmd.env("NO_COLOR", "1");
+
         let child = pair
             .slave
             .spawn_command(cmd)
@@ -63,11 +67,37 @@ impl PersistentShell {
             .take_writer()
             .map_err(|e| format!("Failed to take writer: {}", e))?;
 
+        // Spawn background reader thread: reads PTY in a loop, sends chunks via channel
+        let mut reader = master
+            .try_clone_reader()
+            .map_err(|e| format!("Failed to clone reader: {}", e))?;
+        let (tx, rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            let mut buf = [0u8; BUFFER_SIZE];
+            loop {
+                match reader.read(&mut buf) {
+                    Ok(0) => {
+                        let _ = tx.send(PtyRead::Eof);
+                        break;
+                    }
+                    Ok(n) => {
+                        if tx.send(PtyRead::Data(buf[..n].to_vec())).is_err() {
+                            break; // receiver dropped
+                        }
+                    }
+                    Err(e) => {
+                        let _ = tx.send(PtyRead::Error(e.to_string()));
+                        break;
+                    }
+                }
+            }
+        });
+
         let mut shell = Self {
-            master,
             writer,
             osc_parser: osc133::Parser::new(),
-            _buffer: [0u8; BUFFER_SIZE],
+            reader_rx: rx,
+            _master: master,
             _child: child,
         };
 
@@ -76,17 +106,8 @@ impl PersistentShell {
         Ok(shell)
     }
 
-    /// Scan PTY output for DSR (Device Status Report) queries and respond with CPR.
-    ///
-    /// Reedline (via crossterm) sends `\x1b[6n` to query the cursor position and blocks
-    /// up to 2 seconds waiting for a CPR (Cursor Position Report) response in the format
-    /// `\x1b[{row};{col}R`. Without this response, Reedline's prompt repainting uses an
-    /// incorrect position, causing screen clears that erase command output.
-    ///
-    /// This method scans the given data for DSR sequences and writes back a CPR response
-    /// `\x1b[1;1R` (row 1, col 1) to the child's stdin via the PTY writer.
+    /// Scan data for DSR queries and respond with CPR.
     fn respond_to_dsr(&mut self, data: &[u8]) {
-        // Scan for all occurrences of \x1b[6n in the data
         if data.len() < DSR_SEQUENCE.len() {
             return;
         }
@@ -97,7 +118,6 @@ impl PersistentShell {
             }
         }
         if count > 0 {
-            // Write CPR response for each DSR query: ESC [ row ; col R (1-based)
             for _ in 0..count {
                 let _ = self.writer.write_all(b"\x1b[1;1R");
             }
@@ -105,141 +125,130 @@ impl PersistentShell {
         }
     }
 
-    fn wait_for_prompt(&mut self, timeout: Duration) -> Result<(), String> {
-        let start = Instant::now();
-        let mut got_marker = false;
+    /// Drain the reader channel, processing each chunk. Returns on timeout or error.
+    fn drain_until<F>(&mut self, timeout: Duration, mut handler: F) -> Result<(), String>
+    where
+        F: FnMut(&mut Self, &[u8]) -> ControlFlow,
+    {
+        let deadline = std::time::Instant::now() + timeout;
 
         loop {
-            if start.elapsed() > timeout {
-                return Err(format!(
-                    "Timeout waiting for Nushell. OSC 133 may be disabled. Final zone: {:?}",
-                    self.osc_parser.zone()
-                ));
+            let remaining = deadline
+                .checked_duration_since(std::time::Instant::now())
+                .unwrap_or(Duration::ZERO);
+
+            if remaining.is_zero() {
+                return Err(format!("Timeout after {} seconds", timeout.as_secs()));
             }
 
-            let mut reader = self
-                .master
-                .try_clone_reader()
-                .map_err(|e| format!("Failed to clone reader: {}", e))?;
-
-            let mut temp_buf = [0u8; 1024];
-            match reader.read(&mut temp_buf) {
-                Ok(0) => return Err("PTY EOF during startup".to_string()),
-                Ok(n) => {
-                    let data = &temp_buf[..n];
-
-                    // Respond to DSR queries from Reedline/crossterm
-                    self.respond_to_dsr(data);
-
-                    self.osc_parser.push(data, |_event| {
-                        // Accept ANY OSC marker as sign that shell integration is working
-                        got_marker = true;
-                    });
-
-                    if got_marker {
+            match self.reader_rx.recv_timeout(remaining) {
+                Ok(PtyRead::Data(data)) => {
+                    if let ControlFlow::Break = handler(self, &data) {
                         return Ok(());
                     }
                 }
-                Err(_) => {
-                    std::thread::sleep(Duration::from_millis(100));
+                Ok(PtyRead::Eof) => return Err("PTY EOF".to_string()),
+                Ok(PtyRead::Error(e)) => return Err(format!("PTY read error: {}", e)),
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    return Err(format!("Timeout after {} seconds", timeout.as_secs()));
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    return Err("PTY reader disconnected".to_string());
                 }
             }
         }
     }
 
-    /// Execute a command and collect output
+    fn wait_for_prompt(&mut self, timeout: Duration) -> Result<(), String> {
+        let mut got_marker = false;
+
+        self.drain_until(timeout, |shell, data| {
+            shell.respond_to_dsr(data);
+            shell.osc_parser.push(data, |_event| {
+                got_marker = true;
+            });
+            if got_marker {
+                ControlFlow::Break
+            } else {
+                ControlFlow::Continue
+            }
+        })?;
+
+        if got_marker {
+            Ok(())
+        } else {
+            Err("No OSC 133 marker detected".to_string())
+        }
+    }
+
+    /// Execute a command and collect output.
     ///
     /// OSC 133 sequence for each command in Nushell's REPL:
     ///   [leftover D from prev prompt] → A (prompt) → B (input) → C (executing) → D (finished)
     ///
-    /// We must:
+    /// We:
     /// 1. Respond to DSR queries during prompt phase so Reedline can render
     /// 2. Wait for C (CommandExecuted) - only then is our command running
-    /// 3. Collect output bytes only while zone == Output (between C and D)
-    /// 4. Stop at D (CommandFinished) after C - that's the real completion
-    pub fn execute(&mut self, command: &str) -> Result<CommandOutput, String> {
-        let timeout_secs = env::var("MCP_NU_MCP_TIMEOUT")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(DEFAULT_COMMAND_TIMEOUT_SECS);
-        let timeout = Duration::from_secs(timeout_secs);
-
+    /// 3. Collect output bytes between C and D
+    /// 4. Stop at D (CommandFinished) after C
+    pub fn execute(&mut self, command: &str, timeout: Duration) -> Result<CommandOutput, String> {
         // Write command to PTY
         writeln!(self.writer, "{}", command).map_err(|e| format!("Write failed: {}", e))?;
         self.writer
             .flush()
             .map_err(|e| format!("Flush failed: {}", e))?;
 
-        let start = Instant::now();
         let mut output_buffer = Vec::new();
         let mut final_exit_code: Option<i32> = None;
         let mut saw_command_executed = false;
 
-        // Event loop: read PTY until command finishes
-        loop {
-            if start.elapsed() > timeout {
-                return Err(format!("Timeout after {} seconds", timeout_secs));
+        self.drain_until(timeout, |shell, data| {
+            // Before C: respond to DSR so Reedline can render prompt
+            if !saw_command_executed {
+                shell.respond_to_dsr(data);
             }
 
-            let mut reader = self
-                .master
-                .try_clone_reader()
-                .map_err(|e| format!("Clone reader failed: {}", e))?;
+            // Collect output bytes only after C
+            if saw_command_executed {
+                output_buffer.extend_from_slice(data);
+            }
 
-            let mut chunk = [0u8; BUFFER_SIZE];
-            match reader.read(&mut chunk) {
-                Ok(0) => return Err("PTY EOF".to_string()),
-                Ok(n) => {
-                    let data = &chunk[..n];
-
-                    // Before CommandExecuted (C): respond to DSR so Reedline can render prompt
-                    if !saw_command_executed {
-                        self.respond_to_dsr(data);
-                    }
-
-                    // Only collect output bytes after CommandExecuted (zone == Output)
+            let mut done = false;
+            shell.osc_parser.push(data, |event| match event {
+                osc133::Event::CommandExecuted => {
+                    saw_command_executed = true;
+                }
+                osc133::Event::CommandFinished { exit_code } => {
                     if saw_command_executed {
-                        output_buffer.extend_from_slice(data);
-                    }
-
-                    // Parse OSC events
-                    let mut done = false;
-                    self.osc_parser.push(data, |event| match event {
-                        osc133::Event::CommandExecuted => {
-                            saw_command_executed = true;
-                        }
-                        osc133::Event::CommandFinished { exit_code } => {
-                            // Only treat D as completion if we already saw C
-                            if saw_command_executed {
-                                final_exit_code = exit_code;
-                                done = true;
-                            }
-                        }
-                        _ => {}
-                    });
-
-                    if done {
-                        break;
+                        final_exit_code = exit_code;
+                        done = true;
                     }
                 }
-                Err(_) => {
-                    std::thread::sleep(Duration::from_millis(10));
-                }
+                _ => {}
+            });
+
+            if done {
+                ControlFlow::Break
+            } else {
+                ControlFlow::Continue
             }
-        }
+        })?;
 
         // Strip ANSI escape codes
         let clean = strip_ansi_escapes::strip(&output_buffer);
-        let stdout = String::from_utf8_lossy(&clean).to_string();
-
-        // Trim whitespace
-        let stdout = stdout.trim().to_string();
+        let stdout = String::from_utf8_lossy(&clean).trim().to_string();
 
         Ok(CommandOutput {
             stdout,
             exit_code: final_exit_code.unwrap_or(0),
         })
     }
+}
+
+/// Control flow for drain_until handler
+enum ControlFlow {
+    Continue,
+    Break,
 }
 
 /// Output from a command execution
