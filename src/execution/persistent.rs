@@ -217,8 +217,8 @@ impl PersistentShell {
     /// 1. Write the command — Reedline processes it and returns to Nushell
     /// 2. Wait for C (CommandExecuted) — Nushell is about to run the command
     /// 3. Collect output between C and D (CommandFinished)
-    /// 4. Respond to DSR during the next prompt phase (between D and the
-    ///    next B) so Reedline can initialize the next prompt
+    /// 4. After D, the next prompt cycle starts. DSR responses are handled
+    ///    by respond_to_dsr with a capped counter per cycle.
     pub fn execute(&mut self, command: &str, timeout: Duration) -> Result<CommandOutput, String> {
         // Reset DSR counter for the new prompt cycle
         self.dsr_response_count = 0;
@@ -235,7 +235,8 @@ impl PersistentShell {
         let mut saw_command_executed = false;
 
         self.drain_until(timeout, |shell, data| {
-            // Respond to DSR during prompt phase (before C and after D for next prompt)
+            // Respond to DSR during prompt phase (before C).
+            // Capped at MAX_DSR_RESPONSES_PER_PROMPT to prevent loops.
             if !saw_command_executed {
                 shell.respond_to_dsr(data);
             }
@@ -269,15 +270,17 @@ impl PersistentShell {
             }
         })?;
 
-        // After D, drain until we see the next B (Reedline ready for input).
-        // This ensures DSR queries for the next prompt are handled now,
-        // not deferred to the next execute() call.
+        // Strip ANSI escape codes
+        let clean = strip_ansi_escapes::strip(&output_buffer);
+        let stdout = String::from_utf8_lossy(&clean).trim().to_string();
+
+        // After D, drain until the next B (CommandStart) so Reedline is back
+        // at event::read() before we return. Respond to DSR so Reedline
+        // doesn't stall for 2s per query. Reset DSR counter for the new cycle.
+        self.dsr_response_count = 0;
         let mut saw_next_ready = false;
-        let post_deadline = std::time::Instant::now() + timeout;
-        let post_remaining = post_deadline
-            .checked_duration_since(std::time::Instant::now())
-            .unwrap_or(Duration::from_secs(10));
-        let _ = self.drain_until(post_remaining, |shell, data| {
+        let post_timeout = Duration::from_secs(10);
+        let _ = self.drain_until(post_timeout, |shell, data| {
             shell.respond_to_dsr(data);
             shell.osc_parser.push(data, |event| {
                 if matches!(event, osc133::Event::CommandStart) {
@@ -293,11 +296,6 @@ impl PersistentShell {
                 ControlFlow::Continue
             }
         });
-        // If we didn't see B, that's OK — next execute() will handle it.
-
-        // Strip ANSI escape codes
-        let clean = strip_ansi_escapes::strip(&output_buffer);
-        let stdout = String::from_utf8_lossy(&clean).trim().to_string();
 
         Ok(CommandOutput {
             stdout,
