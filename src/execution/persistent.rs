@@ -223,18 +223,60 @@ impl PersistentShell {
         // Reset DSR counter for the new prompt cycle
         self.dsr_response_count = 0;
 
+        // Trace file for debugging (only when MCP_PTY_TRACE is set)
+        let trace = std::env::var("MCP_PTY_TRACE").is_ok();
+        let mut trace_file = if trace {
+            use std::fs::OpenOptions;
+            Some(
+                OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open("/tmp/pty_trace.log")
+                    .ok(),
+            )
+            .flatten()
+        } else {
+            None
+        };
+
+        macro_rules! trace_log {
+            ($($arg:tt)*) => {
+                if let Some(ref mut f) = trace_file {
+                    use std::io::Write;
+                    let _ = writeln!(f, $($arg)*);
+                    let _ = f.flush();
+                }
+            };
+        }
+
+        trace_log!("=== EXECUTE: {:?} ===", command);
+
         // Write command — Reedline is in event::read(), ready for input
         writeln!(self.writer, "{}", command).map_err(|e| format!("Write failed: {}", e))?;
         self.writer
             .flush()
             .map_err(|e| format!("Flush failed: {}", e))?;
 
+        trace_log!("CMD WRITTEN, waiting for C→D");
+
         // Wait for C→D, respond to DSR during prompt rendering phase
         let mut output_buffer = Vec::new();
         let mut final_exit_code: Option<i32> = None;
         let mut saw_command_executed = false;
+        let mut chunk_num = 0u32;
 
         self.drain_until(timeout, |shell, data| {
+            chunk_num += 1;
+            let has_dsr = data.windows(4).any(|w| w == b"\x1b[6n");
+            trace_log!(
+                "CHUNK#{} len={} saw_c={} has_dsr={} hex={}",
+                chunk_num,
+                data.len(),
+                saw_command_executed,
+                has_dsr,
+                data.iter().take(100).map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ")
+            );
+
             // Respond to DSR during prompt phase (before C).
             // Capped at MAX_DSR_RESPONSES_PER_PROMPT to prevent loops.
             if !saw_command_executed {
@@ -247,23 +289,27 @@ impl PersistentShell {
             }
 
             let mut done = false;
-            shell.osc_parser.push(data, |event| match event {
-                osc133::Event::PromptStart => {
-                    shell.dsr_response_count = 0;
-                }
-                osc133::Event::CommandExecuted => {
-                    saw_command_executed = true;
-                }
-                osc133::Event::CommandFinished { exit_code } => {
-                    if saw_command_executed {
-                        final_exit_code = exit_code;
-                        done = true;
+            shell.osc_parser.push(data, |event| {
+                trace_log!("  EVENT: {:?}", event);
+                match event {
+                    osc133::Event::PromptStart => {
+                        shell.dsr_response_count = 0;
                     }
+                    osc133::Event::CommandExecuted => {
+                        saw_command_executed = true;
+                    }
+                    osc133::Event::CommandFinished { exit_code } => {
+                        if saw_command_executed {
+                            final_exit_code = exit_code;
+                            done = true;
+                        }
+                    }
+                    _ => {}
                 }
-                _ => {}
             });
 
             if done {
+                trace_log!("DONE: exit_code={:?}", final_exit_code);
                 ControlFlow::Break
             } else {
                 ControlFlow::Continue
@@ -280,9 +326,21 @@ impl PersistentShell {
         self.dsr_response_count = 0;
         let mut saw_next_ready = false;
         let post_timeout = Duration::from_secs(10);
+        let mut post_chunk = 0u32;
         let _ = self.drain_until(post_timeout, |shell, data| {
+            post_chunk += 1;
+            let has_dsr = data.windows(4).any(|w| w == b"\x1b[6n");
+            trace_log!(
+                "POST#{} len={} has_dsr={} dsr_count={} hex={}",
+                post_chunk,
+                data.len(),
+                has_dsr,
+                shell.dsr_response_count,
+                data.iter().take(100).map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ")
+            );
             shell.respond_to_dsr(data);
             shell.osc_parser.push(data, |event| {
+                trace_log!("  POST_EVENT: {:?}", event);
                 if matches!(event, osc133::Event::CommandStart) {
                     saw_next_ready = true;
                 }
@@ -291,11 +349,14 @@ impl PersistentShell {
                 }
             });
             if saw_next_ready {
+                trace_log!("POST DONE: saw B");
                 ControlFlow::Break
             } else {
                 ControlFlow::Continue
             }
         });
+
+        trace_log!("=== RETURNING stdout={:?} exit={:?} ===", stdout, final_exit_code);
 
         Ok(CommandOutput {
             stdout,
@@ -352,14 +413,20 @@ impl CommandExecutor for PersistentNuExecutor {
     ) -> Result<(String, String), String> {
         let timeout = Duration::from_secs(timeout_secs.unwrap_or_else(get_default_timeout));
         let command = command.to_string();
+        let shell = Arc::clone(&self.shell);
 
-        // The shell is behind a Mutex; lock, execute (blocking I/O), release.
-        // spawn_blocking keeps the tokio runtime responsive.
-        let shell = &self.shell;
-        let mut guard = shell
-            .lock()
-            .map_err(|e| format!("Shell lock poisoned: {}", e))?;
-        let result = guard.execute(&command, timeout)?;
+        // The shell does blocking I/O (PTY reads via recv_timeout).
+        // Must run on a blocking thread to avoid starving the tokio runtime,
+        // which needs to stay responsive for MCP protocol heartbeats.
+        let result = tokio::task::spawn_blocking(move || {
+            let mut guard = shell
+                .lock()
+                .map_err(|e| format!("Shell lock poisoned: {}", e))?;
+            guard.execute(&command, timeout)
+        })
+        .await
+        .map_err(|e| format!("Blocking task failed: {}", e))?
+        ?;
 
         // PTY merges stdout/stderr into one stream; stderr is empty
         Ok((result.stdout, String::new()))
