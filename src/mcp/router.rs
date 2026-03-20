@@ -69,15 +69,14 @@ where
             .unwrap_or("version");
 
         // Trace to file for debugging (only when MCP_PTY_TRACE is set)
-        if std::env::var("MCP_PTY_TRACE").is_ok() {
-            if let Ok(mut f) = std::fs::OpenOptions::new()
+        if std::env::var("MCP_PTY_TRACE").is_ok()
+            && let Ok(mut f) = std::fs::OpenOptions::new()
                 .create(true)
                 .append(true)
                 .open("/tmp/pty_trace.log")
-            {
-                use std::io::Write;
-                let _ = writeln!(f, "ROUTER: handle_run command={:?}", command);
-            }
+        {
+            use std::io::Write;
+            let _ = writeln!(f, "ROUTER: handle_run command={:?}", command);
         }
 
         // Check for reset parameter — recreate shell before executing
@@ -109,15 +108,14 @@ where
         };
 
         if let Err(msg) = validation_result {
-            if std::env::var("MCP_PTY_TRACE").is_ok() {
-                if let Ok(mut f) = std::fs::OpenOptions::new()
+            if std::env::var("MCP_PTY_TRACE").is_ok()
+                && let Ok(mut f) = std::fs::OpenOptions::new()
                     .create(true)
                     .append(true)
                     .open("/tmp/pty_trace.log")
-                {
-                    use std::io::Write;
-                    let _ = writeln!(f, "ROUTER: path validation REJECTED: {:?}", msg);
-                }
+            {
+                use std::io::Write;
+                let _ = writeln!(f, "ROUTER: path validation REJECTED: {:?}", msg);
             }
             return ResultFormatter::invalid_request(msg);
         }

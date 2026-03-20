@@ -16,7 +16,6 @@ fn create_test_router() -> ToolRouter<MockExecutor, MockToolExecutor> {
         tools_dir: None,
         enable_run_nu: true,
         sandbox_directories: vec![cwd],
-        ..Config::default()
     };
     let executor = MockExecutor::new("test output".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("tool output".to_string());
@@ -50,7 +49,6 @@ async fn test_router_extension_tool() {
         tools_dir: None,
         enable_run_nu: true,
         sandbox_directories: vec![cwd],
-        ..Config::default()
     };
     let executor = MockExecutor::new("test output".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("tool output".to_string());
@@ -96,7 +94,6 @@ async fn test_router_uses_injected_cache() {
         tools_dir: None,
         enable_run_nu: true,
         sandbox_directories: vec![cwd],
-        ..Config::default()
     };
     let executor = MockExecutor::new("test output".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("tool output".to_string());
@@ -167,7 +164,6 @@ async fn test_mutex_not_held_during_concurrent_requests() {
         tools_dir: None,
         enable_run_nu: true,
         sandbox_directories: vec![cwd],
-        ..Config::default()
     };
     let executor = MockExecutor::new("test output".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("tool output".to_string());

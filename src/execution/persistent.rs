@@ -234,11 +234,7 @@ impl PersistentShell {
         let mut saw_command_executed = false;
 
         self.drain_until(timeout, |shell, data| {
-            trace_log!(
-                "CHUNK len={} saw_c={}",
-                data.len(),
-                saw_command_executed,
-            );
+            trace_log!("CHUNK len={} saw_c={}", data.len(), saw_command_executed,);
 
             // Respond to DSR during prompt phase (before C)
             if !saw_command_executed {
@@ -297,7 +293,11 @@ impl PersistentShell {
             }
         });
 
-        trace_log!("=== RETURNING stdout={:?} exit={:?} ===", stdout, final_exit_code);
+        trace_log!(
+            "=== RETURNING stdout={:?} exit={:?} ===",
+            stdout,
+            final_exit_code
+        );
 
         Ok(CommandOutput {
             stdout,
@@ -366,8 +366,7 @@ impl CommandExecutor for PersistentNuExecutor {
             guard.execute(&command, timeout)
         })
         .await
-        .map_err(|e| format!("Blocking task failed: {}", e))?
-        ?;
+        .map_err(|e| format!("Blocking task failed: {}", e))??;
 
         // PTY merges stdout/stderr into one stream; stderr is empty
         Ok((result.stdout, String::new()))

@@ -13,7 +13,6 @@ fn test_get_info_includes_sandbox_info() {
         tools_dir: None,
         enable_run_nu: false,
         sandbox_directories: vec![PathBuf::from("/tmp/sandbox")],
-        ..Config::default()
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());
@@ -32,7 +31,6 @@ fn test_get_info_default_sandbox() {
         tools_dir: None,
         enable_run_nu: false,
         sandbox_directories: vec![],
-        ..Config::default()
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());
@@ -50,7 +48,6 @@ fn test_get_info_basic_fields() {
         tools_dir: None,
         enable_run_nu: false,
         sandbox_directories: vec![],
-        ..Config::default()
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());
@@ -71,7 +68,6 @@ fn test_get_info_marks_current_directory() {
         tools_dir: None,
         enable_run_nu: false,
         sandbox_directories: vec![cwd.clone(), PathBuf::from("/tmp")],
-        ..Config::default()
     };
     let executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());

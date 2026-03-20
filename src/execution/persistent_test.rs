@@ -1,6 +1,6 @@
+use crate::execution::CommandExecutor;
 use crate::execution::persistent::PersistentNuExecutor;
 use crate::execution::persistent::PersistentShell;
-use crate::execution::CommandExecutor;
 use serial_test::serial;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -258,21 +258,33 @@ async fn test_reset_clears_state() {
     let work_dir = PathBuf::from(".");
 
     // Set state
-    let r1 = executor.execute("$env.RESET_TEST = 'before'", &work_dir, Some(30)).await;
+    let r1 = executor
+        .execute("$env.RESET_TEST = 'before'", &work_dir, Some(30))
+        .await;
     assert!(r1.is_ok(), "Set state failed: {:?}", r1.err());
 
     // Verify state exists
-    let r2 = executor.execute("$env.RESET_TEST", &work_dir, Some(30)).await;
+    let r2 = executor
+        .execute("$env.RESET_TEST", &work_dir, Some(30))
+        .await;
     assert!(r2.is_ok());
-    assert!(r2.unwrap().0.contains("before"), "State should exist before reset");
+    assert!(
+        r2.unwrap().0.contains("before"),
+        "State should exist before reset"
+    );
 
     // Reset
     executor.reset().expect("Reset failed");
 
     // State should be gone
-    let r3 = executor.execute("$env.RESET_TEST? | default 'gone'", &work_dir, Some(30)).await;
+    let r3 = executor
+        .execute("$env.RESET_TEST? | default 'gone'", &work_dir, Some(30))
+        .await;
     assert!(r3.is_ok(), "Post-reset command failed: {:?}", r3.err());
-    assert!(r3.unwrap().0.contains("gone"), "State should be cleared after reset");
+    assert!(
+        r3.unwrap().0.contains("gone"),
+        "State should be cleared after reset"
+    );
 }
 
 #[tokio::test]
@@ -282,7 +294,9 @@ async fn test_reset_shell_still_works() {
     let work_dir = PathBuf::from(".");
 
     // Use the shell
-    let r1 = executor.execute("print 'before reset'", &work_dir, Some(30)).await;
+    let r1 = executor
+        .execute("print 'before reset'", &work_dir, Some(30))
+        .await;
     assert!(r1.is_ok());
     assert!(r1.unwrap().0.contains("before reset"));
 
@@ -290,7 +304,9 @@ async fn test_reset_shell_still_works() {
     executor.reset().expect("Reset failed");
 
     // Shell should still work
-    let r2 = executor.execute("print 'after reset'", &work_dir, Some(30)).await;
+    let r2 = executor
+        .execute("print 'after reset'", &work_dir, Some(30))
+        .await;
     assert!(r2.is_ok(), "Post-reset execute failed: {:?}", r2.err());
     assert!(r2.unwrap().0.contains("after reset"));
 }
