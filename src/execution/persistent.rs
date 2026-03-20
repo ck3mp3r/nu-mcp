@@ -28,10 +28,29 @@ enum PtyRead {
     Error(String),
 }
 
+/// CPR (Cursor Position Report) response: row 1, col 1 (0-indexed origin).
+///
+/// Reedline uses cursor position to set `prompt_start_row`. With (0,0):
+///   - `prompt_start_row` = 0
+///   - `is_reset()` check: `0 + 1 < 0` = false → no redraw loop
+const CPR_RESPONSE: &[u8] = b"\x1b[1;1R";
+
+/// Maximum DSR responses per prompt cycle.
+///
+/// Reedline sends exactly 2 CPR queries per prompt:
+///   1. `initialize_prompt_position()` in painter.rs
+///   2. `is_reset()` closure in `repaint_buffer()`
+/// After these, it enters the event loop and stops querying.
+/// We cap responses to prevent feedback loops if extra DSRs arrive.
+const MAX_DSR_RESPONSES_PER_PROMPT: u32 = 2;
+
 pub struct PersistentShell {
     writer: Box<dyn Write + Send>,
     osc_parser: osc133::Parser,
     reader_rx: mpsc::Receiver<PtyRead>,
+    /// Count of DSR responses sent in the current prompt cycle.
+    /// Reset to 0 when we see OSC 133;A (new prompt) or at start of execute().
+    dsr_response_count: u32,
     _master: Box<dyn MasterPty + Send>,
     _child: Box<dyn Child + Send + Sync>,
 }
@@ -100,6 +119,7 @@ impl PersistentShell {
             writer,
             osc_parser: osc133::Parser::new(),
             reader_rx: rx,
+            dsr_response_count: 0,
             _master: master,
             _child: child,
         };
@@ -109,24 +129,26 @@ impl PersistentShell {
         Ok(shell)
     }
 
-    /// Scan data for DSR queries and respond with CPR.
+    /// Respond to DSR queries with CPR, capped per prompt cycle.
+    ///
+    /// Reedline sends exactly 2 DSR queries per prompt cycle. We respond to
+    /// at most `MAX_DSR_RESPONSES_PER_PROMPT` to satisfy Reedline without
+    /// creating a feedback loop. Additional DSRs are ignored (Reedline times
+    /// out after 2s and handles the error gracefully).
     fn respond_to_dsr(&mut self, data: &[u8]) {
+        if self.dsr_response_count >= MAX_DSR_RESPONSES_PER_PROMPT {
+            return;
+        }
         if data.len() < DSR_SEQUENCE.len() {
             return;
         }
-        let mut count = 0;
         for window in data.windows(DSR_SEQUENCE.len()) {
             if window == DSR_SEQUENCE {
-                count += 1;
+                let _ = self.writer.write_all(CPR_RESPONSE);
+                let _ = self.writer.flush();
+                self.dsr_response_count += 1;
+                return; // One response per chunk
             }
-        }
-        if count > 0 {
-            for _ in 0..count {
-                // Report cursor after prompt area to prevent Reedline redraw loops.
-                // Row 3 accounts for a typical multi-line prompt + command line.
-                let _ = self.writer.write_all(b"\x1b[3;1R");
-            }
-            let _ = self.writer.flush();
         }
     }
 
@@ -191,12 +213,19 @@ impl PersistentShell {
     /// OSC 133 sequence for each command in Nushell's REPL:
     ///   [leftover D from prev prompt] → A (prompt) → B (input) → C (executing) → D (finished)
     ///
+    /// Reedline sends exactly 2 DSR queries per prompt cycle. We respond to
+    /// at most `MAX_DSR_RESPONSES_PER_PROMPT` with a stable CPR value (row 1,
+    /// col 1) that avoids redraw loops. The counter resets on each PromptStart.
+    ///
     /// We:
-    /// 1. Respond to DSR queries during prompt phase so Reedline can render
-    /// 2. Wait for C (CommandExecuted) - only then is our command running
+    /// 1. Respond to capped DSR queries during prompt phase (before C)
+    /// 2. Stop all DSR responses after C
     /// 3. Collect output bytes between C and D
     /// 4. Stop at D (CommandFinished) after C
     pub fn execute(&mut self, command: &str, timeout: Duration) -> Result<CommandOutput, String> {
+        // Reset DSR counter for the new prompt cycle
+        self.dsr_response_count = 0;
+
         // Write command to PTY
         writeln!(self.writer, "{}", command).map_err(|e| format!("Write failed: {}", e))?;
         self.writer
@@ -208,8 +237,13 @@ impl PersistentShell {
         let mut saw_command_executed = false;
 
         self.drain_until(timeout, |shell, data| {
-            // Always respond to DSR - Reedline may query cursor position at any point
-            shell.respond_to_dsr(data);
+            // Respond to DSR only during the prompt phase (before C).
+            // After C our command is executing; responding causes Reedline
+            // redraw loops on the *next* prompt. Reedline has a 2-second
+            // timeout and handles the Err gracefully, so skipping is safe.
+            if !saw_command_executed {
+                shell.respond_to_dsr(data);
+            }
 
             // Collect output bytes only after C
             if saw_command_executed {
@@ -218,6 +252,10 @@ impl PersistentShell {
 
             let mut done = false;
             shell.osc_parser.push(data, |event| match event {
+                osc133::Event::PromptStart => {
+                    // New prompt cycle — reset DSR counter
+                    shell.dsr_response_count = 0;
+                }
                 osc133::Event::CommandExecuted => {
                     saw_command_executed = true;
                 }
