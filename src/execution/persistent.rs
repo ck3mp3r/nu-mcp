@@ -273,11 +273,11 @@ fn get_default_timeout() -> u64 {
 
 /// Async executor that wraps a persistent Nushell shell.
 /// Implements `CommandExecutor` so it can be swapped in for `NushellExecutor`.
-pub struct PersistentExecutor {
+pub struct PersistentNuExecutor {
     shell: Mutex<PersistentShell>,
 }
 
-impl PersistentExecutor {
+impl PersistentNuExecutor {
     pub fn new() -> Result<Self, String> {
         Ok(Self {
             shell: Mutex::new(PersistentShell::new()?),
@@ -286,7 +286,7 @@ impl PersistentExecutor {
 }
 
 #[async_trait]
-impl CommandExecutor for PersistentExecutor {
+impl CommandExecutor for PersistentNuExecutor {
     async fn execute(
         &self,
         command: &str,
