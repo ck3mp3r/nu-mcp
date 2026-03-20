@@ -4,7 +4,8 @@ This project exposes Nushell as an MCP server using the official Rust SDK (`rmcp
 
 ## Features
 - Exposes a tool to run arbitrary Nushell commands via MCP
-- **Persistent shell mode** - Maintains state between commands with `--persistent` flag
+- **Persistent shell** - State (environment variables, aliases, definitions) is preserved between commands
+- **Shell reset** - Use `reset: true` to get a clean shell when needed
 - **Configurable timeout support** - Set global defaults via `MCP_NU_MCP_TIMEOUT` or per-call with `timeout_seconds` parameter
 - Extensible tool system via Nushell scripts in modular directories
 - Uses the official Model Context Protocol Rust SDK
@@ -17,13 +18,7 @@ This project exposes Nushell as an MCP server using the official Rust SDK (`rmcp
 ```bash
 nu-mcp
 ```
-Provides the `run` tool for executing arbitrary Nushell commands. Each command runs in a fresh Nushell process.
-
-### Persistent Mode
-```bash
-nu-mcp --persistent
-```
-Runs a single Nushell process that persists across commands. Environment variables, aliases, and state are preserved between calls. Uses PTY with OSC 133 markers for reliable command completion detection.
+Provides the `run` tool for executing Nushell commands in a persistent shell. Environment variables, aliases, and definitions are preserved between calls. Use `reset: true` to get a clean environment when needed.
 
 ### Extension Mode  
 ```bash
@@ -51,7 +46,6 @@ The `tools/` directory contains a growing catalog of useful MCP tools:
 ### Command Line Options
 - `--tools-dir=PATH` - Directory containing tool modules
 - `--enable-run-nu` - Enable generic command execution alongside tools  
-- `--persistent` - Use a persistent Nushell shell that maintains state between commands
 - `--add-path=PATH` - Add additional accessible paths (current directory always included)
 
 ### Environment Variables

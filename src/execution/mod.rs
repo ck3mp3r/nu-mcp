@@ -9,6 +9,12 @@ pub trait CommandExecutor: Send + Sync {
         working_dir: &Path,
         timeout_secs: Option<u64>,
     ) -> Result<(String, String), String>;
+
+    /// Reset the executor to a clean state (e.g., fresh shell).
+    /// Default implementation is a no-op for stateless executors.
+    fn reset(&self) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 pub mod nushell;

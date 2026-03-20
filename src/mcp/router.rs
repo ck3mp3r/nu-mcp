@@ -1,6 +1,6 @@
 use super::formatter::ResultFormatter;
 use crate::config::Config;
-use crate::execution::{CommandExecutor, NushellExecutor};
+use crate::execution::{CommandExecutor, persistent::PersistentNuExecutor};
 use crate::security::{PathCache, validate_path_safety_with_cache};
 use crate::tools::{ExtensionTool, NushellToolExecutor, ToolExecutor};
 use rmcp::model::CallToolRequestParams;
@@ -12,7 +12,7 @@ use std::{env, path::PathBuf, sync::Arc};
 use tokio::sync::RwLock;
 
 #[derive(Clone)]
-pub struct ToolRouter<C = NushellExecutor, T = NushellToolExecutor>
+pub struct ToolRouter<C = PersistentNuExecutor, T = NushellToolExecutor>
 where
     C: CommandExecutor,
     T: ToolExecutor,
@@ -78,6 +78,18 @@ where
                 use std::io::Write;
                 let _ = writeln!(f, "ROUTER: handle_run command={:?}", command);
             }
+        }
+
+        // Check for reset parameter — recreate shell before executing
+        let reset = args
+            .and_then(|args| args.get("reset"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        if reset {
+            self.executor
+                .reset()
+                .map_err(|e| ErrorData::internal_error(e, None))?;
         }
 
         // Extract optional timeout parameter

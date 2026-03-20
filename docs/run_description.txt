@@ -7,11 +7,16 @@ CRITICAL - Nushell Syntax Only:
 - See AGENTS.md#Personal-Rules for Nushell bash-to-nu conversion table
 
 IMPORTANT:
-- Commands run in a sandbox directory
+- Commands run in a persistent Nushell shell - state is preserved between calls
+- Environment variables, aliases, and definitions persist across commands
 - Commands already execute in the current working directory - DO NOT prefix with `cd` commands
 - Use RELATIVE paths only (./file.txt, subdir/file.txt, .)
 - Absolute paths are BLOCKED (e.g., /etc/passwd, /tmp/file)
 - Path traversal (..) is BLOCKED
+
+RESET:
+- Set reset=true to get a clean shell (clears all env vars, aliases, definitions)
+- Use when prior state may interfere with the current task
 
 TIMEOUT:
 - Default timeout: 60 seconds

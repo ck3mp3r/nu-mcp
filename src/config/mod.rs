@@ -5,7 +5,6 @@ pub struct Config {
     pub tools_dir: Option<PathBuf>,
     pub enable_run_nu: bool,
     pub sandbox_directories: Vec<PathBuf>,
-    pub persistent: bool,
 }
 
 #[cfg(test)]

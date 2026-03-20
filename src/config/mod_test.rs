@@ -15,7 +15,6 @@ fn test_config_creation_default() {
     assert!(config.tools_dir.is_none());
     assert!(!config.enable_run_nu);
     assert!(config.sandbox_directories.is_empty());
-    assert!(!config.persistent);
 }
 
 #[test]
@@ -74,14 +73,4 @@ fn test_config_creation_full_configuration() {
     assert_eq!(config.tools_dir, Some(tools_path));
     assert!(config.enable_run_nu);
     assert_eq!(config.sandbox_directories, vec![sandbox1, sandbox2]);
-}
-
-#[test]
-fn test_config_creation_persistent() {
-    let config = Config {
-        persistent: true,
-        ..Config::default()
-    };
-
-    assert!(config.persistent);
 }

@@ -369,4 +369,15 @@ impl CommandExecutor for PersistentNuExecutor {
         // PTY merges stdout/stderr into one stream; stderr is empty
         Ok((result.stdout, String::new()))
     }
+
+    /// Tear down the current shell and create a fresh one.
+    /// This gives a clean environment (no env vars, aliases, etc.).
+    fn reset(&self) -> Result<(), String> {
+        let mut guard = self
+            .shell
+            .lock()
+            .map_err(|e| format!("Shell lock poisoned: {}", e))?;
+        *guard = PersistentShell::new()?;
+        Ok(())
+    }
 }

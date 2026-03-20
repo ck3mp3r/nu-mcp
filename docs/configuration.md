@@ -6,9 +6,6 @@
 - `--tools-dir=PATH` - Load tools from directory. **Note:** Disables `run` by default to avoid conflicts in multi-instance setups.
 - `--enable-run-nu` - Re-enable `run` when using `--tools-dir` (hybrid mode).
 
-### Persistent Shell
-- `--persistent` - Use a persistent Nushell shell that maintains state between commands. Instead of spawning a new Nushell process for each command, a single Nushell process runs in a PTY. Environment variables, aliases, and definitions persist across calls. Uses OSC 133 semantic markers for reliable command completion detection.
-
 ### Security
 - `--add-path=PATH` - Grant access to additional paths beyond current directory (can be used multiple times).
 
@@ -32,20 +29,13 @@ nu-mcp:
 ## Usage Modes
 
 ### Core Mode
-Generic Nushell command execution (each command spawns a fresh process):
+Nushell command execution with persistent state:
 ```yaml
 nu-mcp-core:
   command: "nu-mcp"
 ```
 
-### Persistent Mode
-Stateful Nushell shell (environment, aliases, and definitions persist):
-```yaml
-nu-mcp-persistent:
-  command: "nu-mcp"
-  args:
-    - "--persistent"
-```
+The `run` tool maintains a persistent Nushell shell. Environment variables, aliases, and definitions persist across calls. Use the `reset` parameter to get a clean shell when needed.
 
 ### Extension Mode
 Tool-specific functionality:

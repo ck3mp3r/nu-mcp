@@ -5,8 +5,7 @@
 nu-mcp enables AI agents to execute Nushell commands and access a growing catalog of specialized tools through the Model Context Protocol (MCP). Tools are implemented as modular Nushell scripts that can wrap CLI utilities (kubectl, argocd), APIs (weather, finance), or terminal multiplexers (tmux).
 
 Key features:
-- **Core Mode**: Execute arbitrary Nushell commands via `run` tool
-- **Persistent Mode**: Stateful Nushell shell via PTY with OSC 133 markers (`--persistent` flag)
+- **Core Mode**: Execute Nushell commands via `run` tool in a persistent shell with state preservation
 - **Extension Mode**: Load tools from directories (kubernetes, argocd, weather, finance, tmux, context7)
 - **Hybrid Mode**: Combine both core execution and extension tools
 - **Security Sandbox**: Configurable directory restrictions for command execution
