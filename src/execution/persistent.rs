@@ -122,7 +122,9 @@ impl PersistentShell {
         }
         if count > 0 {
             for _ in 0..count {
-                let _ = self.writer.write_all(b"\x1b[1;1R");
+                // Report cursor after prompt area to prevent Reedline redraw loops.
+                // Row 3 accounts for a typical multi-line prompt + command line.
+                let _ = self.writer.write_all(b"\x1b[3;1R");
             }
             let _ = self.writer.flush();
         }

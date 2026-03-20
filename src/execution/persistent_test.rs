@@ -213,3 +213,18 @@ fn test_each_with_str_join() {
     let output = result.unwrap();
     assert_eq!(output.stdout, "1, 4, 9, 16, 25");
 }
+
+#[test]
+fn test_str_join_after_prior_command() {
+    let mut shell = PersistentShell::new().expect("Failed to create shell");
+
+    // First a simple command
+    let r1 = shell.execute("print 'hello'", DEFAULT_TIMEOUT);
+    assert!(r1.is_ok(), "First cmd failed: {:?}", r1.err());
+    assert_eq!(r1.unwrap().stdout, "hello");
+
+    // Then the problematic str join with space
+    let r2 = shell.execute(r#"["a" "b" "c"] | str join ", ""#, DEFAULT_TIMEOUT);
+    assert!(r2.is_ok(), "str join failed: {:?}", r2.err());
+    assert_eq!(r2.unwrap().stdout, "a, b, c");
+}
