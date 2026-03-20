@@ -21,6 +21,10 @@ const STARTUP_TIMEOUT_SECS: u64 = 10;
 /// Reedline/crossterm sends this to query cursor position.
 const DSR_SEQUENCE: &[u8] = b"\x1b[6n";
 
+/// CPR (Cursor Position Report) response: row 1, col 1.
+/// Reedline uses this to set prompt_start_row = 0.
+const CPR_RESPONSE: &[u8] = b"\x1b[1;1R";
+
 /// Messages sent from the background reader thread to the main thread.
 enum PtyRead {
     Data(Vec<u8>),
@@ -28,29 +32,10 @@ enum PtyRead {
     Error(String),
 }
 
-/// CPR (Cursor Position Report) response: row 1, col 1 (0-indexed origin).
-///
-/// Reedline uses cursor position to set `prompt_start_row`. With (0,0):
-///   - `prompt_start_row` = 0
-///   - `is_reset()` check: `0 + 1 < 0` = false → no redraw loop
-const CPR_RESPONSE: &[u8] = b"\x1b[1;1R";
-
-/// Maximum DSR responses per prompt cycle.
-///
-/// Reedline sends exactly 2 CPR queries per prompt:
-///   1. `initialize_prompt_position()` in painter.rs
-///   2. `is_reset()` closure in `repaint_buffer()`
-/// After these, it enters the event loop and stops querying.
-/// We cap responses to prevent feedback loops if extra DSRs arrive.
-const MAX_DSR_RESPONSES_PER_PROMPT: u32 = 2;
-
 pub struct PersistentShell {
     writer: Box<dyn Write + Send>,
     osc_parser: osc133::Parser,
     reader_rx: mpsc::Receiver<PtyRead>,
-    /// Count of DSR responses sent in the current prompt cycle.
-    /// Reset to 0 when we see OSC 133;A (new prompt) or at start of execute().
-    dsr_response_count: u32,
     _master: Box<dyn MasterPty + Send>,
     _child: Box<dyn Child + Send + Sync>,
 }
@@ -119,7 +104,6 @@ impl PersistentShell {
             writer,
             osc_parser: osc133::Parser::new(),
             reader_rx: rx,
-            dsr_response_count: 0,
             _master: master,
             _child: child,
         };
@@ -129,16 +113,9 @@ impl PersistentShell {
         Ok(shell)
     }
 
-    /// Respond to DSR queries with CPR, capped per prompt cycle.
-    ///
-    /// Reedline sends exactly 2 DSR queries per prompt cycle. We respond to
-    /// at most `MAX_DSR_RESPONSES_PER_PROMPT` to satisfy Reedline without
-    /// creating a feedback loop. Additional DSRs are ignored (Reedline times
-    /// out after 2s and handles the error gracefully).
+    /// Scan data for DSR queries and respond with CPR.
+    /// Reedline sends DSR to query cursor position; we respond so it can proceed.
     fn respond_to_dsr(&mut self, data: &[u8]) {
-        if self.dsr_response_count >= MAX_DSR_RESPONSES_PER_PROMPT {
-            return;
-        }
         if data.len() < DSR_SEQUENCE.len() {
             return;
         }
@@ -146,8 +123,7 @@ impl PersistentShell {
             if window == DSR_SEQUENCE {
                 let _ = self.writer.write_all(CPR_RESPONSE);
                 let _ = self.writer.flush();
-                self.dsr_response_count += 1;
-                return; // One response per chunk
+                return;
             }
         }
     }
@@ -217,24 +193,16 @@ impl PersistentShell {
     /// 1. Write the command — Reedline processes it and returns to Nushell
     /// 2. Wait for C (CommandExecuted) — Nushell is about to run the command
     /// 3. Collect output between C and D (CommandFinished)
-    /// 4. After D, the next prompt cycle starts. DSR responses are handled
-    ///    by respond_to_dsr with a capped counter per cycle.
     pub fn execute(&mut self, command: &str, timeout: Duration) -> Result<CommandOutput, String> {
-        // Reset DSR counter for the new prompt cycle
-        self.dsr_response_count = 0;
-
         // Trace file for debugging (only when MCP_PTY_TRACE is set)
         let trace = std::env::var("MCP_PTY_TRACE").is_ok();
         let mut trace_file = if trace {
             use std::fs::OpenOptions;
-            Some(
-                OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open("/tmp/pty_trace.log")
-                    .ok(),
-            )
-            .flatten()
+            OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/tmp/pty_trace.log")
+                .ok()
         } else {
             None
         };
@@ -257,28 +225,19 @@ impl PersistentShell {
             .flush()
             .map_err(|e| format!("Flush failed: {}", e))?;
 
-        trace_log!("CMD WRITTEN, waiting for C→D");
-
         // Wait for C→D, respond to DSR during prompt rendering phase
         let mut output_buffer = Vec::new();
         let mut final_exit_code: Option<i32> = None;
         let mut saw_command_executed = false;
-        let mut chunk_num = 0u32;
 
         self.drain_until(timeout, |shell, data| {
-            chunk_num += 1;
-            let has_dsr = data.windows(4).any(|w| w == b"\x1b[6n");
             trace_log!(
-                "CHUNK#{} len={} saw_c={} has_dsr={} hex={}",
-                chunk_num,
+                "CHUNK len={} saw_c={}",
                 data.len(),
                 saw_command_executed,
-                has_dsr,
-                data.iter().take(100).map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ")
             );
 
-            // Respond to DSR during prompt phase (before C).
-            // Capped at MAX_DSR_RESPONSES_PER_PROMPT to prevent loops.
+            // Respond to DSR during prompt phase (before C)
             if !saw_command_executed {
                 shell.respond_to_dsr(data);
             }
@@ -292,9 +251,6 @@ impl PersistentShell {
             shell.osc_parser.push(data, |event| {
                 trace_log!("  EVENT: {:?}", event);
                 match event {
-                    osc133::Event::PromptStart => {
-                        shell.dsr_response_count = 0;
-                    }
                     osc133::Event::CommandExecuted => {
                         saw_command_executed = true;
                     }
@@ -309,7 +265,6 @@ impl PersistentShell {
             });
 
             if done {
-                trace_log!("DONE: exit_code={:?}", final_exit_code);
                 ControlFlow::Break
             } else {
                 ControlFlow::Continue
@@ -319,42 +274,6 @@ impl PersistentShell {
         // Strip ANSI escape codes
         let clean = strip_ansi_escapes::strip(&output_buffer);
         let stdout = String::from_utf8_lossy(&clean).trim().to_string();
-
-        // After D, drain until the next B (CommandStart) so Reedline is back
-        // at event::read() before we return. Respond to DSR so Reedline
-        // doesn't stall for 2s per query. Reset DSR counter for the new cycle.
-        self.dsr_response_count = 0;
-        let mut saw_next_ready = false;
-        let post_timeout = Duration::from_secs(10);
-        let mut post_chunk = 0u32;
-        let _ = self.drain_until(post_timeout, |shell, data| {
-            post_chunk += 1;
-            let has_dsr = data.windows(4).any(|w| w == b"\x1b[6n");
-            trace_log!(
-                "POST#{} len={} has_dsr={} dsr_count={} hex={}",
-                post_chunk,
-                data.len(),
-                has_dsr,
-                shell.dsr_response_count,
-                data.iter().take(100).map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ")
-            );
-            shell.respond_to_dsr(data);
-            shell.osc_parser.push(data, |event| {
-                trace_log!("  POST_EVENT: {:?}", event);
-                if matches!(event, osc133::Event::CommandStart) {
-                    saw_next_ready = true;
-                }
-                if matches!(event, osc133::Event::PromptStart) {
-                    shell.dsr_response_count = 0;
-                }
-            });
-            if saw_next_ready {
-                trace_log!("POST DONE: saw B");
-                ControlFlow::Break
-            } else {
-                ControlFlow::Continue
-            }
-        });
 
         trace_log!("=== RETURNING stdout={:?} exit={:?} ===", stdout, final_exit_code);
 
