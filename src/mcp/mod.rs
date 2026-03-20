@@ -14,7 +14,7 @@ use rmcp::{
 
 use crate::{
     config::Config,
-    execution::{CommandExecutor, NushellExecutor},
+    execution::{CommandExecutor, NushellExecutor, persistent::PersistentNuExecutor},
     tools::{NushellToolExecutor, ToolExecutor, discover_tools},
 };
 
@@ -197,17 +197,27 @@ pub async fn run_server(config: Config) -> Result<()> {
         Vec::new()
     };
 
-    let executor = NushellExecutor;
     let tool_executor = NushellToolExecutor;
 
     // Create path cache (session-scoped, lives for server lifetime)
     let path_cache =
         std::sync::Arc::new(tokio::sync::RwLock::new(crate::security::PathCache::new()));
 
-    let router = ToolRouter::new(config, extensions, executor, tool_executor, path_cache);
-    let tool = NushellTool { router };
-    let service = tool.serve(transport::stdio()).await?;
-    service.waiting().await?;
+    if config.persistent {
+        let executor = PersistentNuExecutor::new()
+            .map_err(|e| anyhow::anyhow!("Failed to create persistent shell: {}", e))?;
+        let router = ToolRouter::new(config, extensions, executor, tool_executor, path_cache);
+        let tool = NushellTool { router };
+        let service = tool.serve(transport::stdio()).await?;
+        service.waiting().await?;
+    } else {
+        let executor = NushellExecutor;
+        let router = ToolRouter::new(config, extensions, executor, tool_executor, path_cache);
+        let tool = NushellTool { router };
+        let service = tool.serve(transport::stdio()).await?;
+        service.waiting().await?;
+    }
+
     Ok(())
 }
 

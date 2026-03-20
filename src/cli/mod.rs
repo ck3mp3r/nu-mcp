@@ -16,6 +16,10 @@ pub struct Cli {
     /// The current working directory is always accessible. This adds additional paths.
     #[arg(long = "add-path")]
     pub add_paths: Vec<PathBuf>,
+
+    /// Use a persistent Nushell shell (maintains state between commands)
+    #[arg(long, default_value_t = false)]
+    pub persistent: bool,
 }
 
 #[cfg(test)]

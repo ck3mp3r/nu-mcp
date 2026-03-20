@@ -9,11 +9,13 @@ fn test_config_creation_default() {
         tools_dir: None,
         enable_run_nu: false,
         sandbox_directories: vec![],
+        ..Config::default()
     };
 
     assert!(config.tools_dir.is_none());
     assert!(!config.enable_run_nu);
     assert!(config.sandbox_directories.is_empty());
+    assert!(!config.persistent);
 }
 
 #[test]
@@ -24,6 +26,7 @@ fn test_config_creation_tools_dir() {
         tools_dir: Some(tools_path.clone()),
         enable_run_nu: false,
         sandbox_directories: vec![],
+        ..Config::default()
     };
 
     assert_eq!(config.tools_dir, Some(tools_path));
@@ -35,6 +38,7 @@ fn test_config_creation_enable_run() {
         tools_dir: None,
         enable_run_nu: true,
         sandbox_directories: vec![],
+        ..Config::default()
     };
 
     assert!(config.enable_run_nu);
@@ -48,6 +52,7 @@ fn test_config_creation_sandbox_directories() {
         tools_dir: None,
         enable_run_nu: false,
         sandbox_directories: vec![sandbox_path.clone()],
+        ..Config::default()
     };
 
     assert_eq!(config.sandbox_directories, vec![sandbox_path]);
@@ -63,9 +68,20 @@ fn test_config_creation_full_configuration() {
         tools_dir: Some(tools_path.clone()),
         enable_run_nu: true,
         sandbox_directories: vec![sandbox1.clone(), sandbox2.clone()],
+        ..Config::default()
     };
 
     assert_eq!(config.tools_dir, Some(tools_path));
     assert!(config.enable_run_nu);
     assert_eq!(config.sandbox_directories, vec![sandbox1, sandbox2]);
+}
+
+#[test]
+fn test_config_creation_persistent() {
+    let config = Config {
+        persistent: true,
+        ..Config::default()
+    };
+
+    assert!(config.persistent);
 }

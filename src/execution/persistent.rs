@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
 use std::io::{Read, Write};
 use std::path::Path;
-use std::sync::{Mutex, mpsc};
+use std::sync::{Arc, Mutex, mpsc};
 use std::time::Duration;
 
 const BUFFER_SIZE: usize = 8192;
@@ -273,14 +273,15 @@ fn get_default_timeout() -> u64 {
 
 /// Async executor that wraps a persistent Nushell shell.
 /// Implements `CommandExecutor` so it can be swapped in for `NushellExecutor`.
+#[derive(Clone)]
 pub struct PersistentNuExecutor {
-    shell: Mutex<PersistentShell>,
+    shell: Arc<Mutex<PersistentShell>>,
 }
 
 impl PersistentNuExecutor {
     pub fn new() -> Result<Self, String> {
         Ok(Self {
-            shell: Mutex::new(PersistentShell::new()?),
+            shell: Arc::new(Mutex::new(PersistentShell::new()?)),
         })
     }
 }

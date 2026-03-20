@@ -24,6 +24,7 @@ async fn main() -> Result<()> {
         tools_dir: cli.tools_dir,
         enable_run_nu: cli.enable_run_nu,
         sandbox_directories,
+        persistent: cli.persistent,
     };
 
     run_server(config).await
