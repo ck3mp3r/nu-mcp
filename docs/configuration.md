@@ -12,7 +12,7 @@
 ## Environment Variables
 
 ### Timeout
-- `MCP_NU_MCP_TIMEOUT` - Default timeout in seconds for all tools (default: 60)
+- `MCP_NU_MCP_TIMEOUT` - Default timeout in seconds for all tools (default: 300)
 - Can be overridden per-call with `timeout_seconds` parameter on `run` tool
 
 ### Debugging
