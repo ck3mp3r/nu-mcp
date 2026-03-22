@@ -126,7 +126,7 @@ where
             timeout_prop.insert(
                 "description".to_string(),
                 Value::String(
-                    "Timeout in seconds (default: 60, or MCP_NU_MCP_TIMEOUT env var)".to_string(),
+                    "Timeout in seconds (default: 300, or MCP_NU_MCP_TIMEOUT env var)".to_string(),
                 ),
             );
             timeout_prop.insert("minimum".to_string(), Value::Number(1.into()));

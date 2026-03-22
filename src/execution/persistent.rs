@@ -319,7 +319,7 @@ pub struct CommandOutput {
     pub exit_code: i32,
 }
 
-const DEFAULT_TIMEOUT_SECS: u64 = 60;
+const DEFAULT_TIMEOUT_SECS: u64 = 300;
 
 fn get_default_timeout() -> u64 {
     std::env::var("MCP_NU_MCP_TIMEOUT")

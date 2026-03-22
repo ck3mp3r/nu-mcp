@@ -6,7 +6,7 @@ use tokio::time::timeout;
 
 use super::ExtensionTool;
 
-const DEFAULT_TOOL_TIMEOUT_SECS: u64 = 60;
+const DEFAULT_TOOL_TIMEOUT_SECS: u64 = 300;
 
 /// Get default timeout from environment variable or built-in default
 fn get_default_tool_timeout() -> u64 {

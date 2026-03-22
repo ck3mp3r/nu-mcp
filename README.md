@@ -49,7 +49,7 @@ The `tools/` directory contains a growing catalog of useful MCP tools:
 - `--add-path=PATH` - Add additional accessible paths (current directory always included)
 
 ### Environment Variables
-- `MCP_NU_MCP_TIMEOUT` - Default timeout in seconds for tool execution (default: 60)
+- `MCP_NU_MCP_TIMEOUT` - Default timeout in seconds for tool execution (default: 300)
 - `MCP_PTY_TRACE` - Set to `1` to enable PTY trace logging to `/tmp/pty_trace.log` (persistent mode only, for debugging)
 
 ### Example MCP Configuration

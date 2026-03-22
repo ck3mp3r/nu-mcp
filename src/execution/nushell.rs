@@ -4,7 +4,7 @@ use std::{env, path::Path, time::Duration};
 use tokio::process::Command;
 use tokio::time::timeout;
 
-const DEFAULT_TIMEOUT_SECS: u64 = 60;
+const DEFAULT_TIMEOUT_SECS: u64 = 300;
 
 #[derive(Clone)]
 pub struct NushellExecutor;
