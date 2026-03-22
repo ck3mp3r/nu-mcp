@@ -30,13 +30,21 @@ fn test_shell_creation_and_basic_output() {
     let r1 = shell.execute("1 + 1", DEFAULT_TIMEOUT);
     assert!(r1.is_ok(), "Expression failed: {:?}", r1.err());
     let out1 = r1.unwrap();
-    assert!(out1.stdout.contains("2"), "Expected '2', got: {:?}", out1.stdout);
+    assert!(
+        out1.stdout.contains("2"),
+        "Expected '2', got: {:?}",
+        out1.stdout
+    );
 
     // Print output
     let r2 = shell.execute("print 'hello'", DEFAULT_TIMEOUT);
     assert!(r2.is_ok(), "Print failed: {:?}", r2.err());
     let out2 = r2.unwrap();
-    assert!(out2.stdout.contains("hello"), "Expected 'hello', got: {:?}", out2.stdout);
+    assert!(
+        out2.stdout.contains("hello"),
+        "Expected 'hello', got: {:?}",
+        out2.stdout
+    );
     assert_eq!(out2.exit_code, 0);
 
     // No-output command
@@ -84,8 +92,13 @@ fn test_sequential_commands_and_pipelines() {
         let result = shell.execute(&format!("print '{}'", i), DEFAULT_TIMEOUT);
         assert!(result.is_ok(), "Command {} failed: {:?}", i, result.err());
         let output = result.unwrap();
-        assert!(output.stdout.contains(&i.to_string()),
-            "Command {}: expected '{}', got: {:?}", i, i, output.stdout);
+        assert!(
+            output.stdout.contains(&i.to_string()),
+            "Command {}: expected '{}', got: {:?}",
+            i,
+            i,
+            output.stdout
+        );
         assert_eq!(output.exit_code, 0);
     }
 
@@ -114,8 +127,12 @@ fn test_multiline_and_large_output() {
     assert!(r1.is_ok(), "Multiline failed: {:?}", r1.err());
     let out1 = r1.unwrap();
     for n in 1..=5 {
-        assert!(out1.stdout.contains(&n.to_string()),
-            "Expected '{}' in output, got: {:?}", n, out1.stdout);
+        assert!(
+            out1.stdout.contains(&n.to_string()),
+            "Expected '{}' in output, got: {:?}",
+            n,
+            out1.stdout
+        );
     }
 
     // Large output (>8KB)
@@ -125,7 +142,11 @@ fn test_multiline_and_large_output() {
     );
     assert!(r2.is_ok(), "Large output failed: {:?}", r2.err());
     let out2 = r2.unwrap();
-    assert!(out2.stdout.len() > 8000, "Expected >8KB, got {} bytes", out2.stdout.len());
+    assert!(
+        out2.stdout.len() > 8000,
+        "Expected >8KB, got {} bytes",
+        out2.stdout.len()
+    );
     assert!(out2.stdout.contains("line 1:"), "Missing first line");
     assert!(out2.stdout.contains("line 500:"), "Missing last line");
 }
@@ -156,7 +177,59 @@ fn test_timeout() {
 
     assert!(result.is_err(), "Expected timeout error");
     let err = result.unwrap_err();
-    assert!(err.contains("Timeout"), "Expected timeout message, got: {:?}", err);
+    assert!(
+        err.contains("Timeout"),
+        "Expected timeout message, got: {:?}",
+        err
+    );
+}
+
+#[test]
+#[serial]
+fn test_long_command_with_tight_timeout() {
+    skip_if_no_pty!();
+    let mut shell = PersistentShell::new().expect("Failed to create shell");
+
+    // Command that takes ~3 seconds, with 5 second timeout
+    // This leaves only 2 seconds for prompt wait, but the fix ensures
+    // we use at least 10 seconds for prompt wait (max of remaining and 10s)
+    let result = shell.execute("sleep 3sec; print 'done'", Duration::from_secs(5));
+
+    assert!(result.is_ok(), "Long command failed: {:?}", result.err());
+    let output = result.unwrap();
+    assert!(
+        output.stdout.contains("done"),
+        "Expected 'done', got: {:?}",
+        output.stdout
+    );
+    assert_eq!(output.exit_code, 0);
+}
+
+#[test]
+#[serial]
+fn test_multi_command_sequence_with_adequate_timeout() {
+    skip_if_no_pty!();
+    let mut shell = PersistentShell::new().expect("Failed to create shell");
+
+    // Multiple commands in sequence - should complete within timeout budget
+    // sleep 2s + sleep 2s + print = ~4s, with 10s timeout leaves 6s for prompt wait
+    let result = shell.execute(
+        "sleep 2sec; sleep 2sec; print 'complete'",
+        Duration::from_secs(10),
+    );
+
+    assert!(
+        result.is_ok(),
+        "Multi-command sequence failed: {:?}",
+        result.err()
+    );
+    let output = result.unwrap();
+    assert!(
+        output.stdout.contains("complete"),
+        "Expected 'complete', got: {:?}",
+        output.stdout
+    );
+    assert_eq!(output.exit_code, 0);
 }
 
 // --- Reset tests (via PersistentNuExecutor) ---
@@ -179,7 +252,10 @@ async fn test_reset() {
         .execute("$env.RESET_TEST", &work_dir, Some(30))
         .await;
     assert!(r2.is_ok());
-    assert!(r2.unwrap().0.contains("before"), "State should exist before reset");
+    assert!(
+        r2.unwrap().0.contains("before"),
+        "State should exist before reset"
+    );
 
     // Reset
     executor.reset().expect("Reset failed");
@@ -189,12 +265,13 @@ async fn test_reset() {
         .execute("$env.RESET_TEST? | default 'gone'", &work_dir, Some(30))
         .await;
     assert!(r3.is_ok(), "Post-reset command failed: {:?}", r3.err());
-    assert!(r3.unwrap().0.contains("gone"), "State should be cleared after reset");
+    assert!(
+        r3.unwrap().0.contains("gone"),
+        "State should be cleared after reset"
+    );
 
     // Shell should still work after reset
-    let r4 = executor
-        .execute("print 'alive'", &work_dir, Some(30))
-        .await;
+    let r4 = executor.execute("print 'alive'", &work_dir, Some(30)).await;
     assert!(r4.is_ok(), "Post-reset execute failed: {:?}", r4.err());
     assert!(r4.unwrap().0.contains("alive"));
 }
