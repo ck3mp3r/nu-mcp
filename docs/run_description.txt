@@ -2,23 +2,20 @@ Execute Nushell commands and return output.
 
 CRITICAL - Nushell Syntax Only:
 - Use Nushell syntax ONLY (NOT bash/sh/zsh)
-- ❌ NEVER use: `2>&1`, `/dev/null`, `||`, `&&` (shell operators don't exist in Nushell)
-- ✅ Use: `| complete` (capture both stdout+stderr), `try { } catch { }` (error handling)
-- See AGENTS.md#Personal-Rules for Nushell bash-to-nu conversion table
+- ❌ NEVER: `2>&1`, `/dev/null`, `||`, `&&`
+- ✅ Use: `| complete`, `try { } catch { }`
+
+CRITICAL - Pagers WILL HANG:
+- git diff, less, more, man will HANG indefinitely
+- Use: git --no-pager diff OR pipe to head/tail
+- If hung: reset=true
 
 IMPORTANT:
-- Commands run in a persistent Nushell shell - state is preserved between calls
-- Environment variables, aliases, and definitions persist across commands
-- Commands already execute in the current working directory - DO NOT prefix with `cd` commands
-- Use RELATIVE paths only (./file.txt, subdir/file.txt, .)
-- Absolute paths are BLOCKED (e.g., /etc/passwd, /tmp/file)
-- Path traversal (..) is BLOCKED
-
-RESET:
-- Set reset=true to get a clean shell (clears all env vars, aliases, definitions)
-- Use when prior state may interfere with the current task
+- Persistent shell - state preserved between calls
+- Use RELATIVE paths only - absolute paths BLOCKED
+- Path traversal (..) BLOCKED
 
 TIMEOUT:
-- Default timeout: 60 seconds
-- Override with timeout_seconds parameter (e.g., {"command": "...", "timeout_seconds": 120})
-- Set global default via MCP_NU_MCP_TIMEOUT environment variable
+- Default: 300s
+- Override: timeout_seconds parameter
+- Global: MCP_NU_MCP_TIMEOUT env var

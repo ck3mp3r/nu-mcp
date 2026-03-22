@@ -222,6 +222,9 @@ impl PersistentShell {
 
         trace_log!("=== EXECUTE: {:?} ===", command);
 
+        // Establish single deadline for entire operation (command execution + prompt wait)
+        let deadline = std::time::Instant::now() + timeout;
+
         // Write command — Reedline is in event::read(), ready for input
         writeln!(self.writer, "{}", command).map_err(|e| format!("Write failed: {}", e))?;
         self.writer
@@ -278,8 +281,17 @@ impl PersistentShell {
         // Drain until B (CommandStart) so Reedline is back at event::read()
         // before we return. This prevents CPR response bytes from leaking
         // into the next command's input.
+        //
+        // Use remaining time from original deadline, with minimum of 10s.
+        // This ensures prompt rendering has enough time even if command consumed most of the timeout,
+        // while still respecting the user's overall timeout budget.
+        let remaining = deadline
+            .checked_duration_since(std::time::Instant::now())
+            .unwrap_or(Duration::ZERO);
+        let prompt_timeout = remaining.max(Duration::from_secs(10));
+
         let mut saw_next_ready = false;
-        let _ = self.drain_until(Duration::from_secs(10), |shell, data| {
+        let _ = self.drain_until(prompt_timeout, |shell, data| {
             shell.respond_to_dsr(data);
             shell.osc_parser.push(data, |event| {
                 if matches!(event, osc133::Event::CommandStart) {
