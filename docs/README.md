@@ -10,7 +10,3 @@
 
 - [Tool Development Guide](tool-development.md) - Complete guide for building tools
 - [Testing](testing.md) - Testing and debugging tools
-
-## Implementation Plans
-
-- [Implementation Plans](implementation-plans/README.md) - Planning template for new tools

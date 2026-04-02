@@ -21,7 +21,7 @@ This guide covers everything you need to know about developing tools for nu-mcp,
 
 **Before you start:**
 1. Use Context7 to research APIs/libraries you'll interact with
-2. Create an implementation plan in `docs/implementation-plans/<tool-name>.md`
+2. Create a planning note or task in your project tracker
 3. Create a feature branch: `git checkout -b feature/<tool-name>`
 
 **Required files:**
@@ -224,12 +224,7 @@ This ensures you use current best practices and correct API patterns.
 
 ### 2. Create a Planning Document
 
-**BEFORE** writing any code, create a Markdown planning document at:
-```
-docs/implementation-plans/<tool-name>-implementation-plan.md
-```
-
-Use the template in `docs/implementation-plans/README.md`. Your plan must include:
+**BEFORE** writing any code, create a planning document in your project tracker or as a local note. It should cover:
 - Tool overview and purpose
 - List of capabilities (what tools/functions will be exposed)
 - External dependencies (APIs, CLI tools, etc.)
@@ -746,7 +741,7 @@ def "main list-tools" [] {
 Follow these milestones iteratively for each new tool:
 
 ### Phase 1: Planning & Research (Already Done)
-- Created implementation plan in `docs/implementation-plans/`
+- Created planning document
 - Researched with Context7
 - Created feature branch
 
@@ -1534,7 +1529,7 @@ Before committing your tool, verify:
 ## Final Workflow Summary
 
 1. **Research** → Use Context7 for libraries/APIs
-2. **Plan** → Create implementation plan in `docs/implementation-plans/`
+2. **Plan** → Create planning document
 3. **Branch** → Create feature branch
 4. **Implement** → Follow milestones iteratively:
    - Milestone 1: Structure
