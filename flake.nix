@@ -2,7 +2,8 @@
   description = "Rust Nushell MCP Server with Devenv and Fenix";
 
   inputs = {
-    nixpkgs.url = "github:NixOs/nixpkgs/nixpkgs-unstable";
+    base-nixpkgs.url = "github:ck3mp3r/flakes?dir=base-nixpkgs";
+    nixpkgs.follows = "base-nixpkgs/unstable";
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
       inputs.nixpkgs-lib.follows = "nixpkgs";
@@ -42,6 +43,7 @@
         overlays = [
           inputs.fenix.overlays.default
           inputs.topiary-nu.overlays.default
+          inputs.base-nixpkgs.overlays.default
         ];
         pkgs = import inputs.nixpkgs {inherit system overlays;};
 
