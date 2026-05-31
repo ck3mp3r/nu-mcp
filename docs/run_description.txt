@@ -1,21 +1,11 @@
-Execute Nushell commands and return output.
+Execute a Nushell command in a stateless one-shot process. Each call spawns an independent process — no state is preserved between calls (no environment variables, no aliases, no working directory changes). Multiple run calls CAN execute concurrently. Use this for simple, independent commands.
+
+For commands that need state preservation between calls (cd, setting variables, sourcing scripts), use the `shell` tool instead.
 
 CRITICAL - Nushell Syntax Only:
 - Use Nushell syntax ONLY (NOT bash/sh/zsh)
 - ❌ NEVER: `2>&1`, `/dev/null`, `||`, `&&`
 - ✅ Use: `| complete`, `try { } catch { }`
 
-CRITICAL - Pagers WILL HANG:
-- git diff, less, more, man will HANG indefinitely
-- Use: git --no-pager diff OR pipe to head/tail
-- If hung: reset=true
-
-IMPORTANT:
-- Persistent shell - state preserved between calls
-- Use RELATIVE paths only - absolute paths BLOCKED
-- Path traversal (..) BLOCKED
-
-TIMEOUT:
-- Default: 300s
-- Override: timeout_seconds parameter
-- Global: MCP_NU_MCP_TIMEOUT env var
+Use RELATIVE paths only — absolute paths outside sandbox are BLOCKED.
+Path traversal (..) BLOCKED.

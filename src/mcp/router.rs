@@ -1,6 +1,6 @@
 use super::formatter::ResultFormatter;
 use crate::config::Config;
-use crate::execution::{CommandExecutor, persistent::PersistentNuExecutor};
+use crate::execution::CommandExecutor;
 use crate::security::{PathCache, validate_path_safety_with_cache};
 use crate::tools::{ExtensionTool, NushellToolExecutor, ToolExecutor};
 use rmcp::model::CallToolRequestParams;
@@ -12,35 +12,40 @@ use std::{env, path::PathBuf, sync::Arc};
 use tokio::sync::RwLock;
 
 #[derive(Clone)]
-pub struct ToolRouter<C = PersistentNuExecutor, T = NushellToolExecutor>
+pub struct ToolRouter<S, P, T = NushellToolExecutor>
 where
-    C: CommandExecutor,
+    S: CommandExecutor,
+    P: CommandExecutor,
     T: ToolExecutor,
 {
     pub config: Config,
     pub extensions: Vec<ExtensionTool>,
-    pub executor: C,
+    pub stateless_executor: S,
+    pub persistent_executor: P,
     pub tool_executor: T,
     /// Path cache injected as dependency (Arc<RwLock> allows concurrent reads)
     path_cache: Arc<RwLock<PathCache>>,
 }
 
-impl<C, T> ToolRouter<C, T>
+impl<S, P, T> ToolRouter<S, P, T>
 where
-    C: CommandExecutor,
+    S: CommandExecutor,
+    P: CommandExecutor,
     T: ToolExecutor,
 {
     pub fn new(
         config: Config,
         extensions: Vec<ExtensionTool>,
-        executor: C,
+        stateless_executor: S,
+        persistent_executor: P,
         tool_executor: T,
         path_cache: Arc<RwLock<PathCache>>,
     ) -> Self {
         Self {
             config,
             extensions,
-            executor,
+            stateless_executor,
+            persistent_executor,
             tool_executor,
             path_cache,
         }
@@ -53,11 +58,52 @@ where
         let tool_name = request.name.clone();
         match tool_name.as_ref() {
             "run" => self.handle_run(request).await,
+            "shell" => self.handle_shell(request).await,
             tool_name => self.handle_extension_tool(request, tool_name).await,
         }
     }
 
     async fn handle_run(
+        &self,
+        request: CallToolRequestParams,
+    ) -> Result<CallToolResult, ErrorData> {
+        let args = request.arguments.as_ref();
+
+        let command = args
+            .and_then(|args| args.get("command"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("version");
+
+        // Extract optional timeout parameter
+        let timeout_secs = args
+            .and_then(|args| args.get("timeout_seconds"))
+            .and_then(|v| v.as_u64());
+
+        // Determine working directory
+        let work_dir = determine_working_directory(&self.config.sandbox_directories)
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+
+        // Validate command for path safety (with injected cache)
+        let validation_result = {
+            let mut cache = self.path_cache.write().await;
+            validate_path_safety_with_cache(command, &self.config.sandbox_directories, &mut cache)
+        };
+
+        if let Err(msg) = validation_result {
+            return ResultFormatter::invalid_request(msg);
+        }
+
+        // Execute using stateless executor (concurrent)
+        let (stdout, stderr) = self
+            .stateless_executor
+            .execute(command, &work_dir, timeout_secs)
+            .await
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+
+        Ok(ResultFormatter::success_with_stderr(stdout, stderr))
+    }
+
+    async fn handle_shell(
         &self,
         request: CallToolRequestParams,
     ) -> Result<CallToolResult, ErrorData> {
@@ -76,7 +122,7 @@ where
                 .open("/tmp/pty_trace.log")
         {
             use std::io::Write;
-            let _ = writeln!(f, "ROUTER: handle_run command={:?}", command);
+            let _ = writeln!(f, "ROUTER: handle_shell command={:?}", command);
         }
 
         // Check for reset parameter — recreate shell before executing
@@ -86,7 +132,7 @@ where
             .unwrap_or(false);
 
         if reset {
-            self.executor
+            self.persistent_executor
                 .reset()
                 .await
                 .map_err(|e| ErrorData::internal_error(e, None))?;
@@ -122,7 +168,7 @@ where
         }
 
         let (stdout, stderr) = self
-            .executor
+            .persistent_executor
             .execute(command, &work_dir, timeout_secs)
             .await
             .map_err(|e| ErrorData::internal_error(e, None))?;

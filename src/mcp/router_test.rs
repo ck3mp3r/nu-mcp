@@ -3,13 +3,13 @@ use rmcp::{model::Tool, serde_json};
 use super::*;
 use crate::{
     config::Config,
-    execution::MockExecutor,
+    execution::{NushellExecutor, MockExecutor},
     security::PathCache,
     tools::{ExtensionTool, MockToolExecutor},
 };
 use tokio::sync::RwLock;
 
-fn create_test_router() -> ToolRouter<MockExecutor, MockToolExecutor> {
+fn create_test_router() -> ToolRouter<NushellExecutor, MockExecutor, MockToolExecutor> {
     // Use current directory as sandbox so tests can run from anywhere
     let cwd = env::current_dir().unwrap();
     let config = Config {
@@ -17,14 +17,15 @@ fn create_test_router() -> ToolRouter<MockExecutor, MockToolExecutor> {
         enable_run_nu: true,
         sandbox_directories: vec![cwd],
     };
-    let executor = MockExecutor::new("test output".to_string(), "".to_string());
+    let stateless_executor = NushellExecutor;
+    let persistent_executor = MockExecutor::new("test output".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("tool output".to_string());
     let cache = Arc::new(RwLock::new(PathCache::new()));
-    ToolRouter::new(config, vec![], executor, tool_executor, cache)
+    ToolRouter::new(config, vec![], stateless_executor, persistent_executor, tool_executor, cache)
 }
 
 #[tokio::test]
-async fn test_router_run() {
+async fn test_router_run_stateless() {
     let router = create_test_router();
 
     let mut args = serde_json::Map::new();
@@ -43,6 +44,25 @@ async fn test_router_run() {
 }
 
 #[tokio::test]
+async fn test_router_shell_persistent() {
+    let router = create_test_router();
+
+    let mut args = serde_json::Map::new();
+    args.insert(
+        "command".to_string(),
+        serde_json::Value::String("echo hello".to_string()),
+    );
+
+    let request = CallToolRequestParams::new("shell").with_arguments(args);
+
+    let result = router.route_call(request).await;
+    if let Err(e) = &result {
+        eprintln!("Router error: {:?}", e);
+    }
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
 async fn test_router_extension_tool() {
     let cwd = env::current_dir().unwrap();
     let config = Config {
@@ -50,7 +70,8 @@ async fn test_router_extension_tool() {
         enable_run_nu: true,
         sandbox_directories: vec![cwd],
     };
-    let executor = MockExecutor::new("test output".to_string(), "".to_string());
+    let stateless_executor = NushellExecutor;
+    let persistent_executor = MockExecutor::new("test output".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("tool output".to_string());
     let cache = Arc::new(RwLock::new(PathCache::new()));
 
@@ -60,7 +81,7 @@ async fn test_router_extension_tool() {
         tool_definition: Tool::new("test_tool", "Test tool", Arc::new(serde_json::Map::new())),
     };
 
-    let router = ToolRouter::new(config, vec![extension], executor, tool_executor, cache);
+    let router = ToolRouter::new(config, vec![extension], stateless_executor, persistent_executor, tool_executor, cache);
 
     let mut args = serde_json::Map::new();
     args.insert(
@@ -95,13 +116,15 @@ async fn test_router_uses_injected_cache() {
         enable_run_nu: true,
         sandbox_directories: vec![cwd],
     };
-    let executor = MockExecutor::new("test output".to_string(), "".to_string());
+    let stateless_executor = NushellExecutor;
+    let persistent_executor = MockExecutor::new("test output".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("tool output".to_string());
 
     let router = ToolRouter::new(
         config,
         vec![],
-        executor,
+        stateless_executor,
+        persistent_executor,
         tool_executor,
         cache.clone(), // Inject cache
     );
@@ -165,13 +188,15 @@ async fn test_mutex_not_held_during_concurrent_requests() {
         enable_run_nu: true,
         sandbox_directories: vec![cwd],
     };
-    let executor = MockExecutor::new("test output".to_string(), "".to_string());
+    let stateless_executor = NushellExecutor;
+    let persistent_executor = MockExecutor::new("test output".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("tool output".to_string());
 
     let router = Arc::new(ToolRouter::new(
         config,
         vec![],
-        executor,
+        stateless_executor,
+        persistent_executor,
         tool_executor,
         cache,
     ));

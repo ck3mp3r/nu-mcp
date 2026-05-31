@@ -1,0 +1,16 @@
+CRITICAL: Commands execute ONE AT A TIME in a persistent Nushell shell. You MUST wait for each command's response before sending the next one. If you send multiple commands simultaneously, they will queue and execute sequentially — total wait time is the SUM of all queued command execution times. Never send parallel shell calls. Use the `run` tool for independent commands that don't need state.
+
+State IS preserved between calls: environment variables, aliases, working directory changes, and variable definitions persist.
+
+CRITICAL - Nushell Syntax Only:
+- Use Nushell syntax ONLY (NOT bash/sh/zsh)
+- ❌ NEVER: `2>&1`, `/dev/null`, `||`, `&&`
+- ✅ Use: `| complete`, `try { } catch { }`
+
+CRITICAL - Pagers WILL HANG:
+- git diff, less, more, man will HANG indefinitely
+- Use: git --no-pager diff OR pipe to head/tail
+- If hung: reset=true
+
+Use RELATIVE paths only — absolute paths outside sandbox are BLOCKED.
+Path traversal (..) BLOCKED.
