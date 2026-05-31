@@ -320,4 +320,78 @@ fn test_drop_kills_child_process() {
     assert!(result2.unwrap().stdout.contains("still working"));
 }
 
+#[tokio::test]
+#[serial]
+async fn test_concurrent_execution_queues_sequentially() {
+    skip_if_no_pty!();
+    let executor = PersistentNuExecutor::new().expect("Failed to create executor");
+    
+    // Start 3 concurrent commands that each take ~1 second
+    // They should queue and execute sequentially, not concurrently
+    let work_dir = PathBuf::from(".");
+    
+    let executor1 = executor.clone();
+    let executor2 = executor.clone();
+    let executor3 = executor.clone();
+    
+    let work_dir1 = work_dir.clone();
+    let work_dir2 = work_dir.clone();
+    let work_dir3 = work_dir.clone();
+    
+    let task1 = tokio::spawn(async move {
+        let start = std::time::Instant::now();
+        let result = executor1.execute("sleep 1sec; print 'task1'", &work_dir1, Some(10)).await;
+        (start.elapsed(), result)
+    });
+    
+    let task2 = tokio::spawn(async move {
+        let start = std::time::Instant::now();
+        let result = executor2.execute("sleep 1sec; print 'task2'", &work_dir2, Some(10)).await;
+        (start.elapsed(), result)
+    });
+    
+    let task3 = tokio::spawn(async move {
+        let start = std::time::Instant::now();
+        let result = executor3.execute("sleep 1sec; print 'task3'", &work_dir3, Some(10)).await;
+        (start.elapsed(), result)
+    });
+    
+    // Wait for all tasks to complete
+    let (elapsed1, result1) = task1.await.expect("Task 1 panicked");
+    let (elapsed2, result2) = task2.await.expect("Task 2 panicked");
+    let (elapsed3, result3) = task3.await.expect("Task 3 panicked");
+    
+    // All should succeed
+    assert!(result1.is_ok(), "Task 1 failed: {:?}", result1);
+    assert!(result2.is_ok(), "Task 2 failed: {:?}", result2);
+    assert!(result3.is_ok(), "Task 3 failed: {:?}", result3);
+    
+    // Verify output contains expected strings
+    let (out1, _) = result1.unwrap();
+    let (out2, _) = result2.unwrap();
+    let (out3, _) = result3.unwrap();
+    
+    assert!(out1.contains("task1"), "Output 1 wrong: {}", out1);
+    assert!(out2.contains("task2"), "Output 2 wrong: {}", out2);
+    assert!(out3.contains("task3"), "Output 3 wrong: {}", out3);
+    
+    // The first task should complete in ~1 second
+    // The second should queue and complete in ~2 seconds (1s wait + 1s execution)
+    // The third should queue and complete in ~3 seconds (2s wait + 1s execution)
+    eprintln!("Task 1 elapsed: {:?}", elapsed1);
+    eprintln!("Task 2 elapsed: {:?}", elapsed2);
+    eprintln!("Task 3 elapsed: {:?}", elapsed3);
+    
+    // Task 1 should finish in ~1 second (with some tolerance)
+    assert!(elapsed1.as_secs() >= 1 && elapsed1.as_secs() <= 2, 
+            "Task 1 took {:?}, expected ~1s", elapsed1);
+    
+    // Task 2 should finish in ~2 seconds (queued behind task 1)
+    assert!(elapsed2.as_secs() >= 2 && elapsed2.as_secs() <= 3, 
+            "Task 2 took {:?}, expected ~2s", elapsed2);
+    
+    // Task 3 should finish in ~3 seconds (queued behind tasks 1 and 2)
+    assert!(elapsed3.as_secs() >= 3 && elapsed3.as_secs() <= 4, 
+            "Task 3 took {:?}, expected ~3s", elapsed3);
+}
 
