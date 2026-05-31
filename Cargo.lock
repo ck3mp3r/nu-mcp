@@ -509,7 +509,6 @@ name = "nu-mcp"
 version = "0.7.1"
 dependencies = [
  "anyhow",
- "async-trait",
  "clap",
  "portable-pty",
  "regex",

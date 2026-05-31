@@ -1,37 +1,24 @@
 use anyhow::{Context, Result, anyhow};
-use async_trait::async_trait;
-use std::{env, time::Duration};
+use std::time::Duration;
 use tokio::process::Command;
 use tokio::time::timeout;
 
 use super::ExtensionTool;
+use crate::execution::get_default_timeout;
 
-const DEFAULT_TOOL_TIMEOUT_SECS: u64 = 300;
-
-/// Get default timeout from environment variable or built-in default
-fn get_default_tool_timeout() -> u64 {
-    env::var("MCP_NU_MCP_TIMEOUT")
-        .ok()
-        .and_then(|s| s.parse::<u64>().ok())
-        .filter(|&n| n > 0)
-        .unwrap_or(DEFAULT_TOOL_TIMEOUT_SECS)
-}
-
-#[async_trait]
 pub trait ToolExecutor: Send + Sync {
-    async fn execute_tool(
+    fn execute_tool(
         &self,
         extension: &ExtensionTool,
         tool_name: &str,
         args: &str,
         timeout_secs: Option<u64>,
-    ) -> Result<String>;
+    ) -> impl std::future::Future<Output = Result<String>> + Send;
 }
 
 #[derive(Clone)]
 pub struct NushellToolExecutor;
 
-#[async_trait]
 impl ToolExecutor for NushellToolExecutor {
     async fn execute_tool(
         &self,
@@ -44,7 +31,7 @@ impl ToolExecutor for NushellToolExecutor {
 
         // Priority: parameter > env var > built-in default (60s)
         let timeout_duration =
-            Duration::from_secs(timeout_secs.unwrap_or_else(get_default_tool_timeout));
+            Duration::from_secs(timeout_secs.unwrap_or_else(get_default_timeout));
 
         let cmd_future = Command::new("nu")
             .arg(&mod_file)

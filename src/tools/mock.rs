@@ -1,5 +1,4 @@
 use anyhow::{Result, anyhow};
-use async_trait::async_trait;
 
 use super::{ExtensionTool, execution::ToolExecutor};
 
@@ -27,7 +26,6 @@ impl MockToolExecutor {
     }
 }
 
-#[async_trait]
 impl ToolExecutor for MockToolExecutor {
     async fn execute_tool(
         &self,

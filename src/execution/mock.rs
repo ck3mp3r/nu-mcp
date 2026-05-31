@@ -1,5 +1,4 @@
 use super::CommandExecutor;
-use async_trait::async_trait;
 use std::path::Path;
 
 pub struct MockExecutor {
@@ -26,7 +25,6 @@ impl MockExecutor {
     }
 }
 
-#[async_trait]
 impl CommandExecutor for MockExecutor {
     async fn execute(
         &self,

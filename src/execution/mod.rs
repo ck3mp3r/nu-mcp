@@ -1,19 +1,28 @@
-use async_trait::async_trait;
 use std::path::Path;
 
-#[async_trait]
+const DEFAULT_TIMEOUT_SECS: u64 = 300;
+
+/// Get default timeout from environment variable or built-in default
+pub(crate) fn get_default_timeout() -> u64 {
+    std::env::var("MCP_NU_MCP_TIMEOUT")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .filter(|&n| n > 0)
+        .unwrap_or(DEFAULT_TIMEOUT_SECS)
+}
+
 pub trait CommandExecutor: Send + Sync {
-    async fn execute(
+    fn execute(
         &self,
         command: &str,
         working_dir: &Path,
         timeout_secs: Option<u64>,
-    ) -> Result<(String, String), String>;
+    ) -> impl std::future::Future<Output = Result<(String, String), String>> + Send;
 
     /// Reset the executor to a clean state (e.g., fresh shell).
     /// Default implementation is a no-op for stateless executors.
-    fn reset(&self) -> Result<(), String> {
-        Ok(())
+    fn reset(&self) -> impl std::future::Future<Output = Result<(), String>> + Send {
+        async { Ok(()) }
     }
 }
 
