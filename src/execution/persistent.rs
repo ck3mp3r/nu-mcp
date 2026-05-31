@@ -10,11 +10,8 @@ use super::osc133;
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
 use std::io::{Read, Write};
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::mpsc;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
-use tokio::sync::oneshot;
+use std::sync::{Arc, Mutex, mpsc};
+use std::time::Duration;
 
 const BUFFER_SIZE: usize = 8192;
 const STARTUP_TIMEOUT_SECS: u64 = 10;
@@ -35,28 +32,6 @@ enum PtyRead {
     Data(Vec<u8>),
     Eof,
     Error(String),
-}
-
-/// Messages sent from client code to the shell worker thread.
-enum ShellMessage {
-    Execute(ShellCommand),
-    Reset(oneshot::Sender<Result<(), String>>),
-}
-
-/// A command to be executed by the shell worker.
-struct ShellCommand {
-    _seq: usize,
-    command: String,
-    timeout: Duration,
-    queued_at: Instant,
-    response_tx: oneshot::Sender<ShellResult>,
-}
-
-/// Result from shell execution, including timing metadata.
-struct ShellResult {
-    output: Result<CommandOutput, String>,
-    queue_wait: Duration,
-    execution_duration: Duration,
 }
 
 pub struct PersistentShell {
@@ -387,69 +362,15 @@ pub struct CommandOutput {
 
 /// Async executor that wraps a persistent Nushell shell.
 /// Implements `CommandExecutor` so it can be swapped in for `NushellExecutor`.
-/// Commands are queued via an mpsc channel and executed sequentially by a background worker.
 #[derive(Clone)]
 pub struct PersistentNuExecutor {
-    sender: tokio::sync::mpsc::Sender<ShellMessage>,
-    seq_counter: Arc<AtomicUsize>,
+    shell: Arc<Mutex<PersistentShell>>,
 }
 
 impl PersistentNuExecutor {
     pub fn new() -> Result<Self, String> {
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<ShellMessage>(32);
-        
-        // Spawn a blocking worker thread that owns the PersistentShell
-        std::thread::spawn(move || {
-            // Create the shell (sync operation)
-            let mut shell = match PersistentShell::new() {
-                Ok(s) => s,
-                Err(e) => {
-                    eprintln!("Failed to create persistent shell in worker: {}", e);
-                    return;
-                }
-            };
-            
-            // Process messages in FIFO order
-            while let Some(msg) = rx.blocking_recv() {
-                match msg {
-                    ShellMessage::Execute(cmd) => {
-                        let queue_wait = cmd.queued_at.elapsed();
-                        let exec_start = Instant::now();
-                        
-                        let output = shell.execute(&cmd.command, cmd.timeout);
-                        let execution_duration = exec_start.elapsed();
-                        
-                        // Send result back (ignore send errors - client may have dropped)
-                        let _ = cmd.response_tx.send(ShellResult {
-                            output,
-                            queue_wait,
-                            execution_duration,
-                        });
-                    }
-                    ShellMessage::Reset(response_tx) => {
-                        // Drop old shell and create a new one
-                        let result = PersistentShell::new();
-                        match result {
-                            Ok(new_shell) => {
-                                shell = new_shell;
-                                let _ = response_tx.send(Ok(()));
-                            }
-                            Err(e) => {
-                                let _ = response_tx.send(Err(e));
-                                // Worker continues with old shell on reset failure
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // When rx.blocking_recv() returns None, the sender was dropped
-            // The shell will be dropped here, triggering PersistentShell::drop
-        });
-        
         Ok(Self {
-            sender: tx,
-            seq_counter: Arc::new(AtomicUsize::new(0)),
+            shell: Arc::new(Mutex::new(PersistentShell::new()?)),
         })
     }
 }
@@ -463,62 +384,36 @@ impl CommandExecutor for PersistentNuExecutor {
     ) -> Result<(String, String), String> {
         let timeout = Duration::from_secs(timeout_secs.unwrap_or_else(super::get_default_timeout));
         let command = command.to_string();
-        
-        // Increment sequence counter
-        let seq = self.seq_counter.fetch_add(1, Ordering::Relaxed);
-        
-        // Create oneshot channel for response
-        let (response_tx, response_rx) = oneshot::channel();
-        
-        // Send command to worker
-        let shell_cmd = ShellCommand {
-            _seq: seq,
-            command,
-            timeout,
-            queued_at: Instant::now(),
-            response_tx,
-        };
-        
-        self.sender
-            .send(ShellMessage::Execute(shell_cmd))
-            .await
-            .map_err(|_| "Shell worker has stopped".to_string())?;
-        
-        // Wait for response from worker
-        let result = response_rx
-            .await
-            .map_err(|_| "Shell worker dropped response channel".to_string())?;
-        
-        // Extract output from result
-        let mut output = result.output?;
-        
-        // Add queue feedback prefix if command waited more than 500ms
-        if result.queue_wait > Duration::from_millis(500) {
-            let queue_secs = result.queue_wait.as_secs_f64();
-            let exec_secs = result.execution_duration.as_secs_f64();
-            let prefix = format!(
-                "[Queued: waited {:.1}s | executed in {:.1}s]\n",
-                queue_secs, exec_secs
-            );
-            output.stdout = prefix + &output.stdout;
-        }
-        
+        let shell = Arc::clone(&self.shell);
+
+        // The shell does blocking I/O (PTY reads via recv_timeout).
+        // Must run on a blocking thread to avoid starving the tokio runtime,
+        // which needs to stay responsive for MCP protocol heartbeats.
+        let result = tokio::task::spawn_blocking(move || {
+            let mut guard = shell
+                .lock()
+                .map_err(|e| format!("Shell lock poisoned: {}", e))?;
+            guard.execute(&command, timeout)
+        })
+        .await
+        .map_err(|e| format!("Blocking task failed: {}", e))??;
+
         // PTY merges stdout/stderr into one stream; stderr is empty
-        Ok((output.stdout, String::new()))
+        Ok((result.stdout, String::new()))
     }
 
     /// Tear down the current shell and create a fresh one.
     /// This gives a clean environment (no env vars, aliases, etc.).
     async fn reset(&self) -> Result<(), String> {
-        let (response_tx, response_rx) = oneshot::channel();
-        
-        self.sender
-            .send(ShellMessage::Reset(response_tx))
-            .await
-            .map_err(|_| "Shell worker has stopped".to_string())?;
-        
-        response_rx
-            .await
-            .map_err(|_| "Shell worker dropped response channel".to_string())?
+        let shell = Arc::clone(&self.shell);
+        tokio::task::spawn_blocking(move || {
+            let mut guard = shell
+                .lock()
+                .map_err(|e| format!("Shell lock poisoned: {}", e))?;
+            *guard = PersistentShell::new()?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("Blocking task failed: {}", e))?
     }
 }
