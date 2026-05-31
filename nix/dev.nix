@@ -5,7 +5,7 @@
   inputs,
   ...
 }: let
-  fenix = inputs.fenix.packages.${pkgs.system};
+  rustToolchain = inputs.rustnix.packages.${pkgs.system}.toolchain;
   nuMods = inputs.nu-mods.packages.${pkgs.system}.default;
 
   # Development helper scripts
@@ -21,7 +21,7 @@ in
     name = "nu-mcp-dev";
 
     buildInputs = [
-      fenix.stable.toolchain
+      rustToolchain
       pkgs.nushell
       pkgs.cargo-tarpaulin
       pkgs.topiary-nu

@@ -4,7 +4,7 @@
   inputs,
   system,
 }: let
-  fenix = inputs.fenix.packages.${system};
+  rustToolchain = inputs.rustnix.packages.${system}.toolchain;
 
   # Test runner script - uses auto-discovery
   runToolTests = pkgs.writeShellScriptBin "run-tool-tests" ''
@@ -16,7 +16,7 @@ in
 
     buildInputs = [
       # Rust toolchain (stable)
-      fenix.stable.toolchain
+      rustToolchain
 
       # Nushell for tool tests
       pkgs.nushell

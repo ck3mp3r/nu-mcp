@@ -1,5 +1,5 @@
 {
-  description = "Rust Nushell MCP Server with Devenv and Fenix";
+  description = "Rust Nushell MCP Server";
 
   inputs = {
     base-nixpkgs.url = "github:ck3mp3r/flakes?dir=base-nixpkgs";
@@ -7,10 +7,6 @@
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
       inputs.nixpkgs-lib.follows = "nixpkgs";
-    };
-    fenix = {
-      url = "github:nix-community/fenix";
-      inputs.nixpkgs.follows = "nixpkgs";
     };
     rustnix = {
       url = "github:ck3mp3r/flakes?dir=rustnix";
@@ -40,11 +36,13 @@
       }: let
         supportedTargets = ["aarch64-darwin" "aarch64-linux" "x86_64-linux"];
         overlays = [
-          inputs.fenix.overlays.default
           inputs.topiary-nu.overlays.default
           inputs.base-nixpkgs.overlays.default
         ];
-        pkgs = import inputs.nixpkgs {inherit system overlays;};
+        pkgs = import inputs.nixpkgs {
+          localSystem = system;
+          inherit overlays;
+        };
 
         cargoToml = fromTOML (builtins.readFile ./Cargo.toml);
         cargoLock = {lockFile = ./Cargo.lock;};
