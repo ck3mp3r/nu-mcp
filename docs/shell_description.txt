@@ -1,4 +1,4 @@
-CRITICAL: Commands execute ONE AT A TIME in a persistent Nushell shell. You MUST wait for each command's response before sending the next one. If you send multiple commands simultaneously, they will queue and execute sequentially — total wait time is the SUM of all queued command execution times. Never send parallel shell calls. Use the `run` tool for independent commands that don't need state.
+CRITICAL: Commands execute ONE AT A TIME in a persistent Nushell shell. You MUST wait for each command's response before sending the next one. If you send multiple commands simultaneously, the second call will be REJECTED with a "Shell is busy" error. Never send parallel shell calls. Use the `run` tool for independent commands that don't need state.
 
 State IS preserved between calls: environment variables, aliases, working directory changes, and variable definitions persist.
 
