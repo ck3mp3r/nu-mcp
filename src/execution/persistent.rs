@@ -7,10 +7,10 @@
 
 use super::CommandExecutor;
 use super::osc133;
-use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
+use portable_pty::{Child, ChildKiller, CommandBuilder, MasterPty, PtySize, native_pty_system};
 use std::io::{Read, Write};
 use std::path::Path;
-use std::sync::{Arc, Mutex, mpsc};
+use std::sync::{Arc, Mutex, TryLockError, mpsc};
 use std::time::Duration;
 
 const BUFFER_SIZE: usize = 8192;
@@ -134,6 +134,12 @@ impl PersistentShell {
     #[cfg(test)]
     pub(crate) fn process_id(&self) -> Option<u32> {
         self.child.process_id()
+    }
+
+    /// Clone the child killer handle for signaling from another thread.
+    /// This enables reset() to kill a running command without blocking on the shell mutex.
+    pub fn clone_killer(&self) -> Box<dyn ChildKiller + Send + Sync> {
+        self.child.clone_killer()
     }
 
     /// Scan data for DSR queries and respond with CPR.
@@ -362,15 +368,21 @@ pub struct CommandOutput {
 
 /// Async executor that wraps a persistent Nushell shell.
 /// Implements `CommandExecutor` so it can be swapped in for `NushellExecutor`.
+/// Uses try_lock() to reject concurrent execute() calls with a clear error.
+/// Uses clone_killer() for forcible reset while a command is running.
 #[derive(Clone)]
 pub struct PersistentNuExecutor {
     shell: Arc<Mutex<PersistentShell>>,
+    killer: Arc<Mutex<Box<dyn ChildKiller + Send + Sync>>>,
 }
 
 impl PersistentNuExecutor {
     pub fn new() -> Result<Self, String> {
+        let shell = PersistentShell::new()?;
+        let killer = shell.clone_killer();
         Ok(Self {
-            shell: Arc::new(Mutex::new(PersistentShell::new()?)),
+            shell: Arc::new(Mutex::new(shell)),
+            killer: Arc::new(Mutex::new(killer)),
         })
     }
 }
@@ -390,13 +402,19 @@ impl CommandExecutor for PersistentNuExecutor {
         // Must run on a blocking thread to avoid starving the tokio runtime,
         // which needs to stay responsive for MCP protocol heartbeats.
         let result = tokio::task::spawn_blocking(move || {
-            let mut guard = shell
-                .lock()
-                .map_err(|e| format!("Shell lock poisoned: {}", e))?;
+            // Use try_lock to reject concurrent calls
+            let mut guard = shell.try_lock().map_err(|e| match e {
+                TryLockError::WouldBlock => {
+                    "Shell is busy executing another command. Wait for the current command to complete before sending the next one. Use the 'run' tool for independent concurrent commands.".to_string()
+                }
+                TryLockError::Poisoned(_) => {
+                    "Shell mutex poisoned — a previous command panicked. Send reset=true to recover.".to_string()
+                }
+            })?;
             guard.execute(&command, timeout)
         })
         .await
-        .map_err(|e| format!("Blocking task failed: {}", e))??;
+        .map_err(|e| format!("Shell task failed: {}", e))??;
 
         // PTY merges stdout/stderr into one stream; stderr is empty
         Ok((result.stdout, String::new()))
@@ -404,16 +422,47 @@ impl CommandExecutor for PersistentNuExecutor {
 
     /// Tear down the current shell and create a fresh one.
     /// This gives a clean environment (no env vars, aliases, etc.).
+    /// 
+    /// If a command is currently running, this:
+    /// 1. Kills the child process (via clone_killer)
+    /// 2. Waits for the shell mutex to be released (execute() returns after PTY EOF)
+    /// 3. Creates a new shell and replaces both shell and killer
     async fn reset(&self) -> Result<(), String> {
-        let shell = Arc::clone(&self.shell);
+        // Step 1: Kill the child process via the killer handle.
+        // This does NOT require the shell mutex — killer has its own mutex.
+        // If a command is currently running (shell mutex locked by execute()),
+        // killing the child causes the PTY read to return EOF/error,
+        // which makes shell.execute() return an error, releasing the shell mutex.
+        {
+            let mut killer = self.killer.lock()
+                .map_err(|_| "Killer mutex poisoned".to_string())?;
+            let _ = killer.kill(); // Best effort — process may already be dead
+        }
+        
+        // Step 2: Lock the shell mutex. If execute() was in progress,
+        // it should have returned by now (child was killed, PTY returned EOF).
+        // Use lock() (blocking wait), not try_lock() — reset MUST succeed.
+        let shell_arc = Arc::clone(&self.shell);
+        let killer_arc = Arc::clone(&self.killer);
         tokio::task::spawn_blocking(move || {
-            let mut guard = shell
-                .lock()
-                .map_err(|e| format!("Shell lock poisoned: {}", e))?;
-            *guard = PersistentShell::new()?;
-            Ok(())
+            let mut shell_guard = shell_arc.lock()
+                .map_err(|_| "Shell mutex poisoned after kill".to_string())?;
+            
+            // Step 3: Create new shell
+            let new_shell = PersistentShell::new()?;
+            let new_killer = new_shell.clone_killer();
+            
+            // Step 4: Replace shell and killer
+            *shell_guard = new_shell;
+            drop(shell_guard); // Release shell mutex before locking killer
+            
+            let mut killer_guard = killer_arc.lock()
+                .map_err(|_| "Killer mutex poisoned".to_string())?;
+            *killer_guard = new_killer;
+            
+            Ok::<(), String>(())
         })
         .await
-        .map_err(|e| format!("Blocking task failed: {}", e))?
+        .map_err(|e| format!("Reset task failed: {}", e))?
     }
 }
