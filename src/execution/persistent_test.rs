@@ -191,8 +191,9 @@ fn test_long_command_with_tight_timeout() {
     let mut shell = PersistentShell::new().expect("Failed to create shell");
 
     // Command that takes ~3 seconds, with 5 second timeout
-    // This leaves only 2 seconds for prompt wait, but the fix ensures
-    // we use at least 10 seconds for prompt wait (max of remaining and 10s)
+    // After the command completes, only ~2 seconds remain for prompt wait.
+    // The new behavior uses remaining time (2s) with a 2s minimum floor.
+    // This should succeed - command output is collected even if prompt times out.
     let result = shell.execute("sleep 3sec; print 'done'", Duration::from_secs(5));
 
     assert!(result.is_ok(), "Long command failed: {:?}", result.err());

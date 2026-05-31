@@ -302,16 +302,20 @@ impl PersistentShell {
         // before we return. This prevents CPR response bytes from leaking
         // into the next command's input.
         //
-        // Use remaining time from original deadline, with minimum of 10s.
-        // This ensures prompt rendering has enough time even if command consumed most of the timeout,
-        // while still respecting the user's overall timeout budget.
+        // Use remaining time from original deadline, with a 2s minimum floor
+        // to allow prompt rendering. If this times out, we still return the
+        // command output successfully - the next execute() handles re-sync naturally.
         let remaining = deadline
             .checked_duration_since(std::time::Instant::now())
             .unwrap_or(Duration::ZERO);
-        let prompt_timeout = remaining.max(Duration::from_secs(10));
+        let prompt_timeout = if remaining < Duration::from_secs(1) {
+            Duration::from_secs(2)
+        } else {
+            remaining
+        };
 
         let mut saw_next_ready = false;
-        let _ = self.drain_until(prompt_timeout, |shell, data| {
+        let prompt_wait_result = self.drain_until(prompt_timeout, |shell, data| {
             shell.respond_to_dsr(data);
             shell.osc_parser.push(data, |event| {
                 if matches!(event, osc133::Event::CommandStart) {
@@ -324,6 +328,11 @@ impl PersistentShell {
                 ControlFlow::Continue
             }
         });
+
+        // If prompt wait timed out, log warning but don't fail - output was collected
+        if prompt_wait_result.is_err() && !saw_next_ready {
+            trace_log!("WARNING: Prompt wait timed out - shell may need re-sync on next command");
+        }
 
         trace_log!(
             "=== RETURNING stdout={:?} exit={:?} ===",
