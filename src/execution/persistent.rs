@@ -39,7 +39,22 @@ pub struct PersistentShell {
     osc_parser: osc133::Parser,
     reader_rx: mpsc::Receiver<PtyRead>,
     _master: Box<dyn MasterPty + Send>,
-    _child: Box<dyn Child + Send + Sync>,
+    child: Box<dyn Child + Send + Sync>,
+}
+
+impl Drop for PersistentShell {
+    fn drop(&mut self) {
+        // Kill the child process (sends SIGHUP then SIGKILL)
+        if let Err(e) = self.child.kill() {
+            eprintln!("Failed to kill shell process: {e}");
+        }
+        // Reap the process to avoid zombies
+        if let Err(e) = self.child.wait() {
+            eprintln!("Failed to wait on shell process: {e}");
+        }
+        // reader thread exits naturally when _master is dropped (PTY fd closes)
+        // and reader_rx is dropped (tx.send fails)
+    }
 }
 
 impl PersistentShell {
@@ -107,12 +122,18 @@ impl PersistentShell {
             osc_parser: osc133::Parser::new(),
             reader_rx: rx,
             _master: master,
-            _child: child,
+            child,
         };
 
         shell.wait_for_prompt(Duration::from_secs(STARTUP_TIMEOUT_SECS))?;
 
         Ok(shell)
+    }
+
+    /// Get the process ID of the child Nushell process (for testing)
+    #[cfg(test)]
+    pub(crate) fn process_id(&self) -> Option<u32> {
+        self.child.process_id()
     }
 
     /// Scan data for DSR queries and respond with CPR.
