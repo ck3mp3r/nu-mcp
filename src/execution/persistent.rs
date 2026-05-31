@@ -331,16 +331,6 @@ pub struct CommandOutput {
     pub exit_code: i32,
 }
 
-const DEFAULT_TIMEOUT_SECS: u64 = 300;
-
-fn get_default_timeout() -> u64 {
-    std::env::var("MCP_NU_MCP_TIMEOUT")
-        .ok()
-        .and_then(|s| s.parse::<u64>().ok())
-        .filter(|&n| n > 0)
-        .unwrap_or(DEFAULT_TIMEOUT_SECS)
-}
-
 /// Async executor that wraps a persistent Nushell shell.
 /// Implements `CommandExecutor` so it can be swapped in for `NushellExecutor`.
 #[derive(Clone)]
@@ -364,7 +354,7 @@ impl CommandExecutor for PersistentNuExecutor {
         _working_dir: &Path,
         timeout_secs: Option<u64>,
     ) -> Result<(String, String), String> {
-        let timeout = Duration::from_secs(timeout_secs.unwrap_or_else(get_default_timeout));
+        let timeout = Duration::from_secs(timeout_secs.unwrap_or_else(super::get_default_timeout));
         let command = command.to_string();
         let shell = Arc::clone(&self.shell);
 

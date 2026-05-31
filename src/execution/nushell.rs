@@ -1,22 +1,11 @@
 use super::CommandExecutor;
 use async_trait::async_trait;
-use std::{env, path::Path, time::Duration};
+use std::{path::Path, time::Duration};
 use tokio::process::Command;
 use tokio::time::timeout;
 
-const DEFAULT_TIMEOUT_SECS: u64 = 300;
-
 #[derive(Clone)]
 pub struct NushellExecutor;
-
-/// Get default timeout from environment variable or built-in default
-fn get_default_timeout() -> u64 {
-    env::var("MCP_NU_MCP_TIMEOUT")
-        .ok()
-        .and_then(|s| s.parse::<u64>().ok())
-        .filter(|&n| n > 0)
-        .unwrap_or(DEFAULT_TIMEOUT_SECS)
-}
 
 #[async_trait]
 impl CommandExecutor for NushellExecutor {
@@ -28,7 +17,7 @@ impl CommandExecutor for NushellExecutor {
     ) -> Result<(String, String), String> {
         // Priority: parameter > env var > built-in default (60s)
         let timeout_duration =
-            Duration::from_secs(timeout_secs.unwrap_or_else(get_default_timeout));
+            Duration::from_secs(timeout_secs.unwrap_or_else(super::get_default_timeout));
 
         let cmd_future = Command::new("nu")
             .arg("-c")

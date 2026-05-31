@@ -1,6 +1,17 @@
 use async_trait::async_trait;
 use std::path::Path;
 
+const DEFAULT_TIMEOUT_SECS: u64 = 300;
+
+/// Get default timeout from environment variable or built-in default
+pub(crate) fn get_default_timeout() -> u64 {
+    std::env::var("MCP_NU_MCP_TIMEOUT")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .filter(|&n| n > 0)
+        .unwrap_or(DEFAULT_TIMEOUT_SECS)
+}
+
 #[async_trait]
 pub trait CommandExecutor: Send + Sync {
     async fn execute(
