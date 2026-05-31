@@ -88,6 +88,7 @@ where
         if reset {
             self.executor
                 .reset()
+                .await
                 .map_err(|e| ErrorData::internal_error(e, None))?;
         }
 

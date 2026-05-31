@@ -1,5 +1,4 @@
 use super::CommandExecutor;
-use async_trait::async_trait;
 use std::{path::Path, time::Duration};
 use tokio::process::Command;
 use tokio::time::timeout;
@@ -7,7 +6,6 @@ use tokio::time::timeout;
 #[derive(Clone)]
 pub struct NushellExecutor;
 
-#[async_trait]
 impl CommandExecutor for NushellExecutor {
     async fn execute(
         &self,

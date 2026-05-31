@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use std::path::Path;
 
 const DEFAULT_TIMEOUT_SECS: u64 = 300;
@@ -12,19 +11,18 @@ pub(crate) fn get_default_timeout() -> u64 {
         .unwrap_or(DEFAULT_TIMEOUT_SECS)
 }
 
-#[async_trait]
 pub trait CommandExecutor: Send + Sync {
-    async fn execute(
+    fn execute(
         &self,
         command: &str,
         working_dir: &Path,
         timeout_secs: Option<u64>,
-    ) -> Result<(String, String), String>;
+    ) -> impl std::future::Future<Output = Result<(String, String), String>> + Send;
 
     /// Reset the executor to a clean state (e.g., fresh shell).
     /// Default implementation is a no-op for stateless executors.
-    fn reset(&self) -> Result<(), String> {
-        Ok(())
+    fn reset(&self) -> impl std::future::Future<Output = Result<(), String>> + Send {
+        async { Ok(()) }
     }
 }
 

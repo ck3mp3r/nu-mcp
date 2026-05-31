@@ -1,5 +1,4 @@
 use anyhow::{Context, Result, anyhow};
-use async_trait::async_trait;
 use std::time::Duration;
 use tokio::process::Command;
 use tokio::time::timeout;
@@ -7,21 +6,19 @@ use tokio::time::timeout;
 use super::ExtensionTool;
 use crate::execution::get_default_timeout;
 
-#[async_trait]
 pub trait ToolExecutor: Send + Sync {
-    async fn execute_tool(
+    fn execute_tool(
         &self,
         extension: &ExtensionTool,
         tool_name: &str,
         args: &str,
         timeout_secs: Option<u64>,
-    ) -> Result<String>;
+    ) -> impl std::future::Future<Output = Result<String>> + Send;
 }
 
 #[derive(Clone)]
 pub struct NushellToolExecutor;
 
-#[async_trait]
 impl ToolExecutor for NushellToolExecutor {
     async fn execute_tool(
         &self,

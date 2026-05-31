@@ -7,7 +7,6 @@
 
 use super::CommandExecutor;
 use super::osc133;
-use async_trait::async_trait;
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
 use std::io::{Read, Write};
 use std::path::Path;
@@ -346,7 +345,6 @@ impl PersistentNuExecutor {
     }
 }
 
-#[async_trait]
 impl CommandExecutor for PersistentNuExecutor {
     async fn execute(
         &self,
@@ -376,12 +374,16 @@ impl CommandExecutor for PersistentNuExecutor {
 
     /// Tear down the current shell and create a fresh one.
     /// This gives a clean environment (no env vars, aliases, etc.).
-    fn reset(&self) -> Result<(), String> {
-        let mut guard = self
-            .shell
-            .lock()
-            .map_err(|e| format!("Shell lock poisoned: {}", e))?;
-        *guard = PersistentShell::new()?;
-        Ok(())
+    async fn reset(&self) -> Result<(), String> {
+        let shell = Arc::clone(&self.shell);
+        tokio::task::spawn_blocking(move || {
+            let mut guard = shell
+                .lock()
+                .map_err(|e| format!("Shell lock poisoned: {}", e))?;
+            *guard = PersistentShell::new()?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("Blocking task failed: {}", e))?
     }
 }

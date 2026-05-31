@@ -258,7 +258,7 @@ async fn test_reset() {
     );
 
     // Reset
-    executor.reset().expect("Reset failed");
+    executor.reset().await.expect("Reset failed");
 
     // State should be gone
     let r3 = executor
