@@ -10,7 +10,9 @@ use super::osc133;
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
 use std::io::{Read, Write};
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::oneshot;
 
@@ -43,6 +45,7 @@ enum ShellMessage {
 
 /// A command to be executed by the shell worker.
 struct ShellCommand {
+    _seq: usize,
     command: String,
     timeout: Duration,
     queued_at: Instant,
@@ -52,7 +55,8 @@ struct ShellCommand {
 /// Result from shell execution, including timing metadata.
 struct ShellResult {
     output: Result<CommandOutput, String>,
-    _execution_duration: Duration,
+    queue_wait: Duration,
+    execution_duration: Duration,
 }
 
 pub struct PersistentShell {
@@ -387,6 +391,7 @@ pub struct CommandOutput {
 #[derive(Clone)]
 pub struct PersistentNuExecutor {
     sender: tokio::sync::mpsc::Sender<ShellMessage>,
+    seq_counter: Arc<AtomicUsize>,
 }
 
 impl PersistentNuExecutor {
@@ -408,7 +413,7 @@ impl PersistentNuExecutor {
             while let Some(msg) = rx.blocking_recv() {
                 match msg {
                     ShellMessage::Execute(cmd) => {
-                        let _queue_wait = cmd.queued_at.elapsed();
+                        let queue_wait = cmd.queued_at.elapsed();
                         let exec_start = Instant::now();
                         
                         let output = shell.execute(&cmd.command, cmd.timeout);
@@ -417,7 +422,8 @@ impl PersistentNuExecutor {
                         // Send result back (ignore send errors - client may have dropped)
                         let _ = cmd.response_tx.send(ShellResult {
                             output,
-                            _execution_duration: execution_duration,
+                            queue_wait,
+                            execution_duration,
                         });
                     }
                     ShellMessage::Reset(response_tx) => {
@@ -441,7 +447,10 @@ impl PersistentNuExecutor {
             // The shell will be dropped here, triggering PersistentShell::drop
         });
         
-        Ok(Self { sender: tx })
+        Ok(Self {
+            sender: tx,
+            seq_counter: Arc::new(AtomicUsize::new(0)),
+        })
     }
 }
 
@@ -455,11 +464,15 @@ impl CommandExecutor for PersistentNuExecutor {
         let timeout = Duration::from_secs(timeout_secs.unwrap_or_else(super::get_default_timeout));
         let command = command.to_string();
         
+        // Increment sequence counter
+        let seq = self.seq_counter.fetch_add(1, Ordering::Relaxed);
+        
         // Create oneshot channel for response
         let (response_tx, response_rx) = oneshot::channel();
         
         // Send command to worker
         let shell_cmd = ShellCommand {
+            _seq: seq,
             command,
             timeout,
             queued_at: Instant::now(),
@@ -477,7 +490,18 @@ impl CommandExecutor for PersistentNuExecutor {
             .map_err(|_| "Shell worker dropped response channel".to_string())?;
         
         // Extract output from result
-        let output = result.output?;
+        let mut output = result.output?;
+        
+        // Add queue feedback prefix if command waited more than 500ms
+        if result.queue_wait > Duration::from_millis(500) {
+            let queue_secs = result.queue_wait.as_secs_f64();
+            let exec_secs = result.execution_duration.as_secs_f64();
+            let prefix = format!(
+                "[Queued: waited {:.1}s | executed in {:.1}s]\n",
+                queue_secs, exec_secs
+            );
+            output.stdout = prefix + &output.stdout;
+        }
         
         // PTY merges stdout/stderr into one stream; stderr is empty
         Ok((output.stdout, String::new()))

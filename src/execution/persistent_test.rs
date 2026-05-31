@@ -395,3 +395,90 @@ async fn test_concurrent_execution_queues_sequentially() {
             "Task 3 took {:?}, expected ~3s", elapsed3);
 }
 
+#[tokio::test]
+#[serial]
+async fn test_queue_wait_feedback_in_output() {
+    skip_if_no_pty!();
+    let executor = PersistentNuExecutor::new().expect("Failed to create executor");
+    
+    // Start 3 concurrent commands:
+    // - First takes ~2 seconds
+    // - Second and third should queue and show feedback prefix
+    let work_dir = PathBuf::from(".");
+    
+    let executor1 = executor.clone();
+    let executor2 = executor.clone();
+    let executor3 = executor.clone();
+    
+    let work_dir1 = work_dir.clone();
+    let work_dir2 = work_dir.clone();
+    let work_dir3 = work_dir.clone();
+    
+    let task1 = tokio::spawn(async move {
+        executor1.execute("sleep 2sec; print 'first'", &work_dir1, Some(15)).await
+    });
+    
+    let task2 = tokio::spawn(async move {
+        executor2.execute("print 'second'", &work_dir2, Some(15)).await
+    });
+    
+    let task3 = tokio::spawn(async move {
+        executor3.execute("print 'third'", &work_dir3, Some(15)).await
+    });
+    
+    // Wait for all tasks
+    let result1 = task1.await.expect("Task 1 panicked");
+    let result2 = task2.await.expect("Task 2 panicked");
+    let result3 = task3.await.expect("Task 3 panicked");
+    
+    // All should succeed
+    assert!(result1.is_ok(), "Task 1 failed: {:?}", result1);
+    assert!(result2.is_ok(), "Task 2 failed: {:?}", result2);
+    assert!(result3.is_ok(), "Task 3 failed: {:?}", result3);
+    
+    let (out1, _) = result1.unwrap();
+    let (out2, _) = result2.unwrap();
+    let (out3, _) = result3.unwrap();
+    
+    eprintln!("Task 1 output:\n{}", out1);
+    eprintln!("Task 2 output:\n{}", out2);
+    eprintln!("Task 3 output:\n{}", out3);
+    
+    // First command should NOT have queue feedback (no wait)
+    assert!(!out1.contains("[Queued:"), "Task 1 should not have queue feedback");
+    assert!(out1.contains("first"), "Task 1 should contain 'first'");
+    
+    // Second command queued for ~2 seconds, should have feedback
+    assert!(out2.contains("[Queued:"), "Task 2 should have queue feedback");
+    assert!(out2.contains("waited"), "Task 2 should show wait time");
+    assert!(out2.contains("executed in"), "Task 2 should show execution time");
+    assert!(out2.contains("second"), "Task 2 should contain 'second'");
+    
+    // Third command queued for ~2+ seconds, should have feedback
+    assert!(out3.contains("[Queued:"), "Task 3 should have queue feedback");
+    assert!(out3.contains("waited"), "Task 3 should show wait time");
+    assert!(out3.contains("executed in"), "Task 3 should show execution time");
+    assert!(out3.contains("third"), "Task 3 should contain 'third'");
+}
+
+#[tokio::test]
+#[serial]
+async fn test_no_queue_feedback_for_quick_commands() {
+    skip_if_no_pty!();
+    let executor = PersistentNuExecutor::new().expect("Failed to create executor");
+    let work_dir = PathBuf::from(".");
+    
+    // Single command should execute immediately with no queue wait
+    let result = executor.execute("print 'instant'", &work_dir, Some(10)).await;
+    
+    assert!(result.is_ok(), "Command failed: {:?}", result);
+    let (output, _) = result.unwrap();
+    
+    eprintln!("Output:\n{}", output);
+    
+    // Should NOT have queue feedback prefix (wait < 500ms)
+    assert!(!output.contains("[Queued:"), "Should not have queue feedback for instant command");
+    assert!(output.contains("instant"), "Should contain expected output");
+}
+
+
