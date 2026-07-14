@@ -43,6 +43,8 @@ The `tools/` directory contains a growing catalog of useful MCP tools:
 
 ## Configuration
 
+## Configuration
+
 ### Command Line Options
 - `--tools-dir=PATH` - Directory containing tool modules
 - `--enable-run-nu` - Enable generic command execution alongside tools  
@@ -185,6 +187,13 @@ brew install nu-mcp
 - The code is modular and fully async.
 - Tests are in `tests/filter.rs`.
 
+## Documentation
+
+- [Configuration](docs/configuration.md) - Setup, command-line options, environment variables
+- [Security](docs/security.md) - Sandbox, path validation, safety
+- [Testing](docs/testing.md) - Testing and debugging tools
+- [Multiple Instances](docs/multiple-instances.md) - Running multiple specialized MCP servers
+
 ## Creating Tools
 
 Tools are modular Nushell scripts organized in directories with a `mod.nu` entry file. See [docs/tool-development.md](docs/tool-development.md) for detailed guidance.
@@ -195,7 +204,7 @@ Commands execute within a configurable directory sandbox. See [docs/security.md]
 
 ## Documentation
 
-- [Configuration Guide](docs/configuration.md) - Setup and configuration options
-- [Tool Development](docs/tool-development.md) - Creating modular tools
+- [Configuration](docs/configuration.md) - Setup, command-line options, environment variables
+- [Security](docs/security.md) - Sandbox, path validation, safety
 - [Testing](docs/testing.md) - Testing and debugging tools
-- [Architecture](docs/) - Additional technical documentation
+- [Multiple Instances](docs/multiple-instances.md) - Running multiple specialized MCP servers
