@@ -18,6 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.prep.outputs.version }}
+      base_version: ${{ steps.prep.outputs.base_version }}
+      prerelease: ${{ steps.prep.outputs.prerelease }}
+      suffix: ${{ steps.prep.outputs.suffix }}
+      branch: ${{ steps.prep.outputs.branch }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -25,21 +29,50 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.ref }}
 
-      - name: Setup Nu Tools
-        uses: ck3mp3r/actions/nu-tools@main
+      - name: Setup CI Tools
+        uses: ck3mp3r/actions/ci-tools@main
 
       - name: Prepare release
         id: prep
         shell: nu {0}
         run: |
-          use nu-tools *
-          setup-git-user
+          use ci *
+
+          "github-actions[bot]@users.noreply.github.com" | ci scm config
+
+          # A release run from a non-main branch is always a pre-release.
+          # Use the short SHA as the suffix so it never collides with the real
+          # release line and is distinguishable from other pre-releases.
+          let prerelease = if "${{ github.ref_name }}" == "main" { "false" } else { "true" }
+          let suffix = if $prerelease == "true" { (git rev-parse --short HEAD | str trim) } else { "" }
 
           let current_version = (open Cargo.toml).package.version
-          let latest_tag = (get-latest-tag)
-          let version = (semver-calculate $latest_tag $current_version | create-release-branch)
-          update-cargo-version $version | commit-files $"Prepare release ($version)"
-          $"version=($version)" | save --append $env.GITHUB_OUTPUT
+          let latest_tag = (ci scm latest-tag)
+          # Pre-releases keep the current version (no semver bump) and append the
+          # suffix; full releases bump the patch from the latest tag.
+          let base_version = if $prerelease == "true" {
+            $current_version
+          } else {
+            (ci scm semver $latest_tag $current_version)
+          }
+          let version = if $prerelease == "true" { $"($base_version)-($suffix)" } else { $base_version }
+
+          # Release branch name: release/<version> for full, release/<version>-<sha> for pre-release
+          let branch = $"release/($version)"
+
+          # Create and push the release branch (from the run branch)
+          $version | ci scm branch --release --version $version --from "${{ github.ref_name }}" --push
+          # Update package version and refresh Cargo.lock
+          let files = (ci cargo update-version $version)
+          $files | ci scm commit -m $"Prepare release ($version)" --push
+          # save --append over a list writes each line with a trailing newline
+          [
+            $"version=($version)"
+            $"base_version=($base_version)"
+            $"prerelease=($prerelease)"
+            $"suffix=($suffix)"
+            $"branch=($branch)"
+          ] | save --append $env.GITHUB_OUTPUT
 
   build:
     needs: prep-release
@@ -63,7 +96,7 @@ jobs:
       - name: Checkout release branch
         uses: actions/checkout@v7
         with:
-          ref: release/${{ needs.prep-release.outputs.version }}
+          ref: ${{ needs.prep-release.outputs.branch }}
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v22
@@ -121,12 +154,12 @@ jobs:
       - name: Checkout release branch
         uses: actions/checkout@v7
         with:
-          ref: release/${{ needs.prep-release.outputs.version }}
+          ref: ${{ needs.prep-release.outputs.branch }}
           fetch-depth: 0
           token: ${{ steps.token.outputs.token }}
 
-      - name: Setup Nu Tools
-        uses: ck3mp3r/actions/nu-tools@main
+      - name: Setup CI Tools
+        uses: ck3mp3r/actions/ci-tools@main
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v8
@@ -136,13 +169,21 @@ jobs:
       - name: Finalize release
         shell: nu {0}
         run: |
-          use nu-tools *
-          setup-git-user
+          use ci *
+
+          "github-actions[bot]@users.noreply.github.com" | ci scm config
 
           let version = "${{ needs.prep-release.outputs.version }}"
+          let base_version = "${{ needs.prep-release.outputs.base_version }}"
+          let prerelease = "${{ needs.prep-release.outputs.prerelease }}"
+          let suffix = "${{ needs.prep-release.outputs.suffix }}"
+          let branch = "${{ needs.prep-release.outputs.branch }}"
+          # version already carries the suffix for pre-releases
+          let release_tag = $"v($version)"
 
-          # Generate platform data and commit
-          generate-platform-data-for $version "nu-mcp" "./artifacts" | commit-files $"Add platform data for release ($version)"
+          # Generate platform data and commit (finalize already checked out the release branch)
+          let data_files = (ci artifacts platform-data $version "./artifacts" "nu-mcp" --tag $release_tag)
+          $data_files | ci scm commit -m $"Add platform data for release ($version)" --push
 
           # Prepare architecture data with hashes
           let architectures = [
@@ -165,17 +206,28 @@ jobs:
           ]
 
           # Update Homebrew formula
-          open Formula/nu-mcp.rb | update-homebrew-formula $version "nu-mcp" $architectures | save --force Formula/nu-mcp.rb
+          open Formula/nu-mcp.rb | ci homebrew update-formula $version "nu-mcp" $architectures | save --force Formula/nu-mcp.rb
 
           # Commit the formula update
-          ["Formula/nu-mcp.rb"] | commit-files $"Update Homebrew formula for ($version)"
+          ["Formula/nu-mcp.rb"] | ci scm commit -m $"Update Homebrew formula for ($version)" --push
 
-          # Merge and cleanup
-          merge-and-cleanup $version
+          if $prerelease != "true" {
+            # Merge release branch to main (idempotent on re-run)
+            ci scm merge $branch -m $"Release ($version)" --push
+          }
 
           # Create release and upload artifacts using gh CLI
-          create-github-release $version
-          glob "./artifacts/**/*.*" | upload-release-artifacts $version
+          if $prerelease == "true" {
+            ci github release create $base_version --prerelease --suffix $suffix --target $branch
+          } else {
+            ci github release create $version
+          }
+          glob "./artifacts/**/*.*" | ci github release upload $release_tag
+
+          # Clean up the release branch (remote + local) after the release is
+          # created (the pre-release tag targets this branch, so it must still
+          # exist when the release is created).
+          ci scm cleanup $branch --remote --local
 
         env:
           GITHUB_TOKEN: ${{ steps.token.outputs.token }}
