@@ -1,7 +1,9 @@
 # Context7 API interaction module
 # Handles API requests to Context7 service
 
-use http-client.nu [ http-get ]
+# NOTE: http-get is intentionally NOT explicitly imported here.
+# It is called bare so tests can shadow it with a nu-mimic wrapper
+# via `use wrappers.nu *` before sourcing this module.
 use utils.nu [
   validate_search_response
   validate_documentation_response

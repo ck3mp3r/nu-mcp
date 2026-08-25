@@ -12,13 +12,18 @@ use test_helpers.nu [ sample-v2-search-response sample-v2-context-response ]
 export def --env "test search-libraries uses v2 endpoint with both params" [] {
   with-mimic {
     # v2 endpoint requires BOTH libraryName and query in URL
-    let expected_url = "https://context7.com/api/v2/libs/search?libraryName=react&query=how+to+use+hooks"
+    # url encode converts spaces to %20, so the exact URL is what api.nu produces
+    let expected_url = "https://context7.com/api/v2/libs/search?libraryName=react&query=how%20to%20use%20hooks"
     let mock_response = sample-v2-search-response
+    let expected_headers = {
+      "Content-Type": "application/json"
+      "User-Agent": "nu-mcp-context7/1.0"
+    }
 
     # This mock will ONLY match if URL is exactly v2 format
     mimic register http-get {
-      args: [$expected_url]
-      returns: ($mock_response | to json)
+      args: [$expected_url $expected_headers]
+      returns: $mock_response
     }
 
     use ../api.nu search_libraries
@@ -35,10 +40,14 @@ export def --env "test search-libraries response has v2 fields" [] {
   with-mimic {
     let expected_url = "https://context7.com/api/v2/libs/search?libraryName=react&query=hooks"
     let mock_response = sample-v2-search-response
+    let expected_headers = {
+      "Content-Type": "application/json"
+      "User-Agent": "nu-mcp-context7/1.0"
+    }
 
     mimic register http-get {
-      args: [$expected_url]
-      returns: ($mock_response | to json)
+      args: [$expected_url $expected_headers]
+      returns: $mock_response
     }
 
     use ../api.nu search_libraries
@@ -61,11 +70,17 @@ export def --env "test search-libraries response has v2 fields" [] {
 export def --env "test fetch-docs uses v2 context endpoint" [] {
   with-mimic {
     # v2 uses /v2/context with libraryId as query param, query is required
-    let expected_url = "https://context7.com/api/v2/context?libraryId=facebook%2Freact&query=how+to+use+hooks&type=txt"
+    # url encode does not encode '/', so libraryId stays as facebook/react
+    let expected_url = "https://context7.com/api/v2/context?libraryId=facebook/react&query=how%20to%20use%20hooks&type=txt"
     let mock_response = sample-v2-context-response
+    let expected_headers = {
+      "Content-Type": "application/json"
+      "User-Agent": "nu-mcp-context7/1.0"
+      "X-Context7-Source": "mcp-server"
+    }
 
     mimic register http-get {
-      args: [$expected_url]
+      args: [$expected_url $expected_headers]
       returns: $mock_response
     }
 
