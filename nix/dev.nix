@@ -7,7 +7,7 @@
 }: let
   rustToolchain = inputs.rustnix.lib.rust.mkToolchain {
     system = pkgs.system;
-    extras = ["rustfmt-preview" "clippy-preview" "rust-analyzer-preview"];
+    extras = ["rustfmt" "clippy" "rust-analyzer"];
   };
   nuMods = inputs.nu-mods.packages.${pkgs.system}.default;
 

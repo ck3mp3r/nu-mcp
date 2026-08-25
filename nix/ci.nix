@@ -6,7 +6,7 @@
 }: let
   rustToolchain = inputs.rustnix.lib.rust.mkToolchain {
     system = system;
-    extras = ["rustfmt-preview" "clippy-preview" "rust-analyzer-preview"];
+    extras = ["rustfmt" "clippy" "rust-analyzer"];
   };
 
   # Test runner script - uses auto-discovery
