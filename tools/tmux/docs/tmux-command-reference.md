@@ -451,13 +451,13 @@ For each command marked ⚠️ Assumed:
    ```bash
    # Create test session
    tmux new-session -d -s test
-   
+
    # Test command format
    tmux <command> <args>
-   
+
    # Verify result
    tmux <verification_command>
-   
+
    # Cleanup
    tmux kill-session -t test
    ```
@@ -548,10 +548,10 @@ let check_target = if $level == "pane" {
 
 ## Verification Summary
 
-**Last Updated:** 2024-12-24  
-**Tmux Version:** 3.6a  
-**Test Script:** `tools/tmux/tests/manual_verification.nu`  
-**Test Results:** `tools/tmux/tests/verification_results.md`  
+**Last Updated:** 2024-12-24
+**Tmux Version:** 3.6a
+**Test Script:** `tools/tmux/tests/manual_verification.nu`
+**Test Results:** `tools/tmux/tests/verification_results.md`
 **Tests Run:** 17 total, 16 passed ✅, 1 partial (correct behavior)
 
 ### Fully Verified Commands ✅

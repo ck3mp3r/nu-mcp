@@ -313,7 +313,7 @@ pub fn validate_path_safety(
         if !is_path_in_any_sandbox(&canonical_path, &canonical_sandboxes) {
             return Err(format!(
                 "Path '{}' escapes sandbox directories. Allowed: {}",
-                &word,
+                word,
                 format_sandbox_list(&canonical_sandboxes)
             ));
         }
@@ -482,7 +482,7 @@ pub fn validate_path_safety_with_cache(
         debug!("Path exists outside sandbox, blocking: {:?}", word);
         return Err(format!(
             "Path '{}' escapes sandbox directories. Allowed: {}",
-            &word,
+            word,
             format_sandbox_list(&canonical_sandboxes)
         ));
     }

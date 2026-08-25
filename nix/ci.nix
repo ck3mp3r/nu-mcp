@@ -4,7 +4,10 @@
   inputs,
   system,
 }: let
-  rustToolchain = inputs.rustnix.packages.${system}.toolchain;
+  rustToolchain = inputs.rustnix.lib.rust.mkToolchain {
+    system = system;
+    extras = ["rustfmt-preview" "clippy-preview" "rust-analyzer-preview"];
+  };
 
   # Test runner script - uses auto-discovery
   runToolTests = pkgs.writeShellScriptBin "run-tool-tests" ''
@@ -26,6 +29,9 @@ in
 
       # ArgoCD CLI for argocd tool tests (if needed)
       pkgs.argocd
+
+      # Prek for git hooks
+      pkgs.prek
 
       # Tmux for tmux tool integration tests
       pkgs.tmux

@@ -107,38 +107,38 @@ export def create-session [
             message: $"Session '($name)' already exists"
         }
     }
-    
+
     # Build tmux command
     mut cmd_args = ['new-session']
-    
+
     # Session name
     $cmd_args = ($cmd_args | append ['-s' $name])
-    
+
     # Detached or attached
     if $detached {
         $cmd_args = ($cmd_args | append '-d')
     }
-    
+
     # Initial window name
     if $window_name != null {
         $cmd_args = ($cmd_args | append ['-n' $window_name])
     }
-    
+
     # Starting directory
     if $directory != null {
         $cmd_args = ($cmd_args | append ['-c' $directory])
     }
-    
+
     # Create the session
     try {
         exec_tmux_command $cmd_args
-        
+
         # Mark session as MCP-created (session-level user option)
         exec_tmux_command ['set-option' '-t' $name '@mcp_tmux' 'true']
-        
+
         # Get session info
         let session_info = (exec_tmux_command ['display-message' '-t' $name '-p' '#{session_id}'])
-        
+
         {
             success: true
             session_id: ($session_info | str trim)
@@ -170,22 +170,22 @@ Add to `call-tool`:
 ```nushell
 "create_session" => {
     let name = $parsed_args | get name
-    let window_name = if "window_name" in $parsed_args { 
-        $parsed_args | get window_name 
-    } else { 
-        null 
+    let window_name = if "window_name" in $parsed_args {
+        $parsed_args | get window_name
+    } else {
+        null
     }
-    let directory = if "directory" in $parsed_args { 
-        $parsed_args | get directory 
-    } else { 
-        null 
+    let directory = if "directory" in $parsed_args {
+        $parsed_args | get directory
+    } else {
+        null
     }
-    let detached = if "detached" in $parsed_args { 
-        $parsed_args | get detached 
-    } else { 
-        true 
+    let detached = if "detached" in $parsed_args {
+        $parsed_args | get detached
+    } else {
+        true
     }
-    
+
     create-session $name --window-name $window_name --directory $directory --detached $detached
     | to json
 }
@@ -199,7 +199,7 @@ Add to `call-tool`:
 # Test: create-session with just name
 export def "test create-session with name only" [] {
     use nu-mimic *
-    
+
     let result = with-mocks [
         # Mock: new-session command
         { cmd: "tmux", exit_code: 0, stdout: "", args_pattern: "new-session -s test-session -d" }
@@ -210,7 +210,7 @@ export def "test create-session with name only" [] {
     ] {
         create-session "test-session"
     }
-    
+
     assert ($result.success == true)
     assert ($result.session_name == "test-session")
     assert ($result.message | str contains "detached")
@@ -219,7 +219,7 @@ export def "test create-session with name only" [] {
 # Test: create-session with all options
 export def "test create-session with all options" [] {
     use nu-mimic *
-    
+
     let result = with-mocks [
         { cmd: "tmux", exit_code: 0, stdout: "", args_pattern: "new-session -s work -n code -c /tmp" }
         { cmd: "tmux", exit_code: 0, stdout: "", args_pattern: "set-option -t work @mcp_tmux true" }
@@ -227,7 +227,7 @@ export def "test create-session with all options" [] {
     ] {
         create-session "work" --window-name "code" --directory "/tmp" --detached false
     }
-    
+
     assert ($result.success == true)
     assert ($result.session_name == "work")
 }
@@ -235,14 +235,14 @@ export def "test create-session with all options" [] {
 # Test: create-session detects duplicate
 export def "test create-session rejects duplicate name" [] {
     use nu-mimic *
-    
+
     # Mock list-sessions to return existing session
     let result = with-mocks [
         { cmd: "tmux", exit_code: 0, stdout: "existing-session\n", args_pattern: "list-sessions" }
     ] {
         create-session "existing-session"
     }
-    
+
     assert ($result.success == false)
     assert ($result.error == "SessionExists")
 }
@@ -250,17 +250,17 @@ export def "test create-session rejects duplicate name" [] {
 # Test: create-session sets mcp marker
 export def "test create-session sets mcp marker" [] {
     use nu-mimic *
-    
+
     let mocks = [
         { cmd: "tmux", exit_code: 0, stdout: "", args_pattern: "new-session -s marked -d" }
         { cmd: "tmux", exit_code: 0, stdout: "", args_pattern: "set-option -t marked @mcp_tmux true" }
         { cmd: "tmux", exit_code: 0, stdout: "$3\n", args_pattern: "display-message" }
     ]
-    
+
     let result = with-mocks $mocks {
         create-session "marked"
     }
-    
+
     # Verify set-option was called with correct arguments
     assert ($result.success == true)
 }
@@ -273,20 +273,20 @@ export def "test create-session sets mcp marker" [] {
 export def "test session lifecycle with mcp ownership" [] {
     # Generate unique session name
     let session_name = $"mcp-lifecycle-test-(date now | format date '%Y%m%d-%H%M%S')"
-    
+
     try {
         # Create session via MCP
         let create_result = (create-session $session_name)
         assert ($create_result.success == true)
-        
+
         # Verify session exists and has marker
         let marker_check = (check-mcp-ownership $session_name "session")
         assert ($marker_check.owned == true)
-        
+
         # Kill session via MCP (should succeed)
         let kill_result = (kill-session $session_name --force)
         assert ($kill_result.success == true)
-        
+
         # Verify session is gone
         let sessions = (list-sessions | where session == $session_name)
         assert (($sessions | length) == 0)

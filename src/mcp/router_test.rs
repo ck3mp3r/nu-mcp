@@ -3,7 +3,7 @@ use rmcp::{model::Tool, serde_json};
 use super::*;
 use crate::{
     config::Config,
-    execution::{NushellExecutor, MockExecutor},
+    execution::{MockExecutor, NushellExecutor},
     security::PathCache,
     tools::{ExtensionTool, MockToolExecutor},
 };
@@ -21,7 +21,14 @@ fn create_test_router() -> ToolRouter<NushellExecutor, MockExecutor, MockToolExe
     let persistent_executor = MockExecutor::new("test output".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("tool output".to_string());
     let cache = Arc::new(RwLock::new(PathCache::new()));
-    ToolRouter::new(config, vec![], stateless_executor, persistent_executor, tool_executor, cache)
+    ToolRouter::new(
+        config,
+        vec![],
+        stateless_executor,
+        persistent_executor,
+        tool_executor,
+        cache,
+    )
 }
 
 #[tokio::test]
@@ -81,7 +88,14 @@ async fn test_router_extension_tool() {
         tool_definition: Tool::new("test_tool", "Test tool", Arc::new(serde_json::Map::new())),
     };
 
-    let router = ToolRouter::new(config, vec![extension], stateless_executor, persistent_executor, tool_executor, cache);
+    let router = ToolRouter::new(
+        config,
+        vec![extension],
+        stateless_executor,
+        persistent_executor,
+        tool_executor,
+        cache,
+    );
 
     let mut args = serde_json::Map::new();
     args.insert(

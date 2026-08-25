@@ -20,7 +20,7 @@ nu-mcp
 ```
 Provides the `run` tool for executing Nushell commands in a persistent shell. Environment variables, aliases, and definitions are preserved between calls. Use `reset: true` to get a clean environment when needed.
 
-### Extension Mode  
+### Extension Mode
 ```bash
 nu-mcp --tools-dir=./tools
 ```
@@ -45,7 +45,7 @@ The `tools/` directory contains a growing catalog of useful MCP tools:
 
 ### Command Line Options
 - `--tools-dir=PATH` - Directory containing tool modules
-- `--enable-run-nu` - Enable generic command execution alongside tools  
+- `--enable-run-nu` - Enable generic command execution alongside tools
 - `--add-path=PATH` - Add additional accessible paths (current directory always included)
 
 ### Environment Variables
@@ -132,7 +132,7 @@ nix profile install github:ck3mp3r/nu-mcp#argocd-mcp-tools
 # Weather tool only
 nix profile install github:ck3mp3r/nu-mcp#weather-mcp-tools
 
-# Finance tool only  
+# Finance tool only
 nix profile install github:ck3mp3r/nu-mcp#finance-mcp-tools
 
 # Tmux tool only

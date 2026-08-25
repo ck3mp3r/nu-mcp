@@ -382,10 +382,10 @@ tmux select-layout -t session:window tiled
 def check-resource-ownership [session: string, window?: string, pane?: string] {
   # Build target
   let target = build-target $session $window $pane
-  
+
   # Get pane title
   let title = exec_tmux_command ['list-panes' '-t' $target '-F' '#{pane_title}']
-  
+
   # Check for MCP_CREATED marker
   if ($title | str contains 'MCP_CREATED=') {
     { owned: true, timestamp: (extract-timestamp $title) }

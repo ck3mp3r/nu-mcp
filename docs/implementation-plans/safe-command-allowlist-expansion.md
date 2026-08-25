@@ -7,7 +7,7 @@ Expand the safe command pattern allowlist with comprehensive read-only operation
 ## Current State
 
 The allowlist currently includes:
-1. `gh api` - GitHub API endpoints  
+1. `gh api` - GitHub API endpoints
 2. `kubectl <verb> /api*` - Kubernetes API resources
 3. `argocd app <cmd> /argocd/*` - ArgoCD application paths
 4. `curl/wget/http <url>` - HTTP clients with URLs
@@ -104,7 +104,7 @@ Regex::new(r"^(ping|dig|nslookup|traceroute|netstat|ss)\s+").unwrap(),
 // Terraform read operations
 Regex::new(r"^terraform\s+(show|plan|validate|state\s+(list|show)|output)\b").unwrap(),
 
-// Helm read operations  
+// Helm read operations
 Regex::new(r"^helm\s+(list|ls|status|get|show|search|template)\b").unwrap(),
 
 // Database read queries
@@ -138,7 +138,7 @@ Regex::new(r"^(hg|svn)\s+(log|status|diff)\b").unwrap(),
    ```rust
    #[test]
    fn test_github_api_commands_in_allowlist() { ... }
-   
+
    #[test]
    fn test_kubectl_api_commands_in_allowlist() { ... }
    ```
@@ -192,13 +192,13 @@ Regex::new(r"^(hg|svn)\s+(log|status|diff)\b").unwrap(),
 #[test]
 fn test_git_operations_in_allowlist() {
     let sandbox = current_dir().unwrap();
-    
+
     // Allowed: read operations
     assert!(validate_path_safety("git log", &sandbox).is_ok());
     assert!(validate_path_safety("git status", &sandbox).is_ok());
     assert!(validate_path_safety("git diff HEAD", &sandbox).is_ok());
     assert!(validate_path_safety("git show abc123", &sandbox).is_ok());
-    
+
     // Still validated: operations that could access files
     // (git clone <path> would check if path is outside sandbox)
 }
@@ -206,7 +206,7 @@ fn test_git_operations_in_allowlist() {
 #[test]
 fn test_monitoring_tools_in_allowlist() {
     let sandbox = current_dir().unwrap();
-    
+
     // All monitoring tools are read-only
     assert!(validate_path_safety("top -n 1", &sandbox).is_ok());
     assert!(validate_path_safety("ps aux", &sandbox).is_ok());
@@ -228,10 +228,10 @@ Commands in the allowlist bypass filesystem path validation because they use pat
 
 #### 1. API Endpoint Commands
 - **GitHub CLI**: `gh api <endpoint>`
-- **kubectl**: `kubectl <verb> /api*` 
+- **kubectl**: `kubectl <verb> /api*`
 - **ArgoCD**: `argocd app <cmd> /argocd/*`
 
-#### 2. Read-Only Git Operations  
+#### 2. Read-Only Git Operations
 - Commands: `git log`, `git status`, `git diff`, `git show`, etc.
 - These operations only read git history and don't modify files
 
@@ -297,6 +297,6 @@ To add a new safe pattern:
 
 ---
 
-**Status**: Planning (Not Implemented)  
-**Created**: 2025-01-22  
+**Status**: Planning (Not Implemented)
+**Created**: 2025-01-22
 **Dependencies**: readonly-cli-tools.json research completed

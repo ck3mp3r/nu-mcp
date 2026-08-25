@@ -282,11 +282,9 @@ impl PersistentShell {
                     osc133::Event::CommandExecuted => {
                         saw_command_executed = true;
                     }
-                    osc133::Event::CommandFinished { exit_code } => {
-                        if saw_command_executed {
-                            final_exit_code = exit_code;
-                            done = true;
-                        }
+                    osc133::Event::CommandFinished { exit_code } if saw_command_executed => {
+                        final_exit_code = exit_code;
+                        done = true;
                     }
                     _ => {}
                 }
@@ -422,7 +420,7 @@ impl CommandExecutor for PersistentNuExecutor {
 
     /// Tear down the current shell and create a fresh one.
     /// This gives a clean environment (no env vars, aliases, etc.).
-    /// 
+    ///
     /// If a command is currently running, this:
     /// 1. Kills the child process (via clone_killer)
     /// 2. Waits for the shell mutex to be released (execute() returns after PTY EOF)
@@ -434,32 +432,36 @@ impl CommandExecutor for PersistentNuExecutor {
         // killing the child causes the PTY read to return EOF/error,
         // which makes shell.execute() return an error, releasing the shell mutex.
         {
-            let mut killer = self.killer.lock()
+            let mut killer = self
+                .killer
+                .lock()
                 .map_err(|_| "Killer mutex poisoned".to_string())?;
             let _ = killer.kill(); // Best effort — process may already be dead
         }
-        
+
         // Step 2: Lock the shell mutex. If execute() was in progress,
         // it should have returned by now (child was killed, PTY returned EOF).
         // Use lock() (blocking wait), not try_lock() — reset MUST succeed.
         let shell_arc = Arc::clone(&self.shell);
         let killer_arc = Arc::clone(&self.killer);
         tokio::task::spawn_blocking(move || {
-            let mut shell_guard = shell_arc.lock()
+            let mut shell_guard = shell_arc
+                .lock()
                 .map_err(|_| "Shell mutex poisoned after kill".to_string())?;
-            
+
             // Step 3: Create new shell
             let new_shell = PersistentShell::new()?;
             let new_killer = new_shell.clone_killer();
-            
+
             // Step 4: Replace shell and killer
             *shell_guard = new_shell;
             drop(shell_guard); // Release shell mutex before locking killer
-            
-            let mut killer_guard = killer_arc.lock()
+
+            let mut killer_guard = killer_arc
+                .lock()
                 .map_err(|_| "Killer mutex poisoned".to_string())?;
             *killer_guard = new_killer;
-            
+
             Ok::<(), String>(())
         })
         .await

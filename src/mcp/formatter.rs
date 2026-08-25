@@ -1,16 +1,16 @@
-use rmcp::model::{CallToolResult, Content, ErrorData};
+use rmcp::model::{CallToolResult, ContentBlock, ErrorData};
 
 pub struct ResultFormatter;
 
 impl ResultFormatter {
     pub fn success(output: String) -> CallToolResult {
-        CallToolResult::success(vec![Content::text(output)])
+        CallToolResult::success(vec![ContentBlock::text(output)])
     }
 
     pub fn success_with_stderr(stdout: String, stderr: String) -> CallToolResult {
-        let mut content = vec![Content::text(stdout)];
+        let mut content = vec![ContentBlock::text(stdout)];
         if !stderr.is_empty() {
-            content.push(Content::text(format!("stderr: {stderr}")));
+            content.push(ContentBlock::text(format!("stderr: {stderr}")));
         }
         CallToolResult::success(content)
     }

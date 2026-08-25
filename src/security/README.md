@@ -89,10 +89,10 @@ Test against both valid and invalid commands:
 #[test]
 fn test_your_pattern_in_allowlist() {
     let sandbox = current_dir().unwrap();
-    
+
     // Should match (bypass validation)
     assert!(validate_path_safety("your-tool api /endpoint", &sandbox).is_ok());
-    
+
     // Should NOT match (still validated)
     assert!(validate_path_safety("your-tool file /etc/passwd", &sandbox).is_err());
 }
@@ -183,10 +183,10 @@ Each pattern should have dedicated tests:
 #[test]
 fn test_pattern_matches_intended_commands() {
     let sandbox = current_dir().unwrap();
-    
+
     // Test allowlist hits
     assert!(validate_path_safety("safe command", &sandbox).is_ok());
-    
+
     // Test allowlist misses (still validated)
     assert!(validate_path_safety("unsafe /etc/passwd", &sandbox).is_err());
 }

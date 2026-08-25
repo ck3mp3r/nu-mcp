@@ -80,7 +80,7 @@ nu test/tools/simple/mod.nu call-tool simple_echo '{"message": "hello"}'
 # Test tool discovery manually
 nu path/to/tool/mod.nu list-tools
 
-# Test tool execution manually  
+# Test tool execution manually
 nu path/to/tool/mod.nu call-tool tool_name '{"param": "value"}'
 
 # Check module syntax

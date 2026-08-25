@@ -50,7 +50,7 @@ The nu-mcp server automatically discovers tools at startup by:
 ```
 tools/
 ├── weather/           # ✅ Discovered (has mod.nu)
-├── finance/           # ✅ Discovered (has mod.nu)  
+├── finance/           # ✅ Discovered (has mod.nu)
 ├── broken_tool/       # ❌ Skipped (no mod.nu)
 └── data.json          # ❌ Ignored (not a directory)
 ```
@@ -555,13 +555,13 @@ def "main call-tool" [
     } else {
         $args
     }
-    
+
     # Extract with defaults for optional parameters
     let required_param = $parsed_args | get required_param
-    let optional_param = if "optional_param" in $parsed_args { 
-        $parsed_args | get optional_param 
-    } else { 
-        default_value 
+    let optional_param = if "optional_param" in $parsed_args {
+        $parsed_args | get optional_param
+    } else {
+        default_value
     }
 }
 ```
@@ -635,10 +635,10 @@ export def flexible-function [
     optional?: string  # Optional with ?
     with_default: string = "default"  # Default value
 ] {
-    let opt_value = if $optional != null { 
-        $optional 
-    } else { 
-        "fallback" 
+    let opt_value = if $optional != null {
+        $optional
+    } else {
+        "fallback"
     }
 }
 ```
@@ -718,12 +718,12 @@ def "main list-tools" [] {
    - Destroys resources (cleanup, force, terminate)
    - Replaces/overwrites data (import with replace, force update)
    - Causes service disruption (scale to 0, drain nodes, force restart)
-   
+
    **Required warning template:**
    ```
    DESTRUCTIVE OPERATION - ALWAYS ASK USER FOR EXPLICIT CONFIRMATION BEFORE EXECUTING. [Specific consequence of the operation]. This operation cannot be undone.
    ```
-   
+
    **Example:**
    ```nushell
    {
@@ -732,7 +732,7 @@ def "main list-tools" [] {
      input_schema: { ... }
    }
    ```
-   
+
    **Why this is mandatory:**
    - LLMs may execute tools autonomously if not explicitly warned
    - Data loss incidents are unacceptable
@@ -781,7 +781,7 @@ def "main call-tool" [
     } else {
         $args
     }
-    
+
     match $tool_name {
         _ => {
             error make {msg: $"Unknown tool: ($tool_name)"}
@@ -809,7 +809,7 @@ Document findings in the implementation plan
 # Main API call function (kebab-case)
 export def call-api [param: string] {
     let url = build-url $param
-    
+
     try {
         let response = http get $url
         { success: true, data: $response }
@@ -831,12 +831,12 @@ export def validate-response [response: record] {
     if $response.success != true {
         return { valid: false, error: $response.error }
     }
-    
+
     # Check required fields exist
     let required_fields = ["field1", "field2"]
     let data = $response.data
     let missing = $required_fields | where { |f| $f not-in $data }
-    
+
     if ($missing | length) > 0 {
         {
             valid: false
@@ -895,13 +895,13 @@ match $tool_name {
 def first-tool-impl [input: string] {
     # Call API (kebab-case function call)
     let api_result = call-api $input
-    
+
     # Validate response (kebab-case function call)
     let validation = validate-response $api_result
     if not $validation.valid {
         return $validation.error
     }
-    
+
     # Return data (formatting comes later)
     $validation.data | to json
 }
@@ -926,11 +926,11 @@ def first-tool-impl [input: string] {
     if ($input | str length) < 2 {
         return "Error: Input must be at least 2 characters"
     }
-    
+
     # Call API with error handling (kebab-case calls)
     let api_result = call-api $input
     let validation = validate-response $api_result
-    
+
     if not $validation.valid {
         return $"Error: ($validation.error)
 
@@ -938,7 +938,7 @@ Please verify:
 - Input is correct
 - External service is available"
     }
-    
+
     # Success path
     $validation.data | to json
 }
@@ -982,7 +982,7 @@ export def format-result [data: record, context: record] {
         ""
         $"Source: ($context.source)"
     ]
-    
+
     $lines | str join (char newline)
 }
 
@@ -1007,7 +1007,7 @@ use formatters.nu *
 # kebab-case for function name
 def first-tool-impl [input: string] {
     # ... validation and API call ...
-    
+
     # Format output (kebab-case function call)
     format-result $validation.data { input: $input, source: "API" }
 }
@@ -1226,7 +1226,7 @@ nu test/tools/simple/mod.nu call-tool simple_echo '{"message": "hello"}'
 # Test tool discovery manually
 nu path/to/tool/mod.nu list-tools
 
-# Test tool execution manually  
+# Test tool execution manually
 nu path/to/tool/mod.nu call-tool tool_name '{"param": "value"}'
 
 # Check module syntax
@@ -1313,30 +1313,30 @@ export def run-cli [
     --output: string = "json"
 ] {
     mut cmd_args = ["cli-tool"]
-    
+
     # Add context if specified
     if $context != "" {
         $cmd_args = ($cmd_args | append ["--context" $context])
     }
-    
+
     # Add the actual command
     $cmd_args = ($cmd_args | append $args)
-    
+
     # Add namespace
     if $namespace != "" {
         $cmd_args = ($cmd_args | append ["--namespace" $namespace])
     }
-    
+
     # Add output format
     if $output in ["json", "yaml"] {
         $cmd_args = ($cmd_args | append ["--output" $output])
     }
-    
+
     # Execute
     try {
         let kube_args = ($cmd_args | skip 1)
         let result = ^cli-tool ...$kube_args
-        
+
         # Parse based on output format
         if $output == "json" {
             $result | from json
@@ -1369,18 +1369,18 @@ export def get-config [] {
 
 export def validate-config [] {
     let config = get-config
-    
+
     if $config.api_key == "" {
         error make {
             msg: "API_KEY environment variable is required"
         }
     }
-    
+
     if $config.mode not-in ["readonly", "non-destructive", "destructive"] {
         print -e $"Warning: Invalid mode '($config.mode)', using 'readonly'"
         return ($config | upsert mode "readonly")
     }
-    
+
     $config
 }
 ```
@@ -1394,17 +1394,17 @@ const CACHE_DIR = ".cache/tool-name"
 
 export def get-cached [key: string, ttl_seconds: int = 300] {
     let cache_file = $"($CACHE_DIR)/($key).json"
-    
+
     if ($cache_file | path exists) {
         let age = (
             (date now) - (ls $cache_file | get modified | first)
         ) | format duration sec | into int
-        
+
         if $age < $ttl_seconds {
             return (open $cache_file | from json)
         }
     }
-    
+
     null
 }
 
@@ -1426,7 +1426,7 @@ export def get-paginated [
     offset: int = 0
 ] {
     let url = $"($endpoint)?limit=($limit)&offset=($offset)"
-    
+
     try {
         let response = http get $url
         {

@@ -385,7 +385,7 @@ If implementation has issues:
 ## Success Criteria
 
 - [x] No API tokens in tool call parameters
-- [x] Auto-discovery works for standard ArgoCD installations  
+- [x] Auto-discovery works for standard ArgoCD installations
 - [x] Multi-instance support with explicit selection
 - [x] All existing tools work with new authentication
 - [x] Clear error messages for common problems

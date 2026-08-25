@@ -227,19 +227,18 @@ where
             );
         }
 
-        Ok(ListToolsResult {
-            tools,
-            next_cursor: None,
-            meta: None,
-        })
+        Ok(ListToolsResult::with_all_items(tools))
     }
 
     async fn call_tool(
         &self,
         request: CallToolRequestParams,
         _context: RequestContext<RoleServer>,
-    ) -> Result<CallToolResult, ErrorData> {
-        self.router.route_call(request).await
+    ) -> Result<CallToolResponse, ErrorData> {
+        self.router
+            .route_call(request)
+            .await
+            .map(CallToolResponse::Complete)
     }
 }
 
@@ -261,7 +260,7 @@ pub async fn run_server(config: Config) -> Result<()> {
     let stateless_executor = NushellExecutor;
     let persistent_executor = PersistentNuExecutor::new()
         .map_err(|e| anyhow::anyhow!("Failed to create persistent shell: {}", e))?;
-    
+
     let router = ToolRouter::new(
         config,
         extensions,

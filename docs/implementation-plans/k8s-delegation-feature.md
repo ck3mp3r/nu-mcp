@@ -37,10 +37,10 @@ export def run-kubectl [
 export def run-kubectl [] {
     let params = $in  # Accept piped input
     # params.args, params.namespace, params.context, params.output, params.delegate
-    
+
     # Build command
     let cmd = build-kubectl-command $params
-    
+
     # Execute or return based on delegate mode
     if $params.delegate? == true {
         $cmd  # Return command string

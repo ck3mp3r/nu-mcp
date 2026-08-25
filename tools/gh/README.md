@@ -4,7 +4,7 @@ MCP tool for GitHub workflow and pull request management via the `gh` CLI.
 
 ## Quick Start
 
-**Prerequisites:** 
+**Prerequisites:**
 - `gh` CLI installed and authenticated (`gh auth login`)
 - Git repository with GitHub remote
 

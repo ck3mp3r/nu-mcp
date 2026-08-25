@@ -101,7 +101,7 @@ From `nu-protocol::ast`, we care about:
 4. **`PathMember`**: Members of path expressions (e.g., `$env.HOME`)
 5. **`Call` arguments**: Positional and named arguments to commands
 
-**Critical distinction**: 
+**Critical distinction**:
 - `Expression::Filepath("/etc/passwd")` → **VALIDATE**
 - `Expression::String("/repos/owner/file")` → **IGNORE** (it's a string literal, not a file path)
 
@@ -213,13 +213,13 @@ fn test_variable_expansion() {
 #[test]
 fn test_validate_paths_in_sandbox() {
     let sandbox = Path::new("/tmp/sandbox");
-    
+
     // Allowed: paths within sandbox
     assert!(validate_command_ast("ls /tmp/sandbox/file.txt", sandbox).is_ok());
-    
+
     // Blocked: paths outside sandbox
     assert!(validate_command_ast("ls /etc/passwd", sandbox).is_err());
-    
+
     // Allowed: relative paths (resolve to sandbox)
     assert!(validate_command_ast("ls ./file.txt", sandbox).is_ok());
 }
@@ -227,7 +227,7 @@ fn test_validate_paths_in_sandbox() {
 #[test]
 fn test_validate_api_paths_ignored() {
     let sandbox = Path::new("/tmp/sandbox");
-    
+
     // String literals with /slashes should be ignored (not treated as file paths)
     assert!(validate_command_ast(r#"gh api "/repos/owner/repo""#, sandbox).is_ok());
 }
@@ -235,10 +235,10 @@ fn test_validate_api_paths_ignored() {
 #[test]
 fn test_validate_path_traversal() {
     let sandbox = Path::new("/tmp/sandbox");
-    
+
     // Blocked: traversal escapes sandbox
     assert!(validate_command_ast("ls ../../../etc/passwd", sandbox).is_err());
-    
+
     // Allowed: traversal stays in sandbox
     assert!(validate_command_ast("ls subdir/../file.txt", sandbox).is_ok());
 }
@@ -264,7 +264,7 @@ fn test_validate_path_traversal() {
 #[test]
 fn test_no_path_arguments() {
     let sandbox = Path::new("/tmp/sandbox");
-    
+
     // Commands with no file paths should pass validation
     assert!(validate_command_ast("echo 'hello'", sandbox).is_ok());
     assert!(validate_command_ast("gh api /repos/owner/repo", sandbox).is_ok());
@@ -273,7 +273,7 @@ fn test_no_path_arguments() {
 #[test]
 fn test_pipeline_validation() {
     let sandbox = Path::new("/tmp/sandbox");
-    
+
     // Each pipeline element should be validated
     assert!(validate_command_ast("cat /etc/passwd | grep root", sandbox).is_err());
     assert!(validate_command_ast("ls sandbox/file.txt | sort", sandbox).is_ok());
@@ -282,7 +282,7 @@ fn test_pipeline_validation() {
 #[test]
 fn test_subexpression_paths() {
     let sandbox = Path::new("/tmp/sandbox");
-    
+
     // Paths in subexpressions should be validated
     assert!(validate_command_ast("cat (which nu)", sandbox).is_err()); // 'which' returns paths outside sandbox
 }
@@ -292,14 +292,14 @@ fn benchmark_parsing_overhead() {
     // Measure parsing time for typical commands
     let iterations = 1000;
     let start = Instant::now();
-    
+
     for _ in 0..iterations {
         let _ = parse_command("ls /tmp/file.txt | where size > 100");
     }
-    
+
     let elapsed = start.elapsed();
     println!("Average parse time: {:?}", elapsed / iterations);
-    
+
     // Assert reasonable performance (e.g., < 1ms per command)
     assert!(elapsed < Duration::from_millis(iterations as u64));
 }
@@ -530,7 +530,7 @@ Beyond initial implementation:
 
 ---
 
-**Document Version**: 1.0  
-**Created**: 2025-01-22  
-**Author**: AI Agent with Human Review  
+**Document Version**: 1.0
+**Created**: 2025-01-22
+**Author**: AI Agent with Human Review
 **Status**: Planning (Not Implemented)

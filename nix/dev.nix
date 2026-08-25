@@ -5,7 +5,10 @@
   inputs,
   ...
 }: let
-  rustToolchain = inputs.rustnix.packages.${pkgs.system}.toolchain;
+  rustToolchain = inputs.rustnix.lib.rust.mkToolchain {
+    system = pkgs.system;
+    extras = ["rustfmt-preview" "clippy-preview" "rust-analyzer-preview"];
+  };
   nuMods = inputs.nu-mods.packages.${pkgs.system}.default;
 
   # Development helper scripts
@@ -26,6 +29,8 @@ in
       pkgs.cargo-tarpaulin
       pkgs.topiary-nu
       pkgs.argocd
+      pkgs.prek
+      pkgs.alejandra
       nuMods
       pkgs.tmux
 
@@ -58,5 +63,9 @@ in
       echo "  coverage    - Generate code coverage report"
       echo "  build       - Build release binary"
       echo "  test-tools  - Run all tool tests"
+      echo ""
+      echo "Git hooks (prek):"
+      echo "  prek install    - Install git hook shims"
+      echo "  prek run        - Run hooks manually"
     '';
   }

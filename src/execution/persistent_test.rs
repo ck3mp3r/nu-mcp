@@ -281,38 +281,38 @@ async fn test_reset() {
 #[serial]
 fn test_drop_kills_child_process() {
     skip_if_no_pty!();
-    
+
     // This test verifies:
     // 1. Drop implementation doesn't panic
     // 2. Shell can be created and used before drop
     // 3. Process cleanup happens (kill + wait)
-    
+
     // Scope to ensure shell is dropped at the end of this block
     {
         let mut shell = PersistentShell::new().expect("Failed to create shell");
-        
+
         // Execute a simple command to verify the shell works
         let result = shell.execute("print 'alive'", DEFAULT_TIMEOUT);
         assert!(result.is_ok(), "Shell should work before drop");
         assert!(result.unwrap().stdout.contains("alive"));
-        
+
         // Get process ID for logging
         if let Some(pid) = shell.process_id() {
             eprintln!("Created shell with PID: {}", pid);
         }
-        
+
         // Shell drops here - Drop impl will:
         // 1. Call child.kill() to send SIGHUP then SIGKILL
         // 2. Call child.wait() to reap the process
         // If either fails, it prints to stderr but doesn't panic
     }
-    
+
     // Give the OS a moment to complete cleanup
     std::thread::sleep(Duration::from_millis(100));
-    
+
     // If we reach here, Drop completed without panic
     eprintln!("Drop completed successfully - process was killed and reaped");
-    
+
     // Create a new shell to verify the system is still working
     let mut shell2 = PersistentShell::new().expect("Failed to create second shell");
     let result2 = shell2.execute("print 'still working'", DEFAULT_TIMEOUT);
@@ -326,29 +326,46 @@ async fn test_concurrent_execute_returns_busy_error() {
     skip_if_no_pty!();
     let executor = PersistentNuExecutor::new().expect("Failed to create executor");
     let work_dir = PathBuf::from(".");
-    
+
     // Start a long command
     let executor1 = executor.clone();
     let work_dir1 = work_dir.clone();
     let task1 = tokio::spawn(async move {
-        executor1.execute("sleep 3sec; print 'done'", &work_dir1, Some(10)).await
+        executor1
+            .execute("sleep 3sec; print 'done'", &work_dir1, Some(10))
+            .await
     });
-    
+
     // Wait briefly for the first command to acquire the mutex
     tokio::time::sleep(Duration::from_millis(500)).await;
-    
+
     // Try to execute a second command — should get busy error
-    let result2 = executor.execute("print 'second'", &work_dir, Some(10)).await;
-    
-    assert!(result2.is_err(), "Second command should fail with busy error");
+    let result2 = executor
+        .execute("print 'second'", &work_dir, Some(10))
+        .await;
+
+    assert!(
+        result2.is_err(),
+        "Second command should fail with busy error"
+    );
     let err2 = result2.unwrap_err();
-    assert!(err2.contains("Shell is busy"), "Expected 'Shell is busy' error, got: {}", err2);
-    assert!(err2.contains("Wait for the current command to complete"), "Expected wait message in error");
-    
+    assert!(
+        err2.contains("Shell is busy"),
+        "Expected 'Shell is busy' error, got: {}",
+        err2
+    );
+    assert!(
+        err2.contains("Wait for the current command to complete"),
+        "Expected wait message in error"
+    );
+
     // Wait for first command — should succeed
     let result1 = task1.await.expect("Task 1 panicked");
     assert!(result1.is_ok(), "Task 1 failed: {:?}", result1.err());
-    assert!(result1.unwrap().0.contains("done"), "Expected 'done' in output");
+    assert!(
+        result1.unwrap().0.contains("done"),
+        "Expected 'done' in output"
+    );
 }
 
 #[tokio::test]
@@ -357,29 +374,42 @@ async fn test_reset_kills_running_command() {
     skip_if_no_pty!();
     let executor = PersistentNuExecutor::new().expect("Failed to create executor");
     let work_dir = PathBuf::from(".");
-    
+
     // Start a long command
     let executor1 = executor.clone();
     let work_dir1 = work_dir.clone();
-    let task1 = tokio::spawn(async move {
-        executor1.execute("sleep 30sec", &work_dir1, Some(40)).await
-    });
-    
+    let task1 =
+        tokio::spawn(async move { executor1.execute("sleep 30sec", &work_dir1, Some(40)).await });
+
     // Wait briefly for it to start
     tokio::time::sleep(Duration::from_millis(500)).await;
-    
+
     // Call reset() — should kill the child and create new shell
     let reset_result = executor.reset().await;
-    assert!(reset_result.is_ok(), "Reset failed: {:?}", reset_result.err());
-    
+    assert!(
+        reset_result.is_ok(),
+        "Reset failed: {:?}",
+        reset_result.err()
+    );
+
     // Execute a simple command on the new shell — should succeed
     let result2 = executor.execute("print 'alive'", &work_dir, Some(5)).await;
-    assert!(result2.is_ok(), "Post-reset command failed: {:?}", result2.err());
-    assert!(result2.unwrap().0.contains("alive"), "Expected 'alive' in output");
-    
+    assert!(
+        result2.is_ok(),
+        "Post-reset command failed: {:?}",
+        result2.err()
+    );
+    assert!(
+        result2.unwrap().0.contains("alive"),
+        "Expected 'alive' in output"
+    );
+
     // The original long command should have returned an error (PTY EOF or similar)
     let result1 = task1.await.expect("Task 1 panicked");
-    assert!(result1.is_err(), "Long command should have failed after reset");
+    assert!(
+        result1.is_err(),
+        "Long command should have failed after reset"
+    );
     let err1 = result1.unwrap_err();
     eprintln!("Long command error after reset: {}", err1);
     // The error should indicate PTY issues (EOF, read error, etc.)
@@ -389,4 +419,3 @@ async fn test_reset_kills_running_command() {
         err1
     );
 }
-

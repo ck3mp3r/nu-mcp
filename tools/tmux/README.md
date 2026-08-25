@@ -43,7 +43,7 @@ Comprehensive tmux session management and control tool for the `nu-mcp` server. 
 ```
 1. send_and_capture - START a new command (e.g., 'cargo build')
    - Sends command and waits briefly for initial output
-   
+
 2. capture_pane - CHECK progress on the running command
    - Call repeatedly to monitor long-running processes
    - Continue until command completes or you see the output you need
@@ -337,6 +337,6 @@ When MCP creates windows or panes via `create_window` or `split_pane`, they are 
 
 This tool is optimized for AI assistant integration with:
 - **Structured output**: All results in clean table formats for easy parsing
-- **Context-aware discovery**: Smart pane finding reduces need for manual target specification  
+- **Context-aware discovery**: Smart pane finding reduces need for manual target specification
 - **Intelligent polling**: Automatic output detection minimizes wait times
 - **Comprehensive logging**: Full command traceability for debugging and verification
