@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  packages: write
   contents: write
   actions: read
   checks: read
@@ -19,7 +20,7 @@ jobs:
       version: ${{ steps.prep.outputs.version }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.ref }}
@@ -48,18 +49,26 @@ jobs:
         include:
           - os: ubuntu-latest
             nix_system: x86_64-linux
-          - os: macos-14
+            docker_arch: amd64
+          - os: macos-15
+            nix_system: x86_64-darwin
+            docker_arch: na
+          - os: macos-15
             nix_system: aarch64-darwin
+            docker_arch: na
           - os: ubuntu-24.04-arm
             nix_system: aarch64-linux
+            docker_arch: arm64
     steps:
       - name: Checkout release branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: release/${{ needs.prep-release.outputs.version }}
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v22
+        with:
+          github-token: ${{github.token}}
 
       - name: Build archive for ${{ matrix.nix_system }}
         run: nix build .#archive --print-build-logs
@@ -80,6 +89,23 @@ jobs:
             ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}.sha256
             ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}-nix.sha256
 
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        if: ${{ matrix.docker_arch != 'na' }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.nix_system }} container
+        if: ${{ matrix.docker_arch != 'na' }}
+        run: |
+          VERSION=${{ needs.prep-release.outputs.version }}
+          nix build .#container --system ${{ matrix.nix_system }} && cat result | docker load
+
+          docker tag nu-mcp:${VERSION} ghcr.io/${{ github.repository_owner }}/nu-mcp:${VERSION}-${{ matrix.docker_arch }}
+          docker push ghcr.io/${{ github.repository_owner }}/nu-mcp:${VERSION}-${{ matrix.docker_arch }}
+
   finalize-release:
     needs:
       - prep-release
@@ -93,7 +119,7 @@ jobs:
           private-key: ${{ secrets.BOT }}
 
       - name: Checkout release branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: release/${{ needs.prep-release.outputs.version }}
           fetch-depth: 0
@@ -129,6 +155,10 @@ jobs:
               hash: (open $"./artifacts/nu-mcp-assets-aarch64-linux/nu-mcp-($version)-aarch64-linux.sha256" | str trim)
             }
             {
+              name: "x86_64-darwin"
+              hash: (open $"./artifacts/nu-mcp-assets-x86_64-darwin/nu-mcp-($version)-x86_64-darwin.sha256" | str trim)
+            }
+            {
               name: "x86_64-linux"
               hash: (open $"./artifacts/nu-mcp-assets-x86_64-linux/nu-mcp-($version)-x86_64-linux.sha256" | str trim)
             }
@@ -136,15 +166,43 @@ jobs:
 
           # Update Homebrew formula
           open Formula/nu-mcp.rb | update-homebrew-formula $version "nu-mcp" $architectures | save --force Formula/nu-mcp.rb
-          git add Formula/nu-mcp.rb
-          git commit -m $"Update Homebrew formula to ($version)"
-          git push origin $"release/($version)"
+
+          # Commit the formula update
+          ["Formula/nu-mcp.rb"] | commit-files $"Update Homebrew formula for ($version)"
+
+          # Merge and cleanup
+          merge-and-cleanup $version
 
           # Create release and upload artifacts using gh CLI
           create-github-release $version
           glob "./artifacts/**/*.*" | upload-release-artifacts $version
 
-          # Merge and cleanup
-          merge-and-cleanup $version
         env:
           GITHUB_TOKEN: ${{ steps.token.outputs.token }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push multi-arch manifests
+        run: |
+          VERSION=${{ needs.prep-release.outputs.version }}
+          REPO=ghcr.io/${{ github.repository_owner }}/nu-mcp
+
+          # Pull architecture-specific images
+          docker pull $REPO:$VERSION-amd64
+          docker pull $REPO:$VERSION-arm64
+
+          # Create versioned multi-arch manifest
+          docker manifest create $REPO:$VERSION \
+            $REPO:$VERSION-amd64 \
+            $REPO:$VERSION-arm64
+          docker manifest push $REPO:$VERSION
+
+          docker manifest create $REPO:latest --amend \
+            $REPO:$VERSION-amd64 \
+            $REPO:$VERSION-arm64
+          docker manifest push $REPO:latest

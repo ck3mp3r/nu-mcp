@@ -28,13 +28,13 @@
     ...
   }:
     flake-parts.lib.mkFlake {inherit inputs;} {
-      systems = ["aarch64-darwin" "aarch64-linux" "x86_64-linux"];
+      systems = ["aarch64-darwin" "aarch64-linux" "x86_64-darwin" "x86_64-linux"];
       perSystem = {
         config,
         system,
         ...
       }: let
-        supportedTargets = ["aarch64-darwin" "aarch64-linux" "x86_64-linux"];
+        supportedTargets = ["aarch64-darwin" "aarch64-linux" "x86_64-darwin" "x86_64-linux"];
         overlays = [
           inputs.topiary-nu.overlays.default
           inputs.base-nixpkgs.overlays.default
@@ -96,9 +96,22 @@
 
         # Install data for pre-built releases
         installData = {
-          aarch64-darwin = builtins.fromJSON (builtins.readFile ./data/aarch64-darwin.json);
-          aarch64-linux = builtins.fromJSON (builtins.readFile ./data/aarch64-linux.json);
-          x86_64-linux = builtins.fromJSON (builtins.readFile ./data/x86_64-linux.json);
+          aarch64-darwin =
+            if builtins.pathExists ./data/aarch64-darwin.json
+            then builtins.fromJSON (builtins.readFile ./data/aarch64-darwin.json)
+            else {};
+          aarch64-linux =
+            if builtins.pathExists ./data/aarch64-linux.json
+            then builtins.fromJSON (builtins.readFile ./data/aarch64-linux.json)
+            else {};
+          x86_64-darwin =
+            if builtins.pathExists ./data/x86_64-darwin.json
+            then builtins.fromJSON (builtins.readFile ./data/x86_64-darwin.json)
+            else {};
+          x86_64-linux =
+            if builtins.pathExists ./data/x86_64-linux.json
+            then builtins.fromJSON (builtins.readFile ./data/x86_64-linux.json)
+            else {};
         };
 
         # Build regular packages (no archives)
@@ -148,10 +161,22 @@
           toolPackages = import ./nix/packages.nix {
             inherit pkgs cargoToml mkToolPackage;
           };
+
+          # Container image - only on Linux (cross-compilation deferred to CI)
+          containerPackage =
+            if builtins.match ".*-darwin" system == null
+            then {
+              container = import ./nix/container.nix {
+                inherit pkgs cargoToml;
+                defaultPackage = config.packages.default;
+              };
+            }
+            else {};
         in
           regularPackages
           // archivePackages
-          // toolPackages;
+          // toolPackages
+          // containerPackage;
 
         devShells = {
           # Regular shell for development - loaded from devenv.nix module
