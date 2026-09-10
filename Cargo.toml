@@ -35,5 +35,5 @@ version = "4.6.1"
 features = ["derive"]
 
 [dev-dependencies]
-serial_test = "3.4.0"
+serial_test = "4.0.1"
 tokio-util = "0.7.18"
