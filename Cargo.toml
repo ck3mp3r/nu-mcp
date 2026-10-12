@@ -1,6 +1,6 @@
 [package]
 name = "nu-mcp"
-version = "0.8.0"
+version = "0.8.1"
 description = ""
 edition = "2024"
 
@@ -24,7 +24,10 @@ features = ["full"]
 
 [dependencies.rmcp]
 version = "3.5.1"
-features = ["server", "transport-io"]
+features = [
+    "server",
+    "transport-io",
+]
 
 [dependencies.serde]
 version = "1.0.229"
