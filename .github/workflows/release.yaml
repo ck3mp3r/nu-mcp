@@ -99,7 +99,7 @@ jobs:
           ref: ${{ needs.prep-release.outputs.branch }}
 
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v22
+        uses: DeterminateSystems/nix-installer-action@v23
         with:
           github-token: ${{github.token}}
 
