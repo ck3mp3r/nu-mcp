@@ -257,22 +257,23 @@ impl PersistentShell {
             .flush()
             .map_err(|e| format!("Flush failed: {}", e))?;
 
-        // Wait for C→D, respond to DSR during prompt rendering phase
-        let mut output_buffer = Vec::new();
+        // Wait for C→D, respond to DSR during prompt rendering phase.
+        // Record the raw transcript of every chunk: output bytes are extracted
+        // afterwards from the transcript by locating the OSC 133;C and ;D
+        // markers, which remains correct even when C, output, and D are
+        // coalesced into a single PTY read chunk (kernel buffering).
+        let mut raw_transcript = Vec::new();
         let mut final_exit_code: Option<i32> = None;
         let mut saw_command_executed = false;
 
         self.drain_until(timeout, |shell, data| {
             trace_log!("CHUNK len={} saw_c={}", data.len(), saw_command_executed,);
 
+            raw_transcript.extend_from_slice(data);
+
             // Respond to DSR during prompt phase (before C)
             if !saw_command_executed {
                 shell.respond_to_dsr(data);
-            }
-
-            // Collect output bytes only after C
-            if saw_command_executed {
-                output_buffer.extend_from_slice(data);
             }
 
             let mut done = false;
@@ -297,8 +298,10 @@ impl PersistentShell {
             }
         })?;
 
-        // Strip ANSI escape codes
-        let clean = strip_ansi_escapes::strip(&output_buffer);
+        // Extract output from the transcript (bytes between C and D markers),
+        // then strip ANSI escape codes
+        let segment = extract_output(&raw_transcript);
+        let clean = strip_ansi_escapes::strip(segment);
         let stdout = String::from_utf8_lossy(&clean).trim().to_string();
 
         // After D, the next prompt cycle starts (DSR queries → A → B).
@@ -355,6 +358,94 @@ impl PersistentShell {
 enum ControlFlow {
     Continue,
     Break,
+}
+
+/// Extract raw command output from the PTY transcript: the bytes between the
+/// end of the OSC 133;C marker (command submitted) and the start of the
+/// OSC 133;D marker (command finished).
+///
+/// Searching the concatenated transcript — rather than collecting per-chunk,
+/// gated on whether C had been seen when the chunk arrived — stays correct
+/// even when the kernel coalesces C markers, output, and D markers into a
+/// single PTY read, which previously discarded all command output.
+fn extract_output(raw: &[u8]) -> &[u8] {
+    const C_PREFIX: &[u8] = b"\x1b]133;C";
+    const D_PREFIX: &[u8] = b"\x1b]133;D";
+
+    let Some(c_pos) = raw.windows(C_PREFIX.len()).position(|w| w == C_PREFIX) else {
+        return &[];
+    };
+
+    // Output starts after the C marker's terminator (BEL or ESC backslash)
+    let after_c = &raw[c_pos + C_PREFIX.len()..];
+    let start = match after_c.first().copied() {
+        Some(0x07) => 1,
+        Some(0x1B) if after_c.get(1) == Some(&b'\\') => 2,
+        _ => 0,
+    };
+
+    // Output ends where the D marker begins (D may carry an exit code param)
+    let end = after_c[start..]
+        .windows(D_PREFIX.len())
+        .position(|w| w == D_PREFIX)
+        .map_or(after_c.len(), |d| start + d);
+
+    &after_c[start..end]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_output_single_chunk_coalesced() {
+        // REGRESSION: C marker, output, and D marker all coalesced into one
+        // PTY read chunk (kernel buffering on slow/loaded systems). Output
+        // must still be recovered.
+        let raw = b"\x1b]133;C\x07a, b, c\x1b]133;D;0\x07";
+        assert_eq!(extract_output(raw), b"a, b, c");
+    }
+
+    #[test]
+    fn test_extract_output_chunked() {
+        // Common path: output bytes arrive between C and D in later chunks
+        let raw = b"\x1b]133;C\x07a, b, c\r\n\x1b]133;D;0\x07";
+        assert_eq!(extract_output(raw), b"a, b, c\r\n");
+    }
+
+    #[test]
+    fn test_extract_output_st_terminators() {
+        // Markers can use ESC \ (ST) instead of BEL as terminator
+        let raw = b"\x1b]133;C\x1b\\output\x1b]133;D\x1b\\";
+        assert_eq!(extract_output(raw), b"output");
+    }
+
+    #[test]
+    fn test_extract_output_no_command_finished() {
+        // D marker never arrived (drain interrupted) — return what we have
+        let raw = b"\x1b]133;C\x07partial output";
+        assert_eq!(extract_output(raw), b"partial output");
+    }
+
+    #[test]
+    fn test_extract_output_no_command_executed() {
+        // No C marker at all (e.g. output-only transcript) — empty result
+        let raw = b"some prompt text with no markers";
+        assert_eq!(extract_output(raw), b"");
+    }
+
+    #[test]
+    fn test_extract_output_empty_transcript() {
+        assert_eq!(extract_output(b""), b"");
+    }
+
+    #[test]
+    fn test_extract_output_prompt_and_echo_excluded() {
+        // Everything before C (prompt, echoed command) must be excluded;
+        // everything from D on (next prompt) must be excluded
+        let raw = b"\x1b]133;A\x07prompt> \x1b]133;B\x07echoed\x1b]133;C\x07real output\x1b]133;D;0\x07next prompt";
+        assert_eq!(extract_output(raw), b"real output");
+    }
 }
 
 /// Output from a command execution
