@@ -35,12 +35,6 @@ const SYSTEM_READ_PATHS: &[&str] = &[];
 /// Paths granted [`AccessMode::ReadWrite`] on every platform.
 const SYSTEM_READWRITE_PATHS: &[&str] = &["/tmp"];
 
-/// External binaries that MCP tools shell out to through `nu`.
-///
-/// Each name is resolved in `$PATH` at startup and granted [`AccessMode::Read`]
-/// so sandboxed commands can execute it. Names that do not resolve are skipped.
-const DEFAULT_ALLOW_BINARIES: &[&str] = &["gh", "kubectl", "helm", "tmux", "argocd"];
-
 /// Build a nono capability set from sandbox configuration.
 ///
 /// - `config.sandbox_directories` are granted [`AccessMode::ReadWrite`].
@@ -51,9 +45,8 @@ const DEFAULT_ALLOW_BINARIES: &[&str] = &["gh", "kubectl", "helm", "tmux", "argo
 /// - Platform system paths are granted [`AccessMode::Read`] so `nu` can start.
 /// - The `nu` binary resolved from `$PATH` and its dynamic library dependencies
 ///   are granted [`AccessMode::Read`] (see [`grant_nu_access`]).
-/// - Every binary in [`DEFAULT_ALLOW_BINARIES`] and `config.allow_binaries` that
-///   resolves in `$PATH` is granted [`AccessMode::Read`] (see
-///   [`grant_allow_binaries`]).
+/// - Every binary in `config.allow_binaries` that resolves in `$PATH` is
+///   granted [`AccessMode::Read`] (see [`grant_allow_binaries`]).
 /// - Every non-empty `$PATH` directory is registered for metadata-only read on
 ///   macOS (see [`grant_path_metadata_dirs`]).
 /// - When `config.block_network` is true, all network access is blocked.
@@ -70,10 +63,7 @@ pub fn build_capability_set(config: &Config) -> nono::Result<CapabilitySet> {
     if let Some(path) = std::env::var_os("PATH") {
         caps = grant_allow_binaries(
             caps,
-            DEFAULT_ALLOW_BINARIES
-                .iter()
-                .copied()
-                .chain(config.allow_binaries.iter().map(String::as_str)),
+            config.allow_binaries.iter().map(String::as_str),
             &path,
         )?;
     }

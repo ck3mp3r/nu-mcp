@@ -3,14 +3,15 @@
 ## Command-Line Options
 
 ### Extension System
-- `--tools-dir=PATH` - Load tools from directory. **Note:** Disables the `run` tool by default to avoid conflicts in multi-instance setups.
-- `--enable-nu` - Re-enable the `run` tool when using `--tools-dir` (hybrid mode).
+- `--tools-dir=PATH` (`-t PATH`) - Load tools from directory. **Note:** Disables the `run` tool by default to avoid conflicts in multi-instance setups.
+- `--enable-nu` (`-e`) - Re-enable the `run` tool when using `--tools-dir` (hybrid mode).
 
 ### Security
-- `--add-path=PATH` - Grant read-write access to additional paths beyond the current directory (can be used multiple times).
-- `--add-read-path=PATH` - Grant read-only access to additional paths (can be used multiple times).
-- `--block-network` - Block all network access for sandboxed commands.
-- `--bypass-protection=PATH` - Unblock a sensitive path (can be used multiple times).
+- `--add-path=PATH` (`-p PATH`) - Grant read-write access to additional paths beyond the current directory (can be used multiple times).
+- `--add-read-path=PATH` (`-r PATH`) - Grant read-only access to additional paths (can be used multiple times).
+- `--block-network` (`-n`) - Block all network access for sandboxed commands.
+- `--bypass-protection=PATH` (`-b PATH`) - Unblock a sensitive path (can be used multiple times).
+- `--allow-binary=NAME` (`-a NAME`) - Allow an external binary in the sandbox (can be specified multiple times).
 
 ## Environment Variables
 

@@ -102,6 +102,10 @@ nu-mcp-tmux:
   args:
     - "--tools-dir"
     - "~/.nix-profile/share/nushell/mcp-tools/tmux"
+    - "--allow-binary"
+    - "tmux"
+    - "--allow-binary"
+    - "ps"
 ```
 
 ### Example Operations

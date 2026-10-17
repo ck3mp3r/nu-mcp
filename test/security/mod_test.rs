@@ -3,8 +3,8 @@ use super::grant_path_metadata_dirs_in;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 use super::library_dirs;
 use super::{
-    DEFAULT_ALLOW_BINARIES, SYSTEM_READ_PATHS, SYSTEM_READWRITE_PATHS, build_capability_set,
-    find_in_path, find_in_path_in, grant_allow_binaries, grant_binary_access,
+    SYSTEM_READ_PATHS, SYSTEM_READWRITE_PATHS, build_capability_set, find_in_path, find_in_path_in,
+    grant_allow_binaries, grant_binary_access,
 };
 use crate::config::Config;
 use nono::{AccessMode, CapabilitySet};
@@ -306,16 +306,6 @@ fn test_build_capability_set_registers_path_metadata_dirs() {
 }
 
 #[test]
-fn test_default_allow_binaries_lists_tool_binaries() {
-    for name in ["gh", "kubectl", "helm", "tmux", "argocd"] {
-        assert!(
-            DEFAULT_ALLOW_BINARIES.contains(&name),
-            "DEFAULT_ALLOW_BINARIES should contain {name}"
-        );
-    }
-}
-
-#[test]
 fn test_grant_allow_binaries_grants_resolved_binary() {
     let dir = TempDir::new("allow-binaries");
     let binary = dir.path().join("nu-mcp-allow-bin");
@@ -339,32 +329,6 @@ fn test_grant_allow_binaries_skips_missing_binary() {
     assert!(
         caps.fs_capabilities().is_empty(),
         "missing allowlisted binary should grant nothing"
-    );
-}
-
-#[test]
-fn test_build_capability_set_grants_default_allow_binaries() {
-    let caps = build_capability_set(&Config::default()).expect("build");
-    let mut checked = 0;
-    for &name in DEFAULT_ALLOW_BINARIES {
-        let Some(binary) = find_in_path(name) else {
-            continue;
-        };
-        let parent = binary
-            .parent()
-            .expect("parent")
-            .canonicalize()
-            .expect("canonicalize");
-        assert!(
-            caps.path_covered_with_access(&parent, AccessMode::Read),
-            "allowlisted binary {name} directory {} should be covered Read",
-            parent.display()
-        );
-        checked += 1;
-    }
-    assert!(
-        checked > 0,
-        "expected at least one allowlisted binary in PATH"
     );
 }
 

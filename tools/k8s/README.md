@@ -12,7 +12,7 @@ MCP server for Kubernetes cluster management. Provides 22 kubectl/Helm tools wit
   "mcpServers": {
     "k8s": {
       "command": "nu-mcp",
-      "args": ["--tools-dir", "/path/to/nu-mcp/tools/k8s"]
+      "args": ["--tools-dir", "/path/to/nu-mcp/tools/k8s", "--allow-binary", "kubectl", "--allow-binary", "helm", "--allow-binary", "bash", "--allow-binary", "kill"]
     }
   }
 }
@@ -24,7 +24,7 @@ MCP server for Kubernetes cluster management. Provides 22 kubectl/Helm tools wit
   "mcpServers": {
     "k8s": {
       "command": "nu-mcp",
-      "args": ["--tools-dir", "/path/to/nu-mcp/tools/k8s"],
+      "args": ["--tools-dir", "/path/to/nu-mcp/tools/k8s", "--allow-binary", "kubectl", "--allow-binary", "helm", "--allow-binary", "bash", "--allow-binary", "kill"],
       "env": {
         "KUBE_CONTEXT": "my-cluster"
       }
@@ -53,7 +53,7 @@ Set `MCP_K8S_MODE` in your MCP client configuration (e.g., Claude Desktop, Cline
   "mcpServers": {
     "k8s-prod": {
       "command": "nu-mcp",
-      "args": ["--tools-dir", "/path/to/tools/k8s"],
+      "args": ["--tools-dir", "/path/to/tools/k8s", "--allow-binary", "kubectl", "--allow-binary", "helm", "--allow-binary", "bash", "--allow-binary", "kill"],
       "env": {
         "KUBE_CONTEXT": "production"
         // No MCP_K8S_MODE needed - defaults to readonly
@@ -69,7 +69,7 @@ Set `MCP_K8S_MODE` in your MCP client configuration (e.g., Claude Desktop, Cline
   "mcpServers": {
     "k8s-staging": {
       "command": "nu-mcp",
-      "args": ["--tools-dir", "/path/to/tools/k8s"],
+      "args": ["--tools-dir", "/path/to/tools/k8s", "--allow-binary", "kubectl", "--allow-binary", "helm", "--allow-binary", "bash", "--allow-binary", "kill"],
       "env": {
         "KUBE_CONTEXT": "staging",
         "MCP_K8S_MODE": "non-destructive"
@@ -85,7 +85,7 @@ Set `MCP_K8S_MODE` in your MCP client configuration (e.g., Claude Desktop, Cline
   "mcpServers": {
     "k8s-dev": {
       "command": "nu-mcp",
-      "args": ["--tools-dir", "/path/to/tools/k8s"],
+      "args": ["--tools-dir", "/path/to/tools/k8s", "--allow-binary", "kubectl", "--allow-binary", "helm", "--allow-binary", "bash", "--allow-binary", "kill"],
       "env": {
         "KUBE_CONTEXT": "minikube",
         "MCP_K8S_MODE": "destructive"
