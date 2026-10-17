@@ -14,7 +14,7 @@ MCP tool for GitHub workflow and pull request management via the `gh` CLI.
   "mcpServers": {
     "gh": {
       "command": "nu-mcp",
-      "args": ["--tools-dir", "/path/to/nu-mcp/tools/gh"]
+      "args": ["--tools-dir", "/path/to/nu-mcp/tools/gh", "--allow-binary", "gh"]
     }
   }
 }
@@ -44,7 +44,7 @@ For production environments where you only want to read GitHub data:
   "mcpServers": {
     "gh-readonly": {
       "command": "nu-mcp",
-      "args": ["--tools-dir", "/path/to/tools/gh"],
+      "args": ["--tools-dir", "/path/to/tools/gh", "--allow-binary", "gh"],
       "env": {
         "MCP_GITHUB_MODE": "readonly"
       }
@@ -62,7 +62,7 @@ Default mode allows all operations except destructive ones (delete):
   "mcpServers": {
     "gh": {
       "command": "nu-mcp",
-      "args": ["--tools-dir", "/path/to/tools/gh"]
+      "args": ["--tools-dir", "/path/to/tools/gh", "--allow-binary", "gh"]
       // No MCP_GITHUB_MODE needed - defaults to readwrite
     }
   }
@@ -78,7 +78,7 @@ For environments where you need to delete releases or perform other destructive 
   "mcpServers": {
     "gh-destructive": {
       "command": "nu-mcp",
-      "args": ["--tools-dir", "/path/to/tools/gh"],
+      "args": ["--tools-dir", "/path/to/tools/gh", "--allow-binary", "gh"],
       "env": {
         "MCP_GITHUB_MODE": "destructive"
       }

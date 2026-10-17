@@ -442,7 +442,7 @@ The `Config` struct (`src/config/mod.rs`) holds:
 - `block_network` — whether all network access is blocked
 - `bypass_protection` — sensitive paths unblocked by the nono capability set
 
-CLI flags (`src/cli/mod.rs`) include `--tools-dir`, `--enable-nu`, `--add-path`, `--add-read-path`, `--block-network`, and `--bypass-protection`. See `docs/configuration.md` for details.
+CLI flags (`src/cli/mod.rs`) include `--tools-dir` (`-t`), `--enable-nu` (`-e`), `--add-path` (`-p`), `--add-read-path` (`-r`), `--block-network` (`-n`), `--bypass-protection` (`-b`), and `--allow-binary` (`-a`). See `docs/configuration.md` for details.
 
 ### Test Structure (rust10x conventions)
 

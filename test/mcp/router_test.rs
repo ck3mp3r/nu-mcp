@@ -18,6 +18,7 @@ fn create_test_router() -> ToolRouter<NushellExecutor, MockToolExecutor> {
         block_network: false,
         bypass_protection: vec![],
         read_only_paths: vec![],
+        allow_binaries: vec![],
     };
     let stateless_executor = NushellExecutor;
     let tool_executor = MockToolExecutor::new("tool output".to_string());
@@ -53,6 +54,7 @@ async fn test_router_extension_tool() {
         block_network: false,
         bypass_protection: vec![],
         read_only_paths: vec![],
+        allow_binaries: vec![],
     };
     let stateless_executor = NushellExecutor;
     let tool_executor = MockToolExecutor::new("tool output".to_string());
@@ -107,6 +109,7 @@ async fn test_mutex_not_held_during_concurrent_requests() {
         block_network: false,
         bypass_protection: vec![],
         read_only_paths: vec![],
+        allow_binaries: vec![],
     };
     let stateless_executor = NushellExecutor;
     let tool_executor = MockToolExecutor::new("tool output".to_string());

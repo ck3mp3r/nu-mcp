@@ -43,12 +43,13 @@ The `tools/` directory contains a growing catalog of useful MCP tools:
 ## Configuration
 
 ### Command Line Options
-- `--tools-dir=PATH` - Directory containing tool modules
-- `--enable-nu` - Enable the `run` tool alongside tools
-- `--add-path=PATH` - Add additional read-write accessible paths (current directory always included)
-- `--add-read-path=PATH` - Add additional read-only accessible paths
-- `--block-network` - Block all network access for sandboxed commands
-- `--bypass-protection=PATH` - Unblock a sensitive path (can be specified multiple times)
+- `--tools-dir=PATH` (`-t PATH`) - Directory containing tool modules
+- `--enable-nu` (`-e`) - Enable the `run` tool alongside tools
+- `--add-path=PATH` (`-p PATH`) - Add additional read-write accessible paths (current directory always included)
+- `--add-read-path=PATH` (`-r PATH`) - Add additional read-only accessible paths
+- `--block-network` (`-n`) - Block all network access for sandboxed commands
+- `--bypass-protection=PATH` (`-b PATH`) - Unblock a sensitive path (can be specified multiple times)
+- `--allow-binary=NAME` (`-a NAME`) - Allow an external binary in the sandbox
 
 ### Environment Variables
 - `MCP_NU_MCP_TIMEOUT` - Default timeout in seconds for tool execution (default: 300)

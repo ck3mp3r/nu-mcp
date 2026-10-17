@@ -8,6 +8,7 @@ pub struct Config {
     pub block_network: bool,
     pub bypass_protection: Vec<PathBuf>,
     pub read_only_paths: Vec<PathBuf>,
+    pub allow_binaries: Vec<String>,
 }
 
 #[cfg(test)]

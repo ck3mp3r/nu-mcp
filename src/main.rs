@@ -27,6 +27,7 @@ async fn main() -> Result<()> {
         block_network: cli.block_network,
         bypass_protection: cli.bypass_protection,
         read_only_paths: cli.read_only_paths,
+        allow_binaries: cli.allow_binaries,
     };
 
     // Apply the sandbox to this process before the server starts. Child `nu`

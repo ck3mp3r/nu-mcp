@@ -12,6 +12,7 @@ on:
       - "flake.lock"
       - "flake.nix"
       - "src/**"
+      - "test/**"
 jobs:
   build:
     runs-on: ubuntu-latest

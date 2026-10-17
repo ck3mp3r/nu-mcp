@@ -129,7 +129,7 @@ Minimal configuration - no credentials needed!
   "mcpServers": {
     "argocd": {
       "command": "nu-mcp",
-      "args": ["--tools-dir", "/path/to/nu-mcp/tools/argocd"],
+      "args": ["--tools-dir", "/path/to/nu-mcp/tools/argocd", "--allow-binary", "argocd"],
       "env": {
         "MCP_INSECURE_TLS": "true",
         "MCP_READ_ONLY": "false"
