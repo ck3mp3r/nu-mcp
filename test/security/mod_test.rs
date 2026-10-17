@@ -1,8 +1,6 @@
 #[cfg(target_os = "macos")]
 use super::grant_path_metadata_dirs_in;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
-use super::is_under_system_path;
-#[cfg(any(target_os = "linux", target_os = "macos"))]
 use super::library_dirs;
 use super::{
     SYSTEM_READ_PATHS, USER_TOOLS_PATHS, build_capability_set, expand_home, find_in_path,
@@ -13,56 +11,6 @@ use nono::{AccessMode, CapabilitySet};
 use serial_test::serial;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-
-/// A directory that exists and is not covered by a system read or write grant,
-/// so tests can distinguish `Read` from `ReadWrite` grants.
-///
-/// In the Nix build sandbox `$TMPDIR` and `$HOME` may both be covered by a
-/// system grant, so the helper probes several candidate bases and returns the
-/// first one that is neutral. When no base is fully neutral it returns the
-/// first base that is at least not a system write path.
-fn neutral_dir() -> PathBuf {
-    let mut bases = vec![std::env::temp_dir()];
-    if let Some(home) = std::env::var_os("HOME") {
-        bases.push(PathBuf::from(home));
-    }
-    if let Ok(cwd) = std::env::current_dir() {
-        bases.push(cwd);
-    }
-    bases.push(PathBuf::from("/var/tmp"));
-    bases.push(PathBuf::from("/build"));
-
-    let mut write_neutral = None;
-    for base in bases {
-        if base.as_os_str().is_empty() {
-            continue;
-        }
-        let probe = base.canonicalize().unwrap_or_else(|_| base.clone());
-        if is_under_write_path(&probe) {
-            continue;
-        }
-        let candidate = base.join(format!("nu-mcp-neutral-{}", std::process::id()));
-        if std::fs::create_dir_all(&candidate).is_err() {
-            continue;
-        }
-        let Ok(canonical) = candidate.canonicalize() else {
-            continue;
-        };
-        if !is_under_system_path(&canonical) {
-            return canonical;
-        }
-        write_neutral.get_or_insert(canonical);
-    }
-    write_neutral.unwrap_or_else(std::env::temp_dir)
-}
-
-/// True when `path` is inside one of the platform system write paths.
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-fn is_under_write_path(path: &Path) -> bool {
-    system_write_paths()
-        .iter()
-        .any(|sys| path.starts_with(Path::new(sys)))
-}
 
 /// A unique temporary directory, removed when dropped.
 struct TempDir(PathBuf);
@@ -87,21 +35,23 @@ impl Drop for TempDir {
 
 #[test]
 fn test_sandbox_directories_granted_readwrite() {
-    let dir = neutral_dir();
+    let dir = std::env::temp_dir();
     let config = Config {
         sandbox_directories: vec![dir.clone()],
         ..Config::default()
     };
     let caps = build_capability_set(&config).unwrap();
     assert!(
-        caps.path_covered_with_access(&dir, AccessMode::ReadWrite),
-        "sandbox directory should be covered ReadWrite"
+        caps.fs_capabilities()
+            .iter()
+            .any(|c| c.original.as_path() == dir.as_path() && c.access == AccessMode::ReadWrite),
+        "sandbox directory should be granted ReadWrite"
     );
 }
 
 #[test]
 fn test_read_only_paths_granted_read_only() {
-    let dir = neutral_dir();
+    let dir = std::env::temp_dir();
     let config = Config {
         read_only_paths: vec![dir.clone()],
         ..Config::default()
@@ -117,7 +67,7 @@ fn test_read_only_paths_granted_read_only() {
 
 #[test]
 fn test_tools_dir_granted_read_only() {
-    let dir = neutral_dir();
+    let dir = std::env::temp_dir();
     let config = Config {
         tools_dir: Some(dir.clone()),
         ..Config::default()
@@ -133,15 +83,17 @@ fn test_tools_dir_granted_read_only() {
 
 #[test]
 fn test_bypass_protection_paths_granted_readwrite() {
-    let dir = neutral_dir();
+    let dir = std::env::temp_dir();
     let config = Config {
         bypass_protection: vec![dir.clone()],
         ..Config::default()
     };
     let caps = build_capability_set(&config).unwrap();
     assert!(
-        caps.path_covered_with_access(&dir, AccessMode::ReadWrite),
-        "bypass-protection path should be covered ReadWrite"
+        caps.fs_capabilities()
+            .iter()
+            .any(|c| c.original.as_path() == dir.as_path() && c.access == AccessMode::ReadWrite),
+        "bypass-protection path should be granted ReadWrite"
     );
 }
 
