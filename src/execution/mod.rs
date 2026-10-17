@@ -33,13 +33,17 @@ pub mod osc133;
 pub mod persistent;
 
 #[cfg(test)]
+#[path = "../../test/execution/mock.rs"]
 pub mod mock;
 #[cfg(test)]
 pub use mock::MockExecutor;
 
 #[cfg(test)]
+#[path = "../../test/execution/mock_test.rs"]
 mod mock_test;
 #[cfg(test)]
+#[path = "../../test/execution/nushell_test.rs"]
 mod nushell_test;
 #[cfg(test)]
+#[path = "../../test/execution/persistent_test.rs"]
 mod persistent_test;

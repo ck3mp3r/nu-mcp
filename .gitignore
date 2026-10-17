@@ -55,3 +55,4 @@ tarpaulin-report.*
 
 # c5t tool database
 .c5t/
+coverage/

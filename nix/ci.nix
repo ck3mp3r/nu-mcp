@@ -21,6 +21,9 @@ in
       # Rust toolchain (stable)
       rustToolchain
 
+      # cargo-nextest test runner
+      pkgs.cargo-nextest
+
       # Nushell for tool tests
       pkgs.nushell
 

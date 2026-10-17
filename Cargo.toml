@@ -40,3 +40,8 @@ features = ["derive"]
 [dev-dependencies]
 serial_test = "4.0.1"
 tokio-util = "0.7.20"
+
+[profile.coverage]
+inherits = "test"
+debug = "line-tables-only"
+opt-level = 0

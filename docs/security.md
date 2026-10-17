@@ -46,7 +46,7 @@ Edit `src/security/safe_command_patterns.txt`:
 
 **Requirements:**
 - Pattern must match NON-filesystem paths only
-- Add tests in `src/security/mod_test.rs`
+- Add tests in `test/security/mod_test.rs`
 - Run `cargo test`
 - Rebuild (patterns embedded at compile time)
 

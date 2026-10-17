@@ -1,25 +1,61 @@
 ---
 name: nu-mcp
 
-path: .
-
-pane_cmd_delay: 2000
-
 windows:
   - name: code
     panes:
       - name: Editor
-        flex: 3
-        commands:
-          - command: nvim
-      - name: Opencode
         flex: 2
         commands:
-          - command: ^opencode
-            args:
-              - --port
+          - command: ^$env.EDITOR
 
+      - name: Harness
+        flex: 1
+        commands:
+          - command: ^agent
+            args:
+              - a2a
+              - --agent
+              - orchestrator
+
+  - name: agents
+    flex_direction: row
+    panes:
+      - flex: 1
+        commands:
+          - command: ^agent
+            args:
+              - a2a
+              - --agent
+              - reviewer
+              - --name
+              - jack
+              - --store
+              - jsonl
+      - flex: 1
+        commands:
+          - command: ^agent
+            args:
+              - a2a
+              - --agent
+              - researcher
+              - --name
+              - lucy
+              - --store
+              - jsonl
+      - flex: 1
+        commands:
+          - command: ^agent
+            args:
+              - a2a
+              - --agent
+              - developer
+              - --name
+              - bob
+              - --store
+              - jsonl
   - name: misc
+    flex_direction: row
     panes:
       - flex: 1
       - flex: 1
