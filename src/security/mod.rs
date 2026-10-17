@@ -186,9 +186,8 @@ fn grant_path_metadata_dirs_in(caps: CapabilitySet, path: &OsStr) -> CapabilityS
             continue;
         }
         caps.add_path_metadata_dir(dir.clone());
-        if let Ok(canonical) = std::fs::canonicalize(&dir)
-            && canonical != dir
-        {
+        let canonical = nono::try_canonicalize(&dir);
+        if canonical != dir {
             caps.add_path_metadata_dir(canonical);
         }
     }

@@ -343,6 +343,29 @@ fn test_grant_path_metadata_dirs_registers_canonical_target() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn test_grant_path_metadata_dirs_registers_canonical_nonexistent() {
+    let target = TempDir::new("metadata-canonical-nonexistent-target");
+    let link_parent = TempDir::new("metadata-canonical-nonexistent-link");
+    let link = link_parent.path().join("bin");
+    std::os::unix::fs::symlink(target.path(), &link).expect("create symlink");
+    let entry = link.join("nonexistent_subdir");
+    let path = std::env::join_paths([entry.as_os_str()]).expect("join paths");
+    let caps = grant_path_metadata_dirs_in(CapabilitySet::new(), &path);
+    let dirs = caps.path_metadata_dirs();
+    assert!(dirs.contains(&entry), "raw PATH entry should be registered");
+    let canonical = target
+        .path()
+        .canonicalize()
+        .expect("canonicalize target")
+        .join("nonexistent_subdir");
+    assert!(
+        dirs.contains(&canonical),
+        "canonicalized non-existent PATH entry should be registered"
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn test_build_capability_set_registers_path_metadata_dirs() {
     let caps = build_capability_set(&Config::default()).expect("build");
     let dirs = caps.path_metadata_dirs();
