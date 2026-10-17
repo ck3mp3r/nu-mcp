@@ -19,6 +19,7 @@ impl CommandExecutor for NushellExecutor {
 
         // Spawn child process
         let child = Command::new("nu")
+            .arg("--no-config-file")
             .arg("-c")
             .arg(command)
             .current_dir(working_dir)

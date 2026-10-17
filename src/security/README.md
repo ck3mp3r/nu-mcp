@@ -36,6 +36,20 @@ access to the paths `nu` needs to start and run commands:
 
 `/tmp` is granted read-write on every platform.
 
+### Auto-detected `nu` paths
+
+The fixed system path list does not cover `nu` installed outside it — for
+example Nix (`/nix/store/<hash>-nushell-<version>/bin/nu`) or Homebrew
+(`/opt/homebrew/bin/nu`). At startup, `build_capability_set` resolves `nu` by
+walking `$PATH` and grants read access to the binary's parent directory. It
+then enumerates the binary's dynamic library dependencies (`otool -L` on macOS,
+`ldd` on Linux) and grants read access to the parent directory of each
+dependency outside the system path list. Nix store paths change on every
+package update, so detection runs at startup rather than using a fixed list.
+
+If `nu` is not found, or `otool`/`ldd` fails, the builder logs a warning and
+continues without the corresponding grants.
+
 ## Platform-Specific Behavior
 
 System path grants are selected at compile time with `#[cfg(target_os = ...)]`.

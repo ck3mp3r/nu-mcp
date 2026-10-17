@@ -51,6 +51,12 @@ The nono library does not grant system paths automatically. nu-mcp grants read a
 
 `/tmp` is granted read-write on every platform. Paths that do not exist on the host are skipped.
 
+### Auto-detected `nu` paths
+
+The fixed system path list does not cover `nu` installed outside it — for example Nix (`/nix/store/<hash>-nushell-<version>/bin/nu`) or Homebrew (`/opt/homebrew/bin/nu`). At startup, nu-mcp resolves `nu` by walking `$PATH` and grants read access to the binary's parent directory. It then enumerates the binary's dynamic library dependencies (`otool -L` on macOS, `ldd` on Linux) and grants read access to the parent directory of each dependency outside the system path list. Nix store paths change on every package update, so detection runs at startup rather than using a fixed list.
+
+If `nu` is not found, or `otool`/`ldd` fails, nu-mcp logs a warning and continues without the corresponding grants.
+
 ## Sensitive Paths
 
 nono blocks sensitive paths by default. Use `--bypass-protection=PATH` to unblock a path the user explicitly opts into. The bypassed path is granted read-write access.

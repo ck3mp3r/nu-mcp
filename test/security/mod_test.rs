@@ -1,6 +1,11 @@
-use super::{SYSTEM_READ_PATHS, SYSTEM_READWRITE_PATHS, build_capability_set};
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+use super::library_dirs;
+use super::{
+    SYSTEM_READ_PATHS, SYSTEM_READWRITE_PATHS, build_capability_set, find_in_path, find_in_path_in,
+    grant_binary_access,
+};
 use crate::config::Config;
-use nono::AccessMode;
+use nono::{AccessMode, CapabilitySet};
 use std::path::{Path, PathBuf};
 
 /// A directory that exists and is not a system path or `/tmp`, so tests can
@@ -10,6 +15,27 @@ fn neutral_dir() -> PathBuf {
         .expect("current dir")
         .canonicalize()
         .expect("canonicalize current dir")
+}
+
+/// A unique temporary directory, removed when dropped.
+struct TempDir(PathBuf);
+
+impl TempDir {
+    fn new(label: &str) -> Self {
+        let dir = std::env::temp_dir().join(format!("nu-mcp-{label}-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        Self(dir)
+    }
+
+    fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        std::fs::remove_dir_all(&self.0).ok();
+    }
 }
 
 #[test]
@@ -143,4 +169,85 @@ fn test_block_network_flag_blocks_network() {
     };
     let caps = build_capability_set(&config).unwrap();
     assert!(caps.is_network_blocked(), "network should be blocked");
+}
+
+#[test]
+fn test_find_in_path_in_finds_file() {
+    let dir = TempDir::new("find-in-path");
+    let bin = dir.path().join("nu-mcp-test-bin");
+    std::fs::write(&bin, b"").expect("write test binary");
+    let path = std::env::join_paths([dir.path().as_os_str()]).expect("join paths");
+    assert_eq!(find_in_path_in("nu-mcp-test-bin", &path), Some(bin));
+}
+
+#[test]
+fn test_find_in_path_in_returns_none_for_missing() {
+    let dir = TempDir::new("find-in-path-missing");
+    let path = std::env::join_paths([dir.path().as_os_str()]).expect("join paths");
+    assert_eq!(find_in_path_in("nu-mcp-does-not-exist-xyz", &path), None);
+}
+
+#[test]
+fn test_find_in_path_resolves_nu() {
+    let found = find_in_path("nu").expect("nu should be resolvable in PATH");
+    assert!(found.is_file(), "resolved nu path should be a file");
+}
+
+#[test]
+fn test_grant_binary_access_grants_parent_directory() {
+    let dir = TempDir::new("grant-binary");
+    let binary = dir.path().join("nu");
+    std::fs::write(&binary, b"").expect("write nu");
+    let caps = grant_binary_access(CapabilitySet::new(), Some(&binary)).expect("grant");
+    let parent = dir.path().canonicalize().expect("canonicalize");
+    assert!(
+        caps.path_covered_with_access(&parent, AccessMode::Read),
+        "nu parent directory should be covered Read"
+    );
+}
+
+#[test]
+fn test_grant_binary_access_without_binary_is_noop() {
+    let caps = grant_binary_access(CapabilitySet::new(), None).expect("grant");
+    assert!(
+        caps.fs_capabilities().is_empty(),
+        "no capabilities should be granted when nu is absent"
+    );
+}
+
+#[test]
+fn test_build_capability_set_grants_nu_binary_directory() {
+    let Some(binary) = find_in_path("nu") else {
+        return;
+    };
+    let caps = build_capability_set(&Config::default()).expect("build");
+    let parent = binary
+        .parent()
+        .expect("parent")
+        .canonicalize()
+        .expect("canonicalize");
+    assert!(
+        caps.path_covered_with_access(&parent, AccessMode::Read),
+        "nu binary directory {} should be covered Read",
+        parent.display()
+    );
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+fn test_library_dirs_filters_system_paths() {
+    let otool = "/nix/store/abc-nushell/bin/nu:\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0)\n\t/nix/store/xyz-libiconv/lib/libiconv.2.dylib (compatibility version 7.0.0)\n";
+    assert_eq!(
+        library_dirs(otool),
+        vec![PathBuf::from("/nix/store/xyz-libiconv/lib")]
+    );
+
+    let ldd = "\tlinux-vdso.so.1 (0x00007fff)\n\tlibgcc_s.so.1 => /nix/store/aaa-gcc/lib/libgcc_s.so.1 (0x00007f)\n\tlibc.so.6 => /nix/store/bbb-glibc/lib/libc.so.6 (0x00007f)\n";
+    assert_eq!(
+        library_dirs(ldd),
+        vec![
+            PathBuf::from("/nix/store/aaa-gcc/lib"),
+            PathBuf::from("/nix/store/bbb-glibc/lib"),
+        ]
+    );
 }

@@ -34,6 +34,7 @@ impl ToolExecutor for NushellToolExecutor {
             Duration::from_secs(timeout_secs.unwrap_or_else(get_default_timeout));
 
         let cmd_future = Command::new("nu")
+            .arg("--no-config-file")
             .arg(&mod_file)
             .arg("call-tool")
             .arg(tool_name)
