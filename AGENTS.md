@@ -112,7 +112,7 @@ cargo nextest run                 # unit tests (default profile)
 cargo nextest run --profile ci    # CI profile with JUnit XML
 ```
 
-In the Nix dev shell these are wrapped as `tests` (cargo nextest run), `clippy` (cargo clippy), `check` (cargo check), `fmt` (cargo fmt), `coverage` (cargo tarpaulin), and `test-tools` (nu tools/run_all_tests.nu).
+In the Nix dev shell these are wrapped as `tests` (cargo nextest run), `clippy` (cargo clippy), `check` (cargo check), `fmt` (cargo fmt), `coverage` (cargo llvm-cov), and `test-tools` (nu tools/run_all_tests.nu).
 
 The pre-push hook (configured in `prek.toml`) runs: `cargo fmt --check` (pre-commit), then `cargo clippy -- -D warnings` and `cargo nextest run` (pre-push). `alejandra --check` lints Nix files on pre-commit.
 
@@ -207,15 +207,20 @@ Any `.rs` file under `src/` is production code. This includes `mod.rs`, `nushell
 
 ### Code Coverage
 
-Code coverage is measured with `cargo-tarpaulin`.
+Code coverage is measured with `cargo-llvm-cov` (LLVM source-based instrumentation, stable Rust).
 
 ```bash
-cargo tarpaulin --out Html
+cargo install cargo-llvm-cov --locked
+rustup component add llvm-tools-preview
+cargo llvm-cov --html --output-dir coverage/ --ignore-filename-regex '(/test/|/test$)'
 ```
 
+`cargo llvm-cov nextest --cargo-profile coverage` collects coverage through nextest.
+
 - Coverage is a second quality dimension next to clippy: clippy finds suspicious code, coverage finds code no test executes.
-- Test files live in `test/`, which the default exclusion patterns do not cover — pass `--exclude-files "test/*"` to keep them out of the report.
-- In the Nix dev shell, the `coverage` wrapper runs `cargo tarpaulin --out Html` (see `nix/dev.nix`).
+- Test files live in `test/` (singular), which the default exclusion patterns do not cover — pass `--ignore-filename-regex '(/test/|/test$)'` to keep them out of the report.
+- `--fail-under-lines <N>` exits non-zero when total line coverage drops below `N` percent. No threshold is enforced yet.
+- Full workflow, output formats, per-crate runs, and CI integration: `docs/development/coverage.md`.
 
 ## Code Quality
 

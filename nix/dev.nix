@@ -7,7 +7,7 @@
 }: let
   rustToolchain = inputs.rustnix.lib.rust.mkToolchain {
     system = pkgs.system;
-    extras = ["rustfmt" "clippy" "rust-analyzer"];
+    extras = ["rustfmt" "clippy" "rust-analyzer" "llvm-tools-preview"];
   };
   nuMods = inputs.nu-mods.packages.${pkgs.system}.default;
 
@@ -16,7 +16,9 @@
   fmt = pkgs.writeShellScriptBin "fmt" ''cargo fmt'';
   tests = pkgs.writeShellScriptBin "tests" ''cargo nextest run'';
   clippy = pkgs.writeShellScriptBin "clippy" ''cargo clippy'';
-  coverage = pkgs.writeShellScriptBin "coverage" ''cargo tarpaulin --out Html'';
+  coverage = pkgs.writeShellScriptBin "coverage" ''
+    cargo llvm-cov --html --output-dir coverage/ --ignore-filename-regex '(/test/|/test$)'
+  '';
   build = pkgs.writeShellScriptBin "build" ''cargo build --release'';
   test-tools = pkgs.writeShellScriptBin "test-tools" ''nu tools/run_all_tests.nu'';
 in
@@ -26,7 +28,7 @@ in
     buildInputs = [
       rustToolchain
       pkgs.nushell
-      pkgs.cargo-tarpaulin
+      pkgs.cargo-llvm-cov
       pkgs.cargo-nextest
       pkgs.topiary-nu
       pkgs.argocd
