@@ -16,24 +16,177 @@ use std::path::{Path, PathBuf};
 /// The nono library does not grant system paths automatically. Paths that do not
 /// exist on the host are skipped.
 #[cfg(target_os = "linux")]
-const SYSTEM_READ_PATHS: &[&str] = &["/usr", "/lib", "/bin", "/etc/ssl"];
+const SYSTEM_READ_PATHS: &[&str] = &[
+    "/bin",
+    "/sbin",
+    "/usr/bin",
+    "/usr/sbin",
+    "/usr/local/bin",
+    "/lib",
+    "/lib64",
+    "/lib/x86_64-linux-gnu",
+    "/lib/aarch64-linux-gnu",
+    "/usr/lib",
+    "/usr/lib64",
+    "/usr/lib/x86_64-linux-gnu",
+    "/usr/lib/aarch64-linux-gnu",
+    "/usr/local/lib",
+    "/usr/local/lib64",
+    "/etc/resolv.conf",
+    "/run/systemd/resolve",
+    "/etc/hosts",
+    "/etc/nsswitch.conf",
+    "/etc/gai.conf",
+    "/etc/group",
+    "/etc/ssl",
+    "/etc/pki",
+    "/etc/ca-certificates",
+    "/etc/crypto-policies",
+    "/etc/fonts",
+    "/etc/ld.so.cache",
+    "/etc/ld.so.conf",
+    "/etc/ld.so.conf.d",
+    "/etc/localtime",
+    "/etc/timezone",
+    "/etc/locale.conf",
+    "/etc/locale.gen",
+    "/etc/alternatives",
+    "/etc/os-release",
+    "/etc/passwd",
+    "/etc/services",
+    "/etc/mime.types",
+    "/etc/manpath.config",
+    "/etc/man_db.conf",
+    "/var/cache/man",
+    "/run/systemd/userdb",
+    "/usr/share",
+    "/usr/share/locale",
+    "/usr/share/locale-langpack",
+    "/usr/share/zoneinfo",
+    "/usr/share/terminfo",
+    "/usr/share/ca-certificates",
+    "/lib/terminfo",
+    "/etc/terminfo",
+    "/dev/null",
+    "/dev/zero",
+    "/dev/random",
+    "/dev/urandom",
+    "/dev/full",
+    "/dev/tty",
+    "/dev/console",
+    "/dev/stdin",
+    "/dev/stdout",
+    "/dev/stderr",
+    "/dev/fd",
+    "/dev/pts",
+    "/proc/self",
+    "/proc/cpuinfo",
+    "/proc/meminfo",
+    "/proc/stat",
+    "/proc/loadavg",
+    "/proc/version",
+    "/proc/filesystems",
+    "/home/linuxbrew/.linuxbrew",
+];
 
 #[cfg(target_os = "macos")]
 const SYSTEM_READ_PATHS: &[&str] = &[
+    "/bin",
+    "/sbin",
+    "/usr/bin",
+    "/usr/sbin",
+    "/usr/local/bin",
+    "/usr/lib",
+    "/usr/local/lib",
+    "/usr/share",
     "/System/Library",
     "/Library",
-    "/usr/lib",
-    "/usr/share/zoneinfo",
-    "/etc/ssl",
+    "/Library/Frameworks",
+    "/dev",
     "/private/var/db/dyld",
+    "/var/db/dyld",
+    "/var/db",
+    "/private/etc/ssl",
+    "/etc/ssl",
+    "/etc",
+    "/private/etc",
+    "/usr/share/zoneinfo",
+    "/usr/share/locale",
+    "/var/db/timezone",
+    "/usr/share/terminfo",
     "/var",
+    "/private/var",
+    "/private",
+    "/tmp",
+    "/System/Volumes",
+    "/System/Cryptexes",
+    "/Applications",
+    "/cores",
+    "/opt",
+    "/run",
+    "/nix",
+    "/opt/homebrew",
+    "/usr/local/Cellar",
+    "/usr/local/opt",
 ];
 
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
 const SYSTEM_READ_PATHS: &[&str] = &[];
 
-/// Paths granted [`AccessMode::ReadWrite`] on every platform.
-const SYSTEM_READWRITE_PATHS: &[&str] = &["/tmp"];
+/// Paths granted [`AccessMode::ReadWrite`] on macOS, from nono's
+/// `system_write_macos` group.
+#[cfg(target_os = "macos")]
+const SYSTEM_WRITE_PATHS_MACOS: &[&str] = &[
+    "/private/tmp",
+    "/tmp",
+    "/private/var/folders",
+    "/var/folders",
+    "/dev",
+];
+
+/// Paths granted [`AccessMode::ReadWrite`] on Linux, from nono's
+/// `system_write_linux` group.
+#[cfg(target_os = "linux")]
+const SYSTEM_WRITE_PATHS_LINUX: &[&str] = &[
+    "/tmp",
+    "/dev/null",
+    "/dev/zero",
+    "/dev/full",
+    "/dev/tty",
+    "/dev/stdout",
+    "/dev/stderr",
+    "/dev/fd",
+    "/dev/pts",
+    "/proc/self/fd",
+];
+
+/// User tool directories granted [`AccessMode::Read`], from nono's `user_tools`
+/// group. The `~` prefix is expanded to `$HOME` at runtime.
+const USER_TOOLS_PATHS: &[&str] = &[
+    "~/.local/bin",
+    "~/.local/share/applications",
+    "~/.local/share/man",
+    "~/.local/share/bash-completion",
+    "~/.local/share/zsh",
+];
+
+/// Platform-specific paths granted [`AccessMode::ReadWrite`].
+#[cfg(target_os = "macos")]
+fn system_write_paths() -> &'static [&'static str] {
+    SYSTEM_WRITE_PATHS_MACOS
+}
+
+/// Platform-specific paths granted [`AccessMode::ReadWrite`].
+#[cfg(target_os = "linux")]
+fn system_write_paths() -> &'static [&'static str] {
+    SYSTEM_WRITE_PATHS_LINUX
+}
+
+/// No write paths on unsupported platforms.
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn system_write_paths() -> &'static [&'static str] {
+    &[]
+}
 
 /// Build a nono capability set from sandbox configuration.
 ///
@@ -43,6 +196,10 @@ const SYSTEM_READWRITE_PATHS: &[&str] = &["/tmp"];
 /// - `config.bypass_protection` paths are granted [`AccessMode::ReadWrite`],
 ///   unblocking paths the user explicitly opts into.
 /// - Platform system paths are granted [`AccessMode::Read`] so `nu` can start.
+/// - Platform system write paths are granted [`AccessMode::ReadWrite`].
+/// - `$TMPDIR` is granted [`AccessMode::ReadWrite`] when the variable is set.
+/// - `user_tools` directories under `$HOME` are granted [`AccessMode::Read`]
+///   when the variable is set.
 /// - The `nu` binary resolved from `$PATH` and its dynamic library dependencies
 ///   are granted [`AccessMode::Read`] (see [`grant_nu_access`]).
 /// - Every binary in `config.allow_binaries` that resolves in `$PATH` is
@@ -59,6 +216,11 @@ pub fn build_capability_set(config: &Config) -> nono::Result<CapabilitySet> {
     for path in SYSTEM_READ_PATHS {
         caps = allow_if_dir(caps, Path::new(path), AccessMode::Read)?;
     }
+    for path in USER_TOOLS_PATHS {
+        if let Some(path) = expand_home(path) {
+            caps = allow_if_dir(caps, &path, AccessMode::Read)?;
+        }
+    }
     caps = grant_nu_access(caps)?;
     if let Some(path) = std::env::var_os("PATH") {
         caps = grant_allow_binaries(
@@ -68,8 +230,11 @@ pub fn build_capability_set(config: &Config) -> nono::Result<CapabilitySet> {
         )?;
     }
     caps = grant_path_metadata_dirs(caps)?;
-    for path in SYSTEM_READWRITE_PATHS {
+    for path in system_write_paths() {
         caps = allow_if_dir(caps, Path::new(path), AccessMode::ReadWrite)?;
+    }
+    if let Some(tmpdir) = std::env::var_os("TMPDIR") {
+        caps = allow_if_dir(caps, Path::new(&tmpdir), AccessMode::ReadWrite)?;
     }
     for path in &config.sandbox_directories {
         caps = allow_if_dir(caps, path, AccessMode::ReadWrite)?;
@@ -99,6 +264,15 @@ fn allow_if_dir(caps: CapabilitySet, path: &Path, mode: AccessMode) -> nono::Res
     } else {
         Ok(caps)
     }
+}
+
+/// Expand a `~`-prefixed path to an absolute path using `$HOME`.
+///
+/// Returns `None` when `HOME` is not set or `path` does not start with `~/`.
+fn expand_home(path: &str) -> Option<PathBuf> {
+    let home = std::env::var_os("HOME")?;
+    let rest = path.strip_prefix("~/")?;
+    Some(PathBuf::from(home).join(rest))
 }
 
 /// Resolve the `nu` binary in `$PATH` and grant [`AccessMode::Read`] to the

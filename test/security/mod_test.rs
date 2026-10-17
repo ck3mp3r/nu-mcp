@@ -3,8 +3,8 @@ use super::grant_path_metadata_dirs_in;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 use super::library_dirs;
 use super::{
-    SYSTEM_READ_PATHS, SYSTEM_READWRITE_PATHS, build_capability_set, find_in_path, find_in_path_in,
-    grant_allow_binaries, grant_binary_access,
+    SYSTEM_READ_PATHS, USER_TOOLS_PATHS, build_capability_set, expand_home, find_in_path,
+    find_in_path_in, grant_allow_binaries, grant_binary_access, system_write_paths,
 };
 use crate::config::Config;
 use nono::{AccessMode, CapabilitySet};
@@ -124,10 +124,161 @@ fn test_system_read_paths_granted_read() {
     assert!(checked > 0, "expected at least one system path to exist");
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn test_system_read_paths_contains_expanded_list() {
+    let expected = [
+        "/bin",
+        "/sbin",
+        "/usr/bin",
+        "/usr/sbin",
+        "/usr/local/bin",
+        "/lib",
+        "/lib64",
+        "/lib/x86_64-linux-gnu",
+        "/lib/aarch64-linux-gnu",
+        "/usr/lib",
+        "/usr/lib64",
+        "/usr/lib/x86_64-linux-gnu",
+        "/usr/lib/aarch64-linux-gnu",
+        "/usr/local/lib",
+        "/usr/local/lib64",
+        "/etc/resolv.conf",
+        "/run/systemd/resolve",
+        "/etc/hosts",
+        "/etc/nsswitch.conf",
+        "/etc/gai.conf",
+        "/etc/group",
+        "/etc/ssl",
+        "/etc/pki",
+        "/etc/ca-certificates",
+        "/etc/crypto-policies",
+        "/etc/fonts",
+        "/etc/ld.so.cache",
+        "/etc/ld.so.conf",
+        "/etc/ld.so.conf.d",
+        "/etc/localtime",
+        "/etc/timezone",
+        "/etc/locale.conf",
+        "/etc/locale.gen",
+        "/etc/alternatives",
+        "/etc/os-release",
+        "/etc/passwd",
+        "/etc/services",
+        "/etc/mime.types",
+        "/etc/manpath.config",
+        "/etc/man_db.conf",
+        "/var/cache/man",
+        "/run/systemd/userdb",
+        "/usr/share",
+        "/usr/share/locale",
+        "/usr/share/locale-langpack",
+        "/usr/share/zoneinfo",
+        "/usr/share/terminfo",
+        "/usr/share/ca-certificates",
+        "/lib/terminfo",
+        "/etc/terminfo",
+        "/dev/null",
+        "/dev/zero",
+        "/dev/random",
+        "/dev/urandom",
+        "/dev/full",
+        "/dev/tty",
+        "/dev/console",
+        "/dev/stdin",
+        "/dev/stdout",
+        "/dev/stderr",
+        "/dev/fd",
+        "/dev/pts",
+        "/proc/self",
+        "/proc/cpuinfo",
+        "/proc/meminfo",
+        "/proc/stat",
+        "/proc/loadavg",
+        "/proc/version",
+        "/proc/filesystems",
+        "/home/linuxbrew/.linuxbrew",
+    ];
+    for path in expected {
+        assert!(
+            SYSTEM_READ_PATHS.contains(&path),
+            "SYSTEM_READ_PATHS should contain {path}"
+        );
+    }
+    assert_eq!(SYSTEM_READ_PATHS.len(), expected.len());
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn test_system_read_paths_contains_expanded_list() {
+    let expected = [
+        "/bin",
+        "/sbin",
+        "/usr/bin",
+        "/usr/sbin",
+        "/usr/local/bin",
+        "/usr/lib",
+        "/usr/local/lib",
+        "/usr/share",
+        "/System/Library",
+        "/Library",
+        "/Library/Frameworks",
+        "/dev",
+        "/private/var/db/dyld",
+        "/var/db/dyld",
+        "/var/db",
+        "/private/etc/ssl",
+        "/etc/ssl",
+        "/etc",
+        "/private/etc",
+        "/usr/share/zoneinfo",
+        "/usr/share/locale",
+        "/var/db/timezone",
+        "/usr/share/terminfo",
+        "/var",
+        "/private/var",
+        "/private",
+        "/tmp",
+        "/System/Volumes",
+        "/System/Cryptexes",
+        "/Applications",
+        "/cores",
+        "/opt",
+        "/run",
+        "/nix",
+        "/opt/homebrew",
+        "/usr/local/Cellar",
+        "/usr/local/opt",
+    ];
+    for path in expected {
+        assert!(
+            SYSTEM_READ_PATHS.contains(&path),
+            "SYSTEM_READ_PATHS should contain {path}"
+        );
+    }
+    assert_eq!(SYSTEM_READ_PATHS.len(), expected.len());
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn test_system_read_paths_grant_etc() {
+    let caps = build_capability_set(&Config::default()).unwrap();
+    for path in ["/etc", "/private/etc"] {
+        let p = Path::new(path);
+        assert!(p.is_dir(), "{path} should exist on macOS");
+        assert!(
+            caps.fs_capabilities()
+                .iter()
+                .any(|c| c.original.as_path() == p && c.access == AccessMode::Read),
+            "system path {path} should be granted Read"
+        );
+    }
+}
+
 #[test]
 fn test_system_readwrite_paths_granted_readwrite() {
     let caps = build_capability_set(&Config::default()).unwrap();
-    for path in SYSTEM_READWRITE_PATHS {
+    for path in system_write_paths() {
         let p = Path::new(path);
         if p.is_dir() {
             assert!(
@@ -137,6 +288,74 @@ fn test_system_readwrite_paths_granted_readwrite() {
                 "path {path} should be granted ReadWrite"
             );
         }
+    }
+}
+
+#[test]
+#[serial]
+fn test_tmpdir_path_granted_readwrite() {
+    let dir = TempDir::new("tmpdir-write");
+    let saved = std::env::var_os("TMPDIR");
+    // SAFETY: `#[serial]` prevents concurrent env mutation in this process.
+    unsafe { std::env::set_var("TMPDIR", dir.path()) };
+    let caps = build_capability_set(&Config::default()).unwrap();
+    if let Some(prev) = saved {
+        // SAFETY: restoring the value captured above.
+        unsafe { std::env::set_var("TMPDIR", prev) };
+    } else {
+        // SAFETY: restoring the absence captured above.
+        unsafe { std::env::remove_var("TMPDIR") };
+    }
+    assert!(
+        caps.fs_capabilities()
+            .iter()
+            .any(|c| c.original.as_path() == dir.path() && c.access == AccessMode::ReadWrite),
+        "TMPDIR path {} should be granted ReadWrite",
+        dir.path().display()
+    );
+}
+
+#[test]
+#[serial]
+fn test_user_tools_paths_granted_read() {
+    let home = TempDir::new("user-tools-home");
+    for path in USER_TOOLS_PATHS {
+        let sub = path
+            .strip_prefix("~/")
+            .expect("user_tools path should start with ~/");
+        std::fs::create_dir_all(home.path().join(sub)).expect("create user_tools dir");
+    }
+
+    let saved = std::env::var_os("HOME");
+    // SAFETY: `#[serial]` prevents concurrent env mutation in this process.
+    unsafe { std::env::set_var("HOME", home.path()) };
+    let mut expanded = Vec::new();
+    for path in USER_TOOLS_PATHS {
+        if let Some(path) = expand_home(path) {
+            expanded.push(path);
+        }
+    }
+    let caps = build_capability_set(&Config::default()).unwrap();
+    if let Some(prev) = saved {
+        // SAFETY: restoring the value captured above.
+        unsafe { std::env::set_var("HOME", prev) };
+    } else {
+        // SAFETY: restoring the absence captured above.
+        unsafe { std::env::remove_var("HOME") };
+    }
+
+    assert_eq!(
+        expanded.len(),
+        USER_TOOLS_PATHS.len(),
+        "every user_tools path should expand when HOME is set"
+    );
+    for path in &expanded {
+        let canonical = path.canonicalize().expect("canonicalize user_tools path");
+        assert!(
+            caps.path_covered_with_access(&canonical, AccessMode::Read),
+            "user_tools path {} should be covered Read",
+            canonical.display()
+        );
     }
 }
 
@@ -275,18 +494,18 @@ fn test_build_capability_set_grants_nu_binary_directory() {
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
 fn test_library_dirs_filters_system_paths() {
-    let otool = "/nix/store/abc-nushell/bin/nu:\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0)\n\t/nix/store/xyz-libiconv/lib/libiconv.2.dylib (compatibility version 7.0.0)\n";
+    let otool = "/custom/store/abc-nushell/bin/nu:\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0)\n\t/custom/store/xyz-libiconv/lib/libiconv.2.dylib (compatibility version 7.0.0)\n";
     assert_eq!(
         library_dirs(otool),
-        vec![PathBuf::from("/nix/store/xyz-libiconv/lib")]
+        vec![PathBuf::from("/custom/store/xyz-libiconv/lib")]
     );
 
-    let ldd = "\tlinux-vdso.so.1 (0x00007fff)\n\tlibgcc_s.so.1 => /nix/store/aaa-gcc/lib/libgcc_s.so.1 (0x00007f)\n\tlibc.so.6 => /nix/store/bbb-glibc/lib/libc.so.6 (0x00007f)\n";
+    let ldd = "\tlinux-vdso.so.1 (0x00007fff)\n\tlibgcc_s.so.1 => /custom/store/aaa-gcc/lib/libgcc_s.so.1 (0x00007f)\n\tlibc.so.6 => /custom/store/bbb-glibc/lib/libc.so.6 (0x00007f)\n";
     assert_eq!(
         library_dirs(ldd),
         vec![
-            PathBuf::from("/nix/store/aaa-gcc/lib"),
-            PathBuf::from("/nix/store/bbb-glibc/lib"),
+            PathBuf::from("/custom/store/aaa-gcc/lib"),
+            PathBuf::from("/custom/store/bbb-glibc/lib"),
         ]
     );
 }
