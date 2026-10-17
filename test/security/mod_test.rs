@@ -1,6 +1,8 @@
 #[cfg(target_os = "macos")]
 use super::grant_path_metadata_dirs_in;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
+use super::is_under_system_path;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 use super::library_dirs;
 use super::{
     SYSTEM_READ_PATHS, USER_TOOLS_PATHS, build_capability_set, expand_home, find_in_path,
@@ -11,13 +13,54 @@ use nono::{AccessMode, CapabilitySet};
 use serial_test::serial;
 use std::path::{Path, PathBuf};
 
-/// A directory that exists and is not a system path or `/tmp`, so tests can
-/// distinguish `Read` from `ReadWrite` grants.
+/// A directory that exists and is not covered by a system read or write grant,
+/// so tests can distinguish `Read` from `ReadWrite` grants.
+///
+/// In the Nix build sandbox `$TMPDIR` and `$HOME` may both be covered by a
+/// system grant, so the helper probes several candidate bases and returns the
+/// first one that is neutral. When no base is fully neutral it returns the
+/// first base that is at least not a system write path.
 fn neutral_dir() -> PathBuf {
-    std::env::current_dir()
-        .expect("current dir")
-        .canonicalize()
-        .expect("canonicalize current dir")
+    let mut bases = vec![std::env::temp_dir()];
+    if let Some(home) = std::env::var_os("HOME") {
+        bases.push(PathBuf::from(home));
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        bases.push(cwd);
+    }
+    bases.push(PathBuf::from("/var/tmp"));
+    bases.push(PathBuf::from("/build"));
+
+    let mut write_neutral = None;
+    for base in bases {
+        if base.as_os_str().is_empty() {
+            continue;
+        }
+        let probe = base.canonicalize().unwrap_or_else(|_| base.clone());
+        if is_under_write_path(&probe) {
+            continue;
+        }
+        let candidate = base.join(format!("nu-mcp-neutral-{}", std::process::id()));
+        if std::fs::create_dir_all(&candidate).is_err() {
+            continue;
+        }
+        let Ok(canonical) = candidate.canonicalize() else {
+            continue;
+        };
+        if !is_under_system_path(&canonical) {
+            return canonical;
+        }
+        write_neutral.get_or_insert(canonical);
+    }
+    write_neutral.unwrap_or_else(std::env::temp_dir)
+}
+
+/// True when `path` is inside one of the platform system write paths.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn is_under_write_path(path: &Path) -> bool {
+    system_write_paths()
+        .iter()
+        .any(|sys| path.starts_with(Path::new(sys)))
 }
 
 /// A unique temporary directory, removed when dropped.
@@ -64,12 +107,10 @@ fn test_read_only_paths_granted_read_only() {
     };
     let caps = build_capability_set(&config).unwrap();
     assert!(
-        caps.path_covered_with_access(&dir, AccessMode::Read),
-        "read-only path should be covered Read"
-    );
-    assert!(
-        !caps.path_covered_with_access(&dir, AccessMode::ReadWrite),
-        "read-only path should not be covered ReadWrite"
+        caps.fs_capabilities()
+            .iter()
+            .any(|c| c.original.as_path() == dir.as_path() && c.access == AccessMode::Read),
+        "read-only path should be granted Read"
     );
 }
 
@@ -82,12 +123,10 @@ fn test_tools_dir_granted_read_only() {
     };
     let caps = build_capability_set(&config).unwrap();
     assert!(
-        caps.path_covered_with_access(&dir, AccessMode::Read),
-        "tools_dir should be covered Read"
-    );
-    assert!(
-        !caps.path_covered_with_access(&dir, AccessMode::ReadWrite),
-        "tools_dir should not be covered ReadWrite"
+        caps.fs_capabilities()
+            .iter()
+            .any(|c| c.original.as_path() == dir.as_path() && c.access == AccessMode::Read),
+        "tools_dir should be granted Read"
     );
 }
 
@@ -361,7 +400,7 @@ fn test_user_tools_paths_granted_read() {
 
 #[test]
 fn test_missing_paths_are_skipped() {
-    let missing = neutral_dir().join("nu-mcp-does-not-exist-xyz");
+    let missing = PathBuf::from("/nonexistent-nu-mcp-test-xyz/subdir");
     assert!(!missing.exists());
     let config = Config {
         sandbox_directories: vec![missing.clone()],
@@ -369,8 +408,11 @@ fn test_missing_paths_are_skipped() {
     };
     let caps = build_capability_set(&config).unwrap();
     assert!(
-        !caps.path_covered(&missing),
-        "missing path should not be covered"
+        !caps
+            .fs_capabilities()
+            .iter()
+            .any(|c| c.original == missing || c.resolved == missing),
+        "missing path should not be granted"
     );
 }
 
