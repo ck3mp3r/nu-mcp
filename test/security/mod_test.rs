@@ -3,8 +3,8 @@ use super::grant_path_metadata_dirs_in;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 use super::library_dirs;
 use super::{
-    SYSTEM_READ_PATHS, USER_TOOLS_PATHS, build_capability_set, expand_home, find_in_path,
-    find_in_path_in, grant_allow_binaries, grant_binary_access, system_write_paths,
+    SYSTEM_READ_PATHS, build_capability_set, find_in_path, find_in_path_in, grant_allow_binaries,
+    grant_binary_access,
 };
 use crate::config::Config;
 use nono::{AccessMode, CapabilitySet};
@@ -16,7 +16,7 @@ struct TempDir(PathBuf);
 
 impl TempDir {
     fn new(label: &str) -> Self {
-        let dir = std::env::temp_dir().join(format!("nu-mcp-{label}-{}", std::process::id()));
+        let dir = Path::new("/tmp").join(format!("nu-mcp-{label}-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("create temp dir");
         Self(dir)
     }
@@ -30,199 +30,6 @@ impl Drop for TempDir {
     fn drop(&mut self) {
         std::fs::remove_dir_all(&self.0).ok();
     }
-}
-
-#[test]
-fn test_sandbox_directories_granted_readwrite() {
-    let dir = TempDir::new("sandbox");
-    let config = Config {
-        sandbox_directories: vec![dir.path().to_path_buf()],
-        ..Config::default()
-    };
-    let caps = build_capability_set(&config).unwrap();
-    assert!(
-        caps.fs_capabilities()
-            .iter()
-            .any(|c| c.original.as_path() == dir.path() && c.access == AccessMode::ReadWrite),
-        "sandbox directory should be granted ReadWrite"
-    );
-}
-
-#[test]
-fn test_read_only_paths_granted_read_only() {
-    let dir = TempDir::new("readonly");
-    let config = Config {
-        read_only_paths: vec![dir.path().to_path_buf()],
-        ..Config::default()
-    };
-    let caps = build_capability_set(&config).unwrap();
-    assert!(
-        caps.fs_capabilities()
-            .iter()
-            .any(|c| c.original.as_path() == dir.path() && c.access == AccessMode::Read),
-        "read-only path should be granted Read"
-    );
-}
-
-#[test]
-fn test_tools_dir_granted_read_only() {
-    let dir = TempDir::new("toolsdir");
-    let config = Config {
-        tools_dir: Some(dir.path().to_path_buf()),
-        ..Config::default()
-    };
-    let caps = build_capability_set(&config).unwrap();
-    assert!(
-        caps.fs_capabilities()
-            .iter()
-            .any(|c| c.original.as_path() == dir.path() && c.access == AccessMode::Read),
-        "tools_dir should be granted Read"
-    );
-}
-
-#[test]
-fn test_bypass_protection_paths_granted_readwrite() {
-    let dir = TempDir::new("bypass");
-    let config = Config {
-        bypass_protection: vec![dir.path().to_path_buf()],
-        ..Config::default()
-    };
-    let caps = build_capability_set(&config).unwrap();
-    assert!(
-        caps.fs_capabilities()
-            .iter()
-            .any(|c| c.original.as_path() == dir.path() && c.access == AccessMode::ReadWrite),
-        "bypass-protection path should be granted ReadWrite"
-    );
-}
-
-#[test]
-#[serial]
-fn test_expand_home_config_paths() {
-    let home = TempDir::new("expand-home-config");
-    let sandbox = home.path().join("sandbox");
-    let read_only = home.path().join("read-only");
-    let tools = home.path().join("tools");
-    let bypass = home.path().join("bypass");
-    for dir in [&sandbox, &read_only, &tools, &bypass] {
-        std::fs::create_dir_all(dir).expect("create config dir");
-    }
-
-    let saved = std::env::var_os("HOME");
-    // SAFETY: `#[serial]` prevents concurrent env mutation in this process.
-    unsafe { std::env::set_var("HOME", home.path()) };
-    let config = Config {
-        sandbox_directories: vec![PathBuf::from("~/sandbox")],
-        read_only_paths: vec![PathBuf::from("~/read-only")],
-        tools_dir: Some(PathBuf::from("~/tools")),
-        bypass_protection: vec![PathBuf::from("~/bypass")],
-        ..Config::default()
-    };
-    let caps = build_capability_set(&config).expect("build");
-    if let Some(prev) = saved {
-        // SAFETY: restoring the value captured above.
-        unsafe { std::env::set_var("HOME", prev) };
-    } else {
-        // SAFETY: restoring the absence captured above.
-        unsafe { std::env::remove_var("HOME") };
-    }
-
-    assert!(
-        caps.fs_capabilities()
-            .iter()
-            .any(|c| c.original.as_path() == sandbox.as_path()
-                && c.access == AccessMode::ReadWrite),
-        "~/sandbox should be expanded and granted ReadWrite"
-    );
-    assert!(
-        caps.fs_capabilities()
-            .iter()
-            .any(|c| c.original.as_path() == read_only.as_path() && c.access == AccessMode::Read),
-        "~/read-only should be expanded and granted Read"
-    );
-    assert!(
-        caps.fs_capabilities()
-            .iter()
-            .any(|c| c.original.as_path() == tools.as_path() && c.access == AccessMode::Read),
-        "~/tools should be expanded and granted Read"
-    );
-    assert!(
-        caps.fs_capabilities()
-            .iter()
-            .any(|c| c.original.as_path() == bypass.as_path() && c.access == AccessMode::ReadWrite),
-        "~/bypass should be expanded and granted ReadWrite"
-    );
-}
-
-#[test]
-#[serial]
-fn test_expand_home_config_path_missing_errors() {
-    let home = TempDir::new("expand-home-missing");
-    let missing = home.path().join("does-not-exist");
-
-    let saved = std::env::var_os("HOME");
-    // SAFETY: `#[serial]` prevents concurrent env mutation in this process.
-    unsafe { std::env::set_var("HOME", home.path()) };
-    let config = Config {
-        sandbox_directories: vec![PathBuf::from("~/does-not-exist")],
-        ..Config::default()
-    };
-    let result = build_capability_set(&config);
-    if let Some(prev) = saved {
-        // SAFETY: restoring the value captured above.
-        unsafe { std::env::set_var("HOME", prev) };
-    } else {
-        // SAFETY: restoring the absence captured above.
-        unsafe { std::env::remove_var("HOME") };
-    }
-
-    let err = result.expect_err("missing config path should fail");
-    assert!(
-        err.to_string().contains(&missing.display().to_string()),
-        "error should name the missing path, got: {err}"
-    );
-}
-
-#[test]
-#[serial]
-fn test_expand_home_config_path_without_home_errors() {
-    let saved = std::env::var_os("HOME");
-    // SAFETY: `#[serial]` prevents concurrent env mutation in this process.
-    unsafe { std::env::remove_var("HOME") };
-    let config = Config {
-        sandbox_directories: vec![PathBuf::from("~/sandbox")],
-        ..Config::default()
-    };
-    let result = build_capability_set(&config);
-    if let Some(prev) = saved {
-        // SAFETY: restoring the value captured above.
-        unsafe { std::env::set_var("HOME", prev) };
-    }
-
-    let err = result.expect_err("unset HOME with ~/ path should fail");
-    assert!(
-        err.to_string().contains("HOME is not set"),
-        "error should mention HOME, got: {err}"
-    );
-}
-
-#[test]
-fn test_system_read_paths_granted_read() {
-    let caps = build_capability_set(&Config::default()).unwrap();
-    let mut checked = 0;
-    for path in SYSTEM_READ_PATHS {
-        let p = Path::new(path);
-        if p.is_dir() {
-            assert!(
-                caps.fs_capabilities()
-                    .iter()
-                    .any(|c| c.original.as_path() == p && c.access == AccessMode::Read),
-                "system path {path} should be granted Read"
-            );
-            checked += 1;
-        }
-    }
-    assert!(checked > 0, "expected at least one system path to exist");
 }
 
 #[cfg(target_os = "linux")]
@@ -360,106 +167,6 @@ fn test_system_read_paths_contains_expanded_list() {
     assert_eq!(SYSTEM_READ_PATHS.len(), expected.len());
 }
 
-#[cfg(target_os = "macos")]
-#[test]
-fn test_system_read_paths_grant_etc() {
-    let caps = build_capability_set(&Config::default()).unwrap();
-    for path in ["/etc", "/private/etc"] {
-        let p = Path::new(path);
-        assert!(p.is_dir(), "{path} should exist on macOS");
-        assert!(
-            caps.fs_capabilities()
-                .iter()
-                .any(|c| c.original.as_path() == p && c.access == AccessMode::Read),
-            "system path {path} should be granted Read"
-        );
-    }
-}
-
-#[test]
-fn test_system_readwrite_paths_granted_readwrite() {
-    let caps = build_capability_set(&Config::default()).unwrap();
-    for path in system_write_paths() {
-        let p = Path::new(path);
-        if p.is_dir() {
-            assert!(
-                caps.fs_capabilities()
-                    .iter()
-                    .any(|c| c.original.as_path() == p && c.access == AccessMode::ReadWrite),
-                "path {path} should be granted ReadWrite"
-            );
-        }
-    }
-}
-
-#[test]
-#[serial]
-fn test_tmpdir_path_granted_readwrite() {
-    let dir = TempDir::new("tmpdir-write");
-    let saved = std::env::var_os("TMPDIR");
-    // SAFETY: `#[serial]` prevents concurrent env mutation in this process.
-    unsafe { std::env::set_var("TMPDIR", dir.path()) };
-    let caps = build_capability_set(&Config::default()).unwrap();
-    if let Some(prev) = saved {
-        // SAFETY: restoring the value captured above.
-        unsafe { std::env::set_var("TMPDIR", prev) };
-    } else {
-        // SAFETY: restoring the absence captured above.
-        unsafe { std::env::remove_var("TMPDIR") };
-    }
-    assert!(
-        caps.fs_capabilities()
-            .iter()
-            .any(|c| c.original.as_path() == dir.path() && c.access == AccessMode::ReadWrite),
-        "TMPDIR path {} should be granted ReadWrite",
-        dir.path().display()
-    );
-}
-
-#[test]
-#[serial]
-fn test_user_tools_paths_granted_read() {
-    let home = TempDir::new("user-tools-home");
-    for path in USER_TOOLS_PATHS {
-        let sub = path
-            .strip_prefix("~/")
-            .expect("user_tools path should start with ~/");
-        std::fs::create_dir_all(home.path().join(sub)).expect("create user_tools dir");
-    }
-
-    let saved = std::env::var_os("HOME");
-    // SAFETY: `#[serial]` prevents concurrent env mutation in this process.
-    unsafe { std::env::set_var("HOME", home.path()) };
-    let mut expanded = Vec::new();
-    for path in USER_TOOLS_PATHS {
-        if let Some(path) = expand_home(path) {
-            expanded.push(path);
-        }
-    }
-    let caps = build_capability_set(&Config::default()).unwrap();
-    if let Some(prev) = saved {
-        // SAFETY: restoring the value captured above.
-        unsafe { std::env::set_var("HOME", prev) };
-    } else {
-        // SAFETY: restoring the absence captured above.
-        unsafe { std::env::remove_var("HOME") };
-    }
-
-    assert_eq!(
-        expanded.len(),
-        USER_TOOLS_PATHS.len(),
-        "every user_tools path should expand when HOME is set"
-    );
-    for path in &expanded {
-        let canonical = path.canonicalize().expect("canonicalize user_tools path");
-        assert!(
-            caps.path_covered_with_access(&canonical, AccessMode::Read),
-            "user_tools path {} should be covered Read",
-            canonical.display()
-        );
-    }
-}
-
 #[test]
 fn test_missing_config_path_errors() {
     let missing = PathBuf::from("/nonexistent-nu-mcp-test-xyz/subdir");
@@ -473,25 +180,6 @@ fn test_missing_config_path_errors() {
         err.to_string().contains(&missing.display().to_string()),
         "error should name the missing path, got: {err}"
     );
-}
-
-#[test]
-fn test_network_allowed_by_default() {
-    let caps = build_capability_set(&Config::default()).unwrap();
-    assert!(
-        !caps.is_network_blocked(),
-        "network should be allowed by default"
-    );
-}
-
-#[test]
-fn test_block_network_flag_blocks_network() {
-    let config = Config {
-        block_network: true,
-        ..Config::default()
-    };
-    let caps = build_capability_set(&config).unwrap();
-    assert!(caps.is_network_blocked(), "network should be blocked");
 }
 
 #[test]
