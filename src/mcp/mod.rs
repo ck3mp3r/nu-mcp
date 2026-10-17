@@ -280,8 +280,11 @@ pub mod formatter;
 pub mod router;
 
 #[cfg(test)]
+#[path = "../../test/mcp/formatter_test.rs"]
 mod formatter_test;
 #[cfg(test)]
+#[path = "../../test/mcp/mod_test.rs"]
 mod mod_test;
 #[cfg(test)]
+#[path = "../../test/mcp/router_test.rs"]
 mod router_test;

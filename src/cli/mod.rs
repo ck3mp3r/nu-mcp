@@ -19,4 +19,5 @@ pub struct Cli {
 }
 
 #[cfg(test)]
+#[path = "../../test/cli/mod_test.rs"]
 mod mod_test;

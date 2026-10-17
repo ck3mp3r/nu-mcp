@@ -538,4 +538,5 @@ fn is_common_command(word: &str) -> bool {
 }
 
 #[cfg(test)]
+#[path = "../../test/security/mod_test.rs"]
 mod mod_test;

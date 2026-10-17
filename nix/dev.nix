@@ -14,7 +14,7 @@
   # Development helper scripts
   check = pkgs.writeShellScriptBin "check" ''cargo check'';
   fmt = pkgs.writeShellScriptBin "fmt" ''cargo fmt'';
-  tests = pkgs.writeShellScriptBin "tests" ''cargo test'';
+  tests = pkgs.writeShellScriptBin "tests" ''cargo nextest run'';
   clippy = pkgs.writeShellScriptBin "clippy" ''cargo clippy'';
   coverage = pkgs.writeShellScriptBin "coverage" ''cargo tarpaulin --out Html'';
   build = pkgs.writeShellScriptBin "build" ''cargo build --release'';
@@ -27,6 +27,7 @@ in
       rustToolchain
       pkgs.nushell
       pkgs.cargo-tarpaulin
+      pkgs.cargo-nextest
       pkgs.topiary-nu
       pkgs.argocd
       pkgs.prek
@@ -58,7 +59,7 @@ in
       echo "Available commands:"
       echo "  check       - Run cargo check"
       echo "  fmt         - Run cargo fmt"
-      echo "  tests       - Run cargo test"
+      echo "  tests       - Run cargo nextest"
       echo "  clippy      - Run cargo clippy"
       echo "  coverage    - Generate code coverage report"
       echo "  build       - Build release binary"

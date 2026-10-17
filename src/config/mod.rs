@@ -8,4 +8,5 @@ pub struct Config {
 }
 
 #[cfg(test)]
+#[path = "../../test/config/mod_test.rs"]
 mod mod_test;
