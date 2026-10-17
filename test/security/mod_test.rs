@@ -35,64 +35,64 @@ impl Drop for TempDir {
 
 #[test]
 fn test_sandbox_directories_granted_readwrite() {
-    let dir = std::env::temp_dir();
+    let dir = TempDir::new("sandbox");
     let config = Config {
-        sandbox_directories: vec![dir.clone()],
+        sandbox_directories: vec![dir.path().to_path_buf()],
         ..Config::default()
     };
     let caps = build_capability_set(&config).unwrap();
     assert!(
         caps.fs_capabilities()
             .iter()
-            .any(|c| c.original.as_path() == dir.as_path() && c.access == AccessMode::ReadWrite),
+            .any(|c| c.original.as_path() == dir.path() && c.access == AccessMode::ReadWrite),
         "sandbox directory should be granted ReadWrite"
     );
 }
 
 #[test]
 fn test_read_only_paths_granted_read_only() {
-    let dir = std::env::temp_dir();
+    let dir = TempDir::new("readonly");
     let config = Config {
-        read_only_paths: vec![dir.clone()],
+        read_only_paths: vec![dir.path().to_path_buf()],
         ..Config::default()
     };
     let caps = build_capability_set(&config).unwrap();
     assert!(
         caps.fs_capabilities()
             .iter()
-            .any(|c| c.original.as_path() == dir.as_path() && c.access == AccessMode::Read),
+            .any(|c| c.original.as_path() == dir.path() && c.access == AccessMode::Read),
         "read-only path should be granted Read"
     );
 }
 
 #[test]
 fn test_tools_dir_granted_read_only() {
-    let dir = std::env::temp_dir();
+    let dir = TempDir::new("toolsdir");
     let config = Config {
-        tools_dir: Some(dir.clone()),
+        tools_dir: Some(dir.path().to_path_buf()),
         ..Config::default()
     };
     let caps = build_capability_set(&config).unwrap();
     assert!(
         caps.fs_capabilities()
             .iter()
-            .any(|c| c.original.as_path() == dir.as_path() && c.access == AccessMode::Read),
+            .any(|c| c.original.as_path() == dir.path() && c.access == AccessMode::Read),
         "tools_dir should be granted Read"
     );
 }
 
 #[test]
 fn test_bypass_protection_paths_granted_readwrite() {
-    let dir = std::env::temp_dir();
+    let dir = TempDir::new("bypass");
     let config = Config {
-        bypass_protection: vec![dir.clone()],
+        bypass_protection: vec![dir.path().to_path_buf()],
         ..Config::default()
     };
     let caps = build_capability_set(&config).unwrap();
     assert!(
         caps.fs_capabilities()
             .iter()
-            .any(|c| c.original.as_path() == dir.as_path() && c.access == AccessMode::ReadWrite),
+            .any(|c| c.original.as_path() == dir.path() && c.access == AccessMode::ReadWrite),
         "bypass-protection path should be granted ReadWrite"
     );
 }
