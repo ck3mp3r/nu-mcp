@@ -10,7 +10,6 @@ use crate::config::Config;
 use nono::{AccessMode, CapabilitySet};
 use serial_test::serial;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 
 /// A unique temporary directory, removed when dropped.
 struct TempDir(PathBuf);
@@ -97,44 +96,6 @@ fn test_bypass_protection_paths_granted_readwrite() {
     );
 }
 
-/// A [`MakeWriter`](tracing_subscriber::fmt::MakeWriter) that appends formatted
-/// tracing output to a shared buffer so tests can assert on emitted warnings.
-#[derive(Clone)]
-struct CaptureWriter(Arc<Mutex<Vec<u8>>>);
-
-impl std::io::Write for CaptureWriter {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.0.lock().expect("lock").extend_from_slice(buf);
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
-impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for CaptureWriter {
-    type Writer = CaptureWriter;
-
-    fn make_writer(&'a self) -> Self::Writer {
-        self.clone()
-    }
-}
-
-/// Run `f` with a capturing `WARN`-level subscriber and return the formatted
-/// output.
-fn capture_warnings<F: FnOnce()>(f: F) -> String {
-    let buffer = Arc::new(Mutex::new(Vec::new()));
-    let subscriber = tracing_subscriber::fmt()
-        .with_writer(CaptureWriter(Arc::clone(&buffer)))
-        .with_ansi(false)
-        .with_max_level(tracing::Level::WARN)
-        .finish();
-    tracing::subscriber::with_default(subscriber, f);
-    let bytes = buffer.lock().expect("lock").clone();
-    String::from_utf8(bytes).expect("utf8")
-}
-
 #[test]
 #[serial]
 fn test_expand_home_config_paths() {
@@ -195,7 +156,7 @@ fn test_expand_home_config_paths() {
 
 #[test]
 #[serial]
-fn test_expand_home_config_path_missing_warns() {
+fn test_expand_home_config_path_missing_errors() {
     let home = TempDir::new("expand-home-missing");
     let missing = home.path().join("does-not-exist");
 
@@ -206,16 +167,7 @@ fn test_expand_home_config_path_missing_warns() {
         sandbox_directories: vec![PathBuf::from("~/does-not-exist")],
         ..Config::default()
     };
-    let output = capture_warnings(|| {
-        let caps = build_capability_set(&config).expect("build");
-        assert!(
-            !caps
-                .fs_capabilities()
-                .iter()
-                .any(|c| c.original.as_path() == missing.as_path()),
-            "missing expanded path should not be granted"
-        );
-    });
+    let result = build_capability_set(&config);
     if let Some(prev) = saved {
         // SAFETY: restoring the value captured above.
         unsafe { std::env::set_var("HOME", prev) };
@@ -224,15 +176,16 @@ fn test_expand_home_config_path_missing_warns() {
         unsafe { std::env::remove_var("HOME") };
     }
 
+    let err = result.expect_err("missing config path should fail");
     assert!(
-        output.contains("does not exist or is not a directory"),
-        "expected a warning for the missing config path, got: {output}"
+        err.to_string().contains(&missing.display().to_string()),
+        "error should name the missing path, got: {err}"
     );
 }
 
 #[test]
 #[serial]
-fn test_expand_home_config_path_without_home_warns() {
+fn test_expand_home_config_path_without_home_errors() {
     let saved = std::env::var_os("HOME");
     // SAFETY: `#[serial]` prevents concurrent env mutation in this process.
     unsafe { std::env::remove_var("HOME") };
@@ -240,24 +193,16 @@ fn test_expand_home_config_path_without_home_warns() {
         sandbox_directories: vec![PathBuf::from("~/sandbox")],
         ..Config::default()
     };
-    let output = capture_warnings(|| {
-        let caps = build_capability_set(&config).expect("build");
-        assert!(
-            !caps
-                .fs_capabilities()
-                .iter()
-                .any(|c| c.original.as_path() == Path::new("~/sandbox")),
-            "unexpanded ~/ path should not be granted"
-        );
-    });
+    let result = build_capability_set(&config);
     if let Some(prev) = saved {
         // SAFETY: restoring the value captured above.
         unsafe { std::env::set_var("HOME", prev) };
     }
 
+    let err = result.expect_err("unset HOME with ~/ path should fail");
     assert!(
-        output.contains("HOME is not set"),
-        "expected a warning when HOME is unset, got: {output}"
+        err.to_string().contains("HOME is not set"),
+        "error should mention HOME, got: {err}"
     );
 }
 
@@ -516,20 +461,17 @@ fn test_user_tools_paths_granted_read() {
 }
 
 #[test]
-fn test_missing_paths_are_skipped() {
+fn test_missing_config_path_errors() {
     let missing = PathBuf::from("/nonexistent-nu-mcp-test-xyz/subdir");
     assert!(!missing.exists());
     let config = Config {
         sandbox_directories: vec![missing.clone()],
         ..Config::default()
     };
-    let caps = build_capability_set(&config).unwrap();
+    let err = build_capability_set(&config).expect_err("missing config path should fail");
     assert!(
-        !caps
-            .fs_capabilities()
-            .iter()
-            .any(|c| c.original == missing || c.resolved == missing),
-        "missing path should not be granted"
+        err.to_string().contains(&missing.display().to_string()),
+        "error should name the missing path, got: {err}"
     );
 }
 

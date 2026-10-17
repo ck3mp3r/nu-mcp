@@ -7,7 +7,7 @@
 //! validation.
 
 use crate::config::Config;
-use nono::{AccessMode, CapabilitySet};
+use nono::{AccessMode, CapabilitySet, NonoError};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
@@ -269,12 +269,12 @@ fn allow_if_dir(caps: CapabilitySet, path: &Path, mode: AccessMode) -> nono::Res
     }
 }
 
-/// Expand `~` in a config-specified path, then grant `mode` when the expanded
-/// path exists as a directory.
+/// Expand `~` in a config-specified path, then grant `mode` on the expanded
+/// path.
 ///
-/// Logs a warning and skips the path when `HOME` is unset for a `~/` path, or
-/// when the path does not exist as a directory, so silently-dropped grants are
-/// visible in logs.
+/// Returns an error when `HOME` is unset for a `~/` path, or when the path does
+/// not exist as a directory: a user-specified grant that cannot be applied is a
+/// configuration error, not a silent skip.
 fn allow_config_dir(
     caps: CapabilitySet,
     path: &Path,
@@ -284,23 +284,22 @@ fn allow_config_dir(
         match expand_home(path) {
             Some(expanded) => expanded,
             None => {
-                tracing::warn!(
-                    "config path {} starts with ~/ but HOME is not set; skipping",
+                return Err(NonoError::SandboxInit(format!(
+                    "config path {} starts with ~/ but HOME is not set",
                     path.display()
-                );
-                return Ok(caps);
+                )));
             }
         }
     } else {
         path.to_path_buf()
     };
     if !expanded.is_dir() {
-        tracing::warn!(
-            "config path {} does not exist or is not a directory; skipping",
+        return Err(NonoError::SandboxInit(format!(
+            "config path {} does not exist or is not a directory",
             expanded.display()
-        );
+        )));
     }
-    allow_if_dir(caps, &expanded, mode)
+    caps.allow_path(&expanded, mode)
 }
 
 /// Expand a `~`-prefixed path to an absolute path using `$HOME`.
