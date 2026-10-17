@@ -18,19 +18,10 @@ pub trait CommandExecutor: Send + Sync {
         working_dir: &Path,
         timeout_secs: Option<u64>,
     ) -> impl std::future::Future<Output = Result<(String, String), String>> + Send;
-
-    /// Reset the executor to a clean state (e.g., fresh shell).
-    /// Default implementation is a no-op for stateless executors.
-    fn reset(&self) -> impl std::future::Future<Output = Result<(), String>> + Send {
-        async { Ok(()) }
-    }
 }
 
 pub mod nushell;
 pub use nushell::NushellExecutor;
-
-pub mod osc133;
-pub mod persistent;
 
 #[cfg(test)]
 #[path = "../../test/execution/mock.rs"]
@@ -44,6 +35,3 @@ mod mock_test;
 #[cfg(test)]
 #[path = "../../test/execution/nushell_test.rs"]
 mod nushell_test;
-#[cfg(test)]
-#[path = "../../test/execution/persistent_test.rs"]
-mod persistent_test;

@@ -4,7 +4,7 @@
 
 - [Configuration](configuration.md) - Setup, command-line options, environment variables
 - [Multiple Instances](multiple-instances.md) - Running multiple specialized MCP servers
-- [Security](security.md) - Sandbox, path validation, safety
+- [Security](security.md) - Kernel-enforced sandboxing via nono
 
 ## Tool Development
 

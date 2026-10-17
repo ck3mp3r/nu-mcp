@@ -1,53 +1,42 @@
 use super::formatter::ResultFormatter;
 use crate::config::Config;
 use crate::execution::CommandExecutor;
-use crate::security::{PathCache, validate_path_safety_with_cache};
 use crate::tools::{ExtensionTool, NushellToolExecutor, ToolExecutor};
 use rmcp::model::CallToolRequestParams;
 use rmcp::{
     model::{CallToolResult, ErrorData},
     serde_json,
 };
-use std::{env, path::PathBuf, sync::Arc};
-use tokio::sync::RwLock;
+use std::{env, path::PathBuf};
 
 #[derive(Clone)]
-pub struct ToolRouter<S, P, T = NushellToolExecutor>
+pub struct ToolRouter<S, T = NushellToolExecutor>
 where
     S: CommandExecutor,
-    P: CommandExecutor,
     T: ToolExecutor,
 {
     pub config: Config,
     pub extensions: Vec<ExtensionTool>,
     pub stateless_executor: S,
-    pub persistent_executor: P,
     pub tool_executor: T,
-    /// Path cache injected as dependency (Arc<RwLock> allows concurrent reads)
-    path_cache: Arc<RwLock<PathCache>>,
 }
 
-impl<S, P, T> ToolRouter<S, P, T>
+impl<S, T> ToolRouter<S, T>
 where
     S: CommandExecutor,
-    P: CommandExecutor,
     T: ToolExecutor,
 {
     pub fn new(
         config: Config,
         extensions: Vec<ExtensionTool>,
         stateless_executor: S,
-        persistent_executor: P,
         tool_executor: T,
-        path_cache: Arc<RwLock<PathCache>>,
     ) -> Self {
         Self {
             config,
             extensions,
             stateless_executor,
-            persistent_executor,
             tool_executor,
-            path_cache,
         }
     }
 
@@ -58,7 +47,6 @@ where
         let tool_name = request.name.clone();
         match tool_name.as_ref() {
             "run" => self.handle_run(request).await,
-            "shell" => self.handle_shell(request).await,
             tool_name => self.handle_extension_tool(request, tool_name).await,
         }
     }
@@ -83,92 +71,9 @@ where
         let work_dir = determine_working_directory(&self.config.sandbox_directories)
             .map_err(|e| ErrorData::internal_error(e, None))?;
 
-        // Validate command for path safety (with injected cache)
-        let validation_result = {
-            let mut cache = self.path_cache.write().await;
-            validate_path_safety_with_cache(command, &self.config.sandbox_directories, &mut cache)
-        };
-
-        if let Err(msg) = validation_result {
-            return ResultFormatter::invalid_request(msg);
-        }
-
         // Execute using stateless executor (concurrent)
         let (stdout, stderr) = self
             .stateless_executor
-            .execute(command, &work_dir, timeout_secs)
-            .await
-            .map_err(|e| ErrorData::internal_error(e, None))?;
-
-        Ok(ResultFormatter::success_with_stderr(stdout, stderr))
-    }
-
-    async fn handle_shell(
-        &self,
-        request: CallToolRequestParams,
-    ) -> Result<CallToolResult, ErrorData> {
-        let args = request.arguments.as_ref();
-
-        let command = args
-            .and_then(|args| args.get("command"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("version");
-
-        // Trace to file for debugging (only when MCP_PTY_TRACE is set)
-        if std::env::var("MCP_PTY_TRACE").is_ok()
-            && let Ok(mut f) = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open("/tmp/pty_trace.log")
-        {
-            use std::io::Write;
-            let _ = writeln!(f, "ROUTER: handle_shell command={:?}", command);
-        }
-
-        // Check for reset parameter — recreate shell before executing
-        let reset = args
-            .and_then(|args| args.get("reset"))
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-
-        if reset {
-            self.persistent_executor
-                .reset()
-                .await
-                .map_err(|e| ErrorData::internal_error(e, None))?;
-        }
-
-        // Extract optional timeout parameter
-        let timeout_secs = args
-            .and_then(|args| args.get("timeout_seconds"))
-            .and_then(|v| v.as_u64());
-
-        // Determine working directory
-        let work_dir = determine_working_directory(&self.config.sandbox_directories)
-            .map_err(|e| ErrorData::internal_error(e, None))?;
-
-        // Validate command for path safety (with injected cache)
-        // Use write lock - async-aware, no poisoning possible
-        let validation_result = {
-            let mut cache = self.path_cache.write().await;
-            validate_path_safety_with_cache(command, &self.config.sandbox_directories, &mut cache)
-        };
-
-        if let Err(msg) = validation_result {
-            if std::env::var("MCP_PTY_TRACE").is_ok()
-                && let Ok(mut f) = std::fs::OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open("/tmp/pty_trace.log")
-            {
-                use std::io::Write;
-                let _ = writeln!(f, "ROUTER: path validation REJECTED: {:?}", msg);
-            }
-            return ResultFormatter::invalid_request(msg);
-        }
-
-        let (stdout, stderr) = self
-            .persistent_executor
             .execute(command, &work_dir, timeout_secs)
             .await
             .map_err(|e| ErrorData::internal_error(e, None))?;

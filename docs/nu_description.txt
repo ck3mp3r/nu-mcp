@@ -1,0 +1,9 @@
+Execute a Nushell command in a stateless one-shot process. Each call spawns an independent process — no state is preserved between calls (no environment variables, no aliases, no working directory changes). Multiple calls CAN execute concurrently.
+
+CRITICAL - Nushell Syntax Only:
+- Use Nushell syntax ONLY (NOT bash/sh/zsh)
+- ❌ NEVER: `2>&1`, `/dev/null`, `||`, `&&`
+- ✅ Use: `| complete`, `try { } catch { }`
+
+Filesystem access is enforced by the kernel (Landlock on Linux, Seatbelt on macOS).
+Access is limited to the configured sandbox directories.
