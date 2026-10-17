@@ -85,7 +85,7 @@ Example:
 Test against both valid and invalid commands:
 
 ```rust
-// In src/security/mod_test.rs
+// In test/security/mod_test.rs
 #[test]
 fn test_your_pattern_in_allowlist() {
     let sandbox = current_dir().unwrap();
@@ -220,5 +220,5 @@ cargo test security::
 
 - Pattern file: `src/security/safe_command_patterns.txt`
 - Implementation: `src/security/mod.rs`
-- Tests: `src/security/mod_test.rs`
+- Tests: `test/security/mod_test.rs`
 - User docs: `docs/security.md`
