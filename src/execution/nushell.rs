@@ -36,6 +36,9 @@ impl CommandExecutor for NushellExecutor {
             Ok(Ok(output)) => {
                 let stdout = String::from_utf8_lossy(&output.stdout).to_string();
                 let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                if !output.status.success() {
+                    return Err(format!("nu exited with {}: {}", output.status, stderr));
+                }
                 Ok((stdout, stderr))
             }
             Ok(Err(e)) => Err(e.to_string()),
