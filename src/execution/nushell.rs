@@ -19,6 +19,7 @@ impl CommandExecutor for NushellExecutor {
 
         // Spawn child process
         let child = Command::new("nu")
+            .arg("--no-config-file")
             .arg("-c")
             .arg(command)
             .current_dir(working_dir)
@@ -35,6 +36,9 @@ impl CommandExecutor for NushellExecutor {
             Ok(Ok(output)) => {
                 let stdout = String::from_utf8_lossy(&output.stdout).to_string();
                 let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                if !output.status.success() {
+                    return Err(format!("nu exited with {}: {}", output.status, stderr));
+                }
                 Ok((stdout, stderr))
             }
             Ok(Err(e)) => Err(e.to_string()),

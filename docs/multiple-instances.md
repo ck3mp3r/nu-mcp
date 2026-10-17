@@ -24,7 +24,7 @@ nu-mcp-dev:
   command: "nu-mcp"
   args:
     - "--tools-dir=/opt/mcp-tools/dev"
-    - "--enable-run-nu"
+    - "--enable-nu"
     - "--add-path=/workspace/project"
 ```
 

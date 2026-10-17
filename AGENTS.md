@@ -35,16 +35,13 @@ test/
     mock.rs                  # test-only mock impl (#[cfg(test)])
     mock_test.rs
     nushell_test.rs
-    osc133.rs
-    persistent_extract_output.rs
-    persistent_test.rs
   mcp/
     formatter_test.rs
     mod_test.rs
     router_test.rs
     router_working_dir.rs
   security/
-    mod_test.rs
+    mod_test.rs              # capability set builder tests
   tools/
     discovery_test.rs
     execution_test.rs
@@ -186,11 +183,11 @@ in the scope, flag it for the orchestrator — do not do it inline.
 - ❌ NO: `pub(crate)` fields or `#[cfg(test)]` accessors to expose internal state for tests
 - ✅ YES: Design the public API so tests use the same methods as production code. If the API doesn't expose enough to verify a behavior, the API is missing a method.
 
-**The DI boundary is where the trait object lives.** nu-mcp uses static dispatch — `NushellTool<S: CommandExecutor, P: CommandExecutor, T: ToolExecutor>` is generic over the executors, so no trait object is needed. If a crate boundary ever requires dynamic dispatch, that boundary is the only place it is allowed.
+**The DI boundary is where the trait object lives.** nu-mcp uses static dispatch — `NushellTool<S: CommandExecutor, T: ToolExecutor>` is generic over the executors, so no trait object is needed. If a crate boundary ever requires dynamic dispatch, that boundary is the only place it is allowed.
 
 ### What counts as production code
 
-Any `.rs` file under `src/` is production code. This includes `mod.rs`, `nushell.rs`, `persistent.rs`, `router.rs`, `formatter.rs`, `config.rs`, etc. Test files live under `test/`. The `#[cfg(test)]` attribute on `fn` in a `src/` file is the violation.
+Any `.rs` file under `src/` is production code. This includes `mod.rs`, `nushell.rs`, `router.rs`, `formatter.rs`, `config.rs`, etc. Test files live under `test/`. The `#[cfg(test)]` attribute on `fn` in a `src/` file is the violation.
 
 ### Mocking
 
@@ -439,10 +436,13 @@ nu-mcp reads configuration from the `MCP_NU_MCP_TIMEOUT` environment variable (d
 The `Config` struct (`src/config/mod.rs`) holds:
 
 - `tools_dir` — directory containing extension tool scripts
-- `enable_run_nu` — whether the stateless `run` tool is enabled
-- `sandbox_directories` — directories commands may access
+- `enable_nu` — whether the stateless `run` tool is enabled
+- `sandbox_directories` — directories granted read-write access by the nono capability set
+- `read_only_paths` — directories granted read-only access by the nono capability set
+- `block_network` — whether all network access is blocked
+- `bypass_protection` — sensitive paths unblocked by the nono capability set
 
-CLI flags (`src/cli/mod.rs`) include `--tools-dir` and `--add-path`. See `docs/configuration.md` for details.
+CLI flags (`src/cli/mod.rs`) include `--tools-dir`, `--enable-nu`, `--add-path`, `--add-read-path`, `--block-network`, and `--bypass-protection`. See `docs/configuration.md` for details.
 
 ### Test Structure (rust10x conventions)
 

@@ -1,224 +1,75 @@
-# Security Module - Safe Command Patterns
+# Security Module - Capability Set Builder
 
 ## Overview
 
-This module implements filesystem path validation for the nu-mcp sandbox. Commands are validated using a two-tier approach:
+This module builds a nono [`CapabilitySet`] from the sandbox configuration. The
+capability set is applied to the nu-mcp server process at startup (see
+`src/main.rs`); child `nu` processes inherit it. Kernel enforcement (Landlock on
+Linux, Seatbelt on macOS) is the single security boundary. There is no
+string-based command validation and no path cache.
 
-1. **Allowlist Check**: Commands matching patterns in `safe_command_patterns.txt` bypass path validation
-2. **Path Validation**: All other commands undergo full filesystem path checking
+## `build_capability_set`
 
-## Safe Command Patterns File
+`build_capability_set(config: &Config) -> nono::Result<CapabilitySet>`
+(`src/security/mod.rs`) translates the `Config` struct into a capability set:
 
-### Location
-`src/security/safe_command_patterns.txt`
+| Config field | Access granted |
+|--------------|----------------|
+| `sandbox_directories` | read-write |
+| `read_only_paths` | read |
+| `tools_dir` (when set) | read |
+| `bypass_protection` | read-write (unblocks a sensitive path) |
+| `block_network` (when true) | all network access blocked |
 
-### Format
-```
-# Comments start with #
-# Empty lines are ignored
-# One regex pattern per line
+Paths that do not exist are skipped. `CapabilitySet::allow_path` rejects missing
+paths, and the system path list differs between hosts, so the builder checks
+`Path::is_dir` before granting access.
 
-# Pattern with explanation
-^command\s+subcommand\s+
-```
+## System Path Grants
 
-### Loading
-- Patterns are loaded at **compile time** using `include_str!`
-- The file is embedded in the binary
-- Changes require recompilation
+The nono library does not grant system paths automatically. nu-mcp grants read
+access to the paths `nu` needs to start and run commands:
 
-### Rules
+- **Linux** — `/usr`, `/lib`, `/bin`, `/etc/ssl`
+- **macOS** — `/System/Library`, `/Library`, `/usr/lib`, `/usr/share/zoneinfo`, `/etc/ssl`, `/private/var/db/dyld`, `/var`
+- **Other platforms** — no system paths
 
-**ONLY** add commands that use **NON-filesystem path arguments**:
+`/tmp` is granted read-write on every platform.
 
-✅ **Safe to add:**
-- API endpoints: `gh api /repos/owner/repo`
-- Resource identifiers: `kubectl get /apis/apps/v1`
-- URLs: `curl https://api.example.com`
-- Resource paths: `argocd app get /argocd/myapp`
-- System info with NO file arguments: `docker ps`, `top`, `ps`, `df`
-- Git read-only: `git log`, `git status` (read-only even with pathspecs)
-- Network tools: `ping`, `dig`, `traceroute`
-- Package manager queries: `npm list`, `pip show` (no file arguments)
+### Auto-detected `nu` paths
 
-❌ **DO NOT add:**
-- File readers: `cat`, `less`, `head`, `tail`
-- File listers: `ls`, `find`, `tree`
-- File info: `stat`, `file`
-- Text processors: `grep`, `rg`, `awk`, `sed`
-- Data query tools: `jq`, `yq`, `fx`, `dasel` (they read from files!)
-- Directory analyzers: `du` (accepts directory paths)
-- File monitors: `lsof` (accepts file paths)
+The fixed system path list does not cover `nu` installed outside it — for
+example Nix (`/nix/store/<hash>-nushell-<version>/bin/nu`) or Homebrew
+(`/opt/homebrew/bin/nu`). At startup, `build_capability_set` resolves `nu` by
+walking `$PATH` and grants read access to the binary's parent directory. It
+then enumerates the binary's dynamic library dependencies (`otool -L` on macOS,
+`ldd` on Linux) and grants read access to the parent directory of each
+dependency outside the system path list. Nix store paths change on every
+package update, so detection runs at startup rather than using a fixed list.
 
-**Why?** These commands access filesystem paths and MUST be validated against the sandbox.
+If `nu` is not found, or `otool`/`ldd` fails, the builder logs a warning and
+continues without the corresponding grants.
 
-## Adding New Patterns
+## Platform-Specific Behavior
 
-### Step 1: Identify the Pattern
+System path grants are selected at compile time with `#[cfg(target_os = ...)]`.
+The kernel mechanism differs by platform:
 
-Determine if the command uses non-filesystem paths:
+- **Linux** — Landlock
+- **macOS** — Seatbelt
 
-```bash
-# ✅ Good: API endpoint (not a filesystem path)
-gh api /repos/owner/repo/contents/file.yml
+Both are additive-restrictive: a process can only access what every enclosing
+sandbox allows. When nu-mcp runs inside an outer sandbox (container, VM, another
+nono instance), the two compose.
 
-# ❌ Bad: Filesystem path (needs validation)
-cat /etc/passwd
-```
+## Error Behavior
 
-### Step 2: Write the Regex
-
-Patterns should:
-- Start with `^` (match from beginning)
-- Be specific to avoid over-matching
-- Use `\s+` for required whitespace
-- Use `\b` for word boundaries
-
-Example:
-```
-# GitHub CLI - API endpoints only
-^gh\s+api\s+
-```
-
-### Step 3: Test the Pattern
-
-Test against both valid and invalid commands:
-
-```rust
-// In test/security/mod_test.rs
-#[test]
-fn test_your_pattern_in_allowlist() {
-    let sandbox = current_dir().unwrap();
-
-    // Should match (bypass validation)
-    assert!(validate_path_safety("your-tool api /endpoint", &sandbox).is_ok());
-
-    // Should NOT match (still validated)
-    assert!(validate_path_safety("your-tool file /etc/passwd", &sandbox).is_err());
-}
-```
-
-### Step 4: Document the Pattern
-
-Add clear comments in the pattern file:
-
-```
-# Tool Name - Purpose
-# Matches: command pattern examples
-# Notes: Special cases or limitations
-^your-pattern\s+
-```
-
-## Common Pitfalls
-
-### 1. Too Broad Patterns
-
-❌ **Bad**: Matches everything
-```
-^git\s+
-```
-
-✅ **Good**: Specific to read-only operations
-```
-^git\s+(log|status|diff|show)\b
-```
-
-### 2. Filesystem-Accessing Commands
-
-❌ **Bad**: `cat` reads files, needs validation
-```
-^cat\s+
-```
-
-✅ **Good**: Only non-filesystem operations
-```
-^git\s+log\s+
-```
-
-### 3. Negative Lookahead/Lookbehind
-
-❌ **Bad**: Rust regex doesn't support `(?!...)`
-```
-^cat\s+(?!>)
-```
-
-✅ **Good**: Simple positive matching
-```
-^http\s+get\s+
-```
-
-## Pattern Categories
-
-### API Endpoints
-Commands that accept URL-like paths for API access:
-- `gh api /repos/...`
-- `kubectl get /apis/...`
-- `argocd app get /argocd/...`
-
-### HTTP Clients
-Commands that fetch URLs (not filesystem paths):
-- `curl https://...`
-- `wget http://...`
-- `http get https://...`
-
-### Read-Only System Info
-Commands that never access user-specified paths:
-- `git log`, `git status`
-- `docker ps`, `docker images`
-- `npm list`, `pip show`
-
-### Data Transformers
-Commands that operate on stdin/stdout only:
-- `jq`
-- `yq`
-- `fx`
-- `dasel`
-
-## Testing
-
-### Unit Tests
-Each pattern should have dedicated tests:
-
-```rust
-#[test]
-fn test_pattern_matches_intended_commands() {
-    let sandbox = current_dir().unwrap();
-
-    // Test allowlist hits
-    assert!(validate_path_safety("safe command", &sandbox).is_ok());
-
-    // Test allowlist misses (still validated)
-    assert!(validate_path_safety("unsafe /etc/passwd", &sandbox).is_err());
-}
-```
-
-### Manual Testing
-```bash
-# Rebuild to load pattern changes
-cargo build
-
-# Run specific test
-cargo test test_your_pattern
-
-# Run all security tests
-cargo test security::
-```
-
-## Maintenance
-
-### Regular Review
-- Remove patterns for deprecated tools
-- Update patterns for tool changes
-- Add patterns for new tools as needed
-
-### Performance
-- Keep pattern count reasonable (< 100)
-- Use specific patterns to minimize regex overhead
-- Profile if pattern matching becomes slow
+Access outside the granted paths fails at the kernel boundary. The `nu` process
+receives `EACCES` (permission denied), which is surfaced in the tool result.
+nu-mcp does not pre-validate commands or rewrite errors.
 
 ## References
 
-- Pattern file: `src/security/safe_command_patterns.txt`
 - Implementation: `src/security/mod.rs`
 - Tests: `test/security/mod_test.rs`
 - User docs: `docs/security.md`

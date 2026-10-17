@@ -4,12 +4,11 @@ This project exposes Nushell as an MCP server using the official Rust SDK (`rmcp
 
 ## Features
 - Exposes a tool to run arbitrary Nushell commands via MCP
-- **Persistent shell** - State (environment variables, aliases, definitions) is preserved between commands
-- **Shell reset** - Use `reset: true` to get a clean shell when needed
+- **One-shot execution** - Each call spawns an independent Nushell process; no state is preserved between calls
 - **Configurable timeout support** - Set global defaults via `MCP_NU_MCP_TIMEOUT` or per-call with `timeout_seconds` parameter
 - Extensible tool system via Nushell scripts in modular directories
 - Uses the official Model Context Protocol Rust SDK
-- Security sandbox with intelligent path validation and caching
+- **Kernel-enforced sandbox** - Filesystem and network access restricted by nono (Landlock on Linux, Seatbelt on macOS)
 - Catalog of useful MCP tools for Kubernetes, ArgoCD, Tmux, Context7 and more
 
 ## Quick Start
@@ -18,7 +17,7 @@ This project exposes Nushell as an MCP server using the official Rust SDK (`rmcp
 ```bash
 nu-mcp
 ```
-Provides the `run` tool for executing Nushell commands in a persistent shell. Environment variables, aliases, and definitions are preserved between calls. Use `reset: true` to get a clean environment when needed.
+Provides the `run` tool for executing Nushell commands. Each call runs in a stateless one-shot process — no environment variables, aliases, or definitions are preserved between calls.
 
 ### Extension Mode
 ```bash
@@ -28,7 +27,7 @@ Load tools from the included catalog or your custom tool modules. Each tool is a
 
 ### Hybrid Mode
 ```bash
-nu-mcp --tools-dir=./tools --enable-run-nu
+nu-mcp --tools-dir=./tools --enable-nu
 ```
 Combine both core command execution and extension tools.
 
@@ -45,12 +44,14 @@ The `tools/` directory contains a growing catalog of useful MCP tools:
 
 ### Command Line Options
 - `--tools-dir=PATH` - Directory containing tool modules
-- `--enable-run-nu` - Enable generic command execution alongside tools
-- `--add-path=PATH` - Add additional accessible paths (current directory always included)
+- `--enable-nu` - Enable the `run` tool alongside tools
+- `--add-path=PATH` - Add additional read-write accessible paths (current directory always included)
+- `--add-read-path=PATH` - Add additional read-only accessible paths
+- `--block-network` - Block all network access for sandboxed commands
+- `--bypass-protection=PATH` - Unblock a sensitive path (can be specified multiple times)
 
 ### Environment Variables
 - `MCP_NU_MCP_TIMEOUT` - Default timeout in seconds for tool execution (default: 300)
-- `MCP_PTY_TRACE` - Set to `1` to enable PTY trace logging to `/tmp/pty_trace.log` (persistent mode only, for debugging)
 
 ### Example MCP Configuration
 ```yaml
@@ -62,20 +63,17 @@ nu-mcp:
 ```
 Note: Current working directory is always accessible. Use `--add-path` to grant access to additional paths.
 
-### Path Validation
+### Sandbox
 
-The security sandbox intelligently handles path-like strings that aren't filesystem paths:
+Filesystem and network access are enforced by the kernel through nono (Landlock on Linux, Seatbelt on macOS). The sandbox is applied to the server process at startup; child `nu` processes inherit it.
 
-```bash
-# API endpoints work without escaping sandbox
-kubectl get --raw /metrics | from json
-gh api /repos/owner/repo/contents/file.yml
+- The current working directory is always read-write accessible
+- `--add-path` grants read-write access to additional directories
+- `--add-read-path` grants read-only access to additional directories
+- `--block-network` blocks all network access
+- `--bypass-protection` unblocks a sensitive path
 
-# Path-like arguments in commands work correctly
-echo "API endpoint: /api/v1/pods"
-```
-
-The sandbox uses a two-tier system (safe patterns + runtime caching) to eliminate false positives while maintaining security.
+Access outside the granted paths fails with `EACCES` from the kernel. See [docs/security.md](docs/security.md) for details.
 
 For detailed configuration options and tool development, see the [documentation](docs/).
 
@@ -191,7 +189,7 @@ Tools are modular Nushell scripts organized in directories with a `mod.nu` entry
 
 ## Security
 
-Commands execute within a configurable directory sandbox. See [docs/security.md](docs/security.md) for detailed security considerations.
+Commands execute within a kernel-enforced sandbox (nono). See [docs/security.md](docs/security.md) for detailed security considerations.
 
 ## Documentation
 

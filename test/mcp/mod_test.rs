@@ -1,31 +1,23 @@
 use super::{NushellTool, ToolRouter};
 use crate::config::Config;
-use crate::execution::{MockExecutor, NushellExecutor};
-use crate::security::PathCache;
+use crate::execution::NushellExecutor;
 use crate::tools::MockToolExecutor;
 use rmcp::handler::server::ServerHandler;
-use std::{path::PathBuf, sync::Arc};
-use tokio::sync::RwLock;
+use std::path::PathBuf;
 
 #[test]
 fn test_get_info_includes_sandbox_info() {
     let config = Config {
         tools_dir: None,
-        enable_run_nu: false,
+        enable_nu: false,
         sandbox_directories: vec![PathBuf::from("/tmp/sandbox")],
+        block_network: false,
+        bypass_protection: vec![],
+        read_only_paths: vec![],
     };
     let stateless_executor = NushellExecutor;
-    let persistent_executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());
-    let cache = Arc::new(RwLock::new(PathCache::new()));
-    let router = ToolRouter::new(
-        config,
-        vec![],
-        stateless_executor,
-        persistent_executor,
-        tool_executor,
-        cache,
-    );
+    let router = ToolRouter::new(config, vec![], stateless_executor, tool_executor);
     let tool = NushellTool { router };
     let info = tool.get_info();
     let instructions = info.instructions.unwrap();
@@ -37,21 +29,15 @@ fn test_get_info_includes_sandbox_info() {
 fn test_get_info_default_sandbox() {
     let config = Config {
         tools_dir: None,
-        enable_run_nu: false,
+        enable_nu: false,
         sandbox_directories: vec![],
+        block_network: false,
+        bypass_protection: vec![],
+        read_only_paths: vec![],
     };
     let stateless_executor = NushellExecutor;
-    let persistent_executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());
-    let cache = Arc::new(RwLock::new(PathCache::new()));
-    let router = ToolRouter::new(
-        config,
-        vec![],
-        stateless_executor,
-        persistent_executor,
-        tool_executor,
-        cache,
-    );
+    let router = ToolRouter::new(config, vec![], stateless_executor, tool_executor);
     let tool = NushellTool { router };
     let info = tool.get_info();
     let instructions = info.instructions.unwrap();
@@ -62,21 +48,15 @@ fn test_get_info_default_sandbox() {
 fn test_get_info_basic_fields() {
     let config = Config {
         tools_dir: None,
-        enable_run_nu: false,
+        enable_nu: false,
         sandbox_directories: vec![],
+        block_network: false,
+        bypass_protection: vec![],
+        read_only_paths: vec![],
     };
     let stateless_executor = NushellExecutor;
-    let persistent_executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());
-    let cache = Arc::new(RwLock::new(PathCache::new()));
-    let router = ToolRouter::new(
-        config,
-        vec![],
-        stateless_executor,
-        persistent_executor,
-        tool_executor,
-        cache,
-    );
+    let router = ToolRouter::new(config, vec![], stateless_executor, tool_executor);
     let tool = NushellTool { router };
     let info = tool.get_info();
     assert_eq!(info.server_info.name, "nu-mcp");
@@ -90,21 +70,15 @@ fn test_get_info_marks_current_directory() {
     let cwd = std::env::current_dir().unwrap();
     let config = Config {
         tools_dir: None,
-        enable_run_nu: false,
+        enable_nu: false,
         sandbox_directories: vec![cwd.clone(), PathBuf::from("/tmp")],
+        block_network: false,
+        bypass_protection: vec![],
+        read_only_paths: vec![],
     };
     let stateless_executor = NushellExecutor;
-    let persistent_executor = MockExecutor::new("test".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("test".to_string());
-    let cache = Arc::new(RwLock::new(PathCache::new()));
-    let router = ToolRouter::new(
-        config,
-        vec![],
-        stateless_executor,
-        persistent_executor,
-        tool_executor,
-        cache,
-    );
+    let router = ToolRouter::new(config, vec![], stateless_executor, tool_executor);
     let tool = NushellTool { router };
     let info = tool.get_info();
     let instructions = info.instructions.unwrap();

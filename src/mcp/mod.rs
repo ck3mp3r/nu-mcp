@@ -14,35 +14,32 @@ use rmcp::{
 
 use crate::{
     config::Config,
-    execution::{CommandExecutor, NushellExecutor, persistent::PersistentNuExecutor},
+    execution::{CommandExecutor, NushellExecutor},
     tools::{NushellToolExecutor, ToolExecutor, discover_tools},
 };
 
-const RUN_DESCRIPTION: &str = include_str!("../../docs/run_description.txt");
-const SHELL_DESCRIPTION: &str = include_str!("../../docs/shell_description.txt");
+const NU_DESCRIPTION: &str = include_str!("../../docs/nu_description.txt");
 
 #[derive(Clone)]
-pub struct NushellTool<S, P, T = NushellToolExecutor>
+pub struct NushellTool<S, T = NushellToolExecutor>
 where
     S: CommandExecutor + 'static,
-    P: CommandExecutor + 'static,
     T: ToolExecutor + 'static,
 {
-    pub router: ToolRouter<S, P, T>,
+    pub router: ToolRouter<S, T>,
 }
 
-impl<S, P, T> ServerHandler for NushellTool<S, P, T>
+impl<S, T> ServerHandler for NushellTool<S, T>
 where
     S: CommandExecutor + 'static,
-    P: CommandExecutor + 'static,
     T: ToolExecutor + 'static,
 {
     fn get_info(&self) -> InitializeResult {
         let mut instructions = String::from("MCP server exposing Nushell commands.\n");
 
-        instructions.push_str("Security: Commands execute in sandbox directories.\n");
-        instructions.push_str("- Path traversal escaping sandboxes is blocked\n");
-        instructions.push_str("- Absolute paths outside sandboxes are blocked\n");
+        instructions.push_str("Security: Commands execute in a kernel-enforced sandbox.\n");
+        instructions.push_str("- Filesystem access is restricted to the sandbox directories\n");
+        instructions.push_str("- Network access is blocked when configured\n");
 
         if self.router.config.sandbox_directories.is_empty() {
             instructions.push_str("- Sandbox: current working directory\n");
@@ -99,16 +96,16 @@ where
             tools.push(extension.tool_definition.clone());
         }
 
-        // Add run and shell tools based on configuration:
+        // Add the run tool based on configuration:
         // - If no tools directory: include by default
         // - If tools directory exists: only include if explicitly enabled
-        let should_include_run = match &self.router.config.tools_dir {
-            None => true,                                // No tools dir = include run by default
-            Some(_) => self.router.config.enable_run_nu, // Tools dir exists = only if explicitly enabled
+        let should_include_nu = match &self.router.config.tools_dir {
+            None => true,                            // No tools dir = include run by default
+            Some(_) => self.router.config.enable_nu, // Tools dir exists = only if explicitly enabled
         };
 
-        if should_include_run {
-            // Build sandbox note (shared between both tools)
+        if should_include_nu {
+            // Build sandbox note
             let sandbox_note = if self.router.config.sandbox_directories.is_empty() {
                 "\n\nSandbox: current working directory".to_string()
             } else {
@@ -136,11 +133,11 @@ where
                 note
             };
 
-            // ===== Register `run` tool (stateless) =====
-            let mut run_schema = Map::new();
-            run_schema.insert("type".to_string(), Value::String("object".to_string()));
+            // ===== Register `run` tool =====
+            let mut nu_schema = Map::new();
+            nu_schema.insert("type".to_string(), Value::String("object".to_string()));
 
-            let mut run_properties = Map::new();
+            let mut nu_properties = Map::new();
 
             // Command property
             let mut command_prop = Map::new();
@@ -149,7 +146,7 @@ where
                 "description".to_string(),
                 Value::String("The Nushell command to execute".to_string()),
             );
-            run_properties.insert("command".to_string(), Value::Object(command_prop));
+            nu_properties.insert("command".to_string(), Value::Object(command_prop));
 
             // Timeout property (optional)
             let mut timeout_prop = Map::new();
@@ -161,69 +158,18 @@ where
                 ),
             );
             timeout_prop.insert("minimum".to_string(), Value::Number(1.into()));
-            run_properties.insert("timeout_seconds".to_string(), Value::Object(timeout_prop));
+            nu_properties.insert("timeout_seconds".to_string(), Value::Object(timeout_prop));
 
-            run_schema.insert("properties".to_string(), Value::Object(run_properties));
-            run_schema.insert(
+            nu_schema.insert("properties".to_string(), Value::Object(nu_properties));
+            nu_schema.insert(
                 "required".to_string(),
                 Value::Array(vec![Value::String("command".to_string())]),
             );
 
-            let run_description = format!("{}{}", RUN_DESCRIPTION, sandbox_note);
+            let nu_description = format!("{}{}", NU_DESCRIPTION, sandbox_note);
             tools.push(
-                Tool::new("run", run_description, Arc::new(run_schema))
-                    .with_title("Run Nushell Command (Stateless)"),
-            );
-
-            // ===== Register `shell` tool (persistent) =====
-            let mut shell_schema = Map::new();
-            shell_schema.insert("type".to_string(), Value::String("object".to_string()));
-
-            let mut shell_properties = Map::new();
-
-            // Command property
-            let mut command_prop = Map::new();
-            command_prop.insert("type".to_string(), Value::String("string".to_string()));
-            command_prop.insert(
-                "description".to_string(),
-                Value::String("The Nushell command to execute".to_string()),
-            );
-            shell_properties.insert("command".to_string(), Value::Object(command_prop));
-
-            // Timeout property (optional)
-            let mut timeout_prop = Map::new();
-            timeout_prop.insert("type".to_string(), Value::String("integer".to_string()));
-            timeout_prop.insert(
-                "description".to_string(),
-                Value::String(
-                    "Timeout in seconds (default: 300, or MCP_NU_MCP_TIMEOUT env var)".to_string(),
-                ),
-            );
-            timeout_prop.insert("minimum".to_string(), Value::Number(1.into()));
-            shell_properties.insert("timeout_seconds".to_string(), Value::Object(timeout_prop));
-
-            // Reset property (optional, shell only)
-            let mut reset_prop = Map::new();
-            reset_prop.insert("type".to_string(), Value::String("boolean".to_string()));
-            reset_prop.insert(
-                "description".to_string(),
-                Value::String(
-                    "Reset the shell to a clean state before executing. Clears all environment variables, aliases, and definitions. Use when you need a fresh environment."
-                        .to_string(),
-                ),
-            );
-            shell_properties.insert("reset".to_string(), Value::Object(reset_prop));
-
-            shell_schema.insert("properties".to_string(), Value::Object(shell_properties));
-            shell_schema.insert(
-                "required".to_string(),
-                Value::Array(vec![Value::String("command".to_string())]),
-            );
-
-            let shell_description = format!("{}{}", SHELL_DESCRIPTION, sandbox_note);
-            tools.push(
-                Tool::new("shell", shell_description, Arc::new(shell_schema))
-                    .with_title("Run Nushell Command (Persistent Shell)"),
+                Tool::new("run", nu_description, Arc::new(nu_schema))
+                    .with_title("Run Nushell Command"),
             );
         }
 
@@ -252,23 +198,9 @@ pub async fn run_server(config: Config) -> Result<()> {
 
     let tool_executor = NushellToolExecutor;
 
-    // Create path cache (session-scoped, lives for server lifetime)
-    let path_cache =
-        std::sync::Arc::new(tokio::sync::RwLock::new(crate::security::PathCache::new()));
-
-    // Create both executors
     let stateless_executor = NushellExecutor;
-    let persistent_executor = PersistentNuExecutor::new()
-        .map_err(|e| anyhow::anyhow!("Failed to create persistent shell: {}", e))?;
 
-    let router = ToolRouter::new(
-        config,
-        extensions,
-        stateless_executor,
-        persistent_executor,
-        tool_executor,
-        path_cache,
-    );
+    let router = ToolRouter::new(config, extensions, stateless_executor, tool_executor);
     let tool = NushellTool { router };
     let service = tool.serve(transport::stdio()).await?;
     service.waiting().await?;

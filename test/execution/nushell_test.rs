@@ -62,3 +62,20 @@ async fn test_nushell_executor_stderr_preserved() {
     let (_stdout, stderr) = result.unwrap();
     assert!(stderr.contains("error message"));
 }
+
+#[tokio::test]
+async fn test_nushell_executor_nonzero_exit_is_error() {
+    let executor = NushellExecutor;
+    let work_dir = env::current_dir().unwrap();
+
+    // Command that exits with a non-zero status
+    let result = executor.execute("exit 1", &work_dir, None).await;
+
+    assert!(result.is_err());
+    let error = result.unwrap_err();
+    assert!(
+        error.contains("nu exited with"),
+        "Expected non-zero exit error, got: {}",
+        error
+    );
+}

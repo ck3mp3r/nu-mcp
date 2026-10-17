@@ -3,32 +3,25 @@ use rmcp::{model::Tool, serde_json};
 use super::*;
 use crate::{
     config::Config,
-    execution::{MockExecutor, NushellExecutor},
-    security::PathCache,
+    execution::NushellExecutor,
     tools::{ExtensionTool, MockToolExecutor},
 };
-use tokio::sync::RwLock;
+use std::sync::Arc;
 
-fn create_test_router() -> ToolRouter<NushellExecutor, MockExecutor, MockToolExecutor> {
+fn create_test_router() -> ToolRouter<NushellExecutor, MockToolExecutor> {
     // Use current directory as sandbox so tests can run from anywhere
     let cwd = env::current_dir().unwrap();
     let config = Config {
         tools_dir: None,
-        enable_run_nu: true,
+        enable_nu: true,
         sandbox_directories: vec![cwd],
+        block_network: false,
+        bypass_protection: vec![],
+        read_only_paths: vec![],
     };
     let stateless_executor = NushellExecutor;
-    let persistent_executor = MockExecutor::new("test output".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("tool output".to_string());
-    let cache = Arc::new(RwLock::new(PathCache::new()));
-    ToolRouter::new(
-        config,
-        vec![],
-        stateless_executor,
-        persistent_executor,
-        tool_executor,
-        cache,
-    )
+    ToolRouter::new(config, vec![], stateless_executor, tool_executor)
 }
 
 #[tokio::test]
@@ -51,36 +44,18 @@ async fn test_router_run_stateless() {
 }
 
 #[tokio::test]
-async fn test_router_shell_persistent() {
-    let router = create_test_router();
-
-    let mut args = serde_json::Map::new();
-    args.insert(
-        "command".to_string(),
-        serde_json::Value::String("echo hello".to_string()),
-    );
-
-    let request = CallToolRequestParams::new("shell").with_arguments(args);
-
-    let result = router.route_call(request).await;
-    if let Err(e) = &result {
-        eprintln!("Router error: {:?}", e);
-    }
-    assert!(result.is_ok());
-}
-
-#[tokio::test]
 async fn test_router_extension_tool() {
     let cwd = env::current_dir().unwrap();
     let config = Config {
         tools_dir: None,
-        enable_run_nu: true,
+        enable_nu: true,
         sandbox_directories: vec![cwd],
+        block_network: false,
+        bypass_protection: vec![],
+        read_only_paths: vec![],
     };
     let stateless_executor = NushellExecutor;
-    let persistent_executor = MockExecutor::new("test output".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("tool output".to_string());
-    let cache = Arc::new(RwLock::new(PathCache::new()));
 
     // Create a fake extension tool
     let extension = ExtensionTool {
@@ -88,14 +63,7 @@ async fn test_router_extension_tool() {
         tool_definition: Tool::new("test_tool", "Test tool", Arc::new(serde_json::Map::new())),
     };
 
-    let router = ToolRouter::new(
-        config,
-        vec![extension],
-        stateless_executor,
-        persistent_executor,
-        tool_executor,
-        cache,
-    );
+    let router = ToolRouter::new(config, vec![extension], stateless_executor, tool_executor);
 
     let mut args = serde_json::Map::new();
     args.insert(
@@ -119,70 +87,6 @@ async fn test_router_unknown_tool() {
     assert!(result.is_err());
 }
 
-#[tokio::test]
-async fn test_router_uses_injected_cache() {
-    // Verify that the injected cache is actually used across multiple calls
-    let cache = Arc::new(RwLock::new(PathCache::new()));
-
-    let cwd = env::current_dir().unwrap();
-    let config = Config {
-        tools_dir: None,
-        enable_run_nu: true,
-        sandbox_directories: vec![cwd],
-    };
-    let stateless_executor = NushellExecutor;
-    let persistent_executor = MockExecutor::new("test output".to_string(), "".to_string());
-    let tool_executor = MockToolExecutor::new("tool output".to_string());
-
-    let router = ToolRouter::new(
-        config,
-        vec![],
-        stateless_executor,
-        persistent_executor,
-        tool_executor,
-        cache.clone(), // Inject cache
-    );
-
-    // Execute command with non-existent path (API endpoint)
-    let mut args = serde_json::Map::new();
-    args.insert(
-        "command".to_string(),
-        serde_json::Value::String("tool /api/endpoint".to_string()),
-    );
-
-    let request = CallToolRequestParams::new("run").with_arguments(args);
-
-    let result = router.route_call(request).await;
-    assert!(result.is_ok(), "Command should succeed");
-
-    // Verify cache was populated
-    let cache_guard = cache.write().await;
-    assert!(
-        cache_guard.contains("/api/endpoint"),
-        "Cache should contain the API endpoint path"
-    );
-}
-
-#[tokio::test]
-async fn test_router_blocks_existing_files_outside_sandbox() {
-    // Verify security is not weakened - existing files still blocked
-    let router = create_test_router();
-
-    let mut args = serde_json::Map::new();
-    args.insert(
-        "command".to_string(),
-        serde_json::Value::String("cat /etc/passwd".to_string()),
-    );
-
-    let request = CallToolRequestParams::new("run").with_arguments(args);
-
-    let result = router.route_call(request).await;
-    assert!(
-        result.is_err(),
-        "Should block existing file outside sandbox"
-    );
-}
-
 // NOTE: Poisoned mutex test removed - RwLock doesn't poison
 // If a panic occurs while holding a write lock, the RwLock remains usable
 // This is one of the benefits of using RwLock over Mutex
@@ -195,24 +99,23 @@ async fn test_mutex_not_held_during_concurrent_requests() {
     use std::time::Instant;
     use tokio::task::JoinSet;
 
-    let cache = Arc::new(RwLock::new(PathCache::new()));
     let cwd = env::current_dir().unwrap();
     let config = Config {
         tools_dir: None,
-        enable_run_nu: true,
+        enable_nu: true,
         sandbox_directories: vec![cwd],
+        block_network: false,
+        bypass_protection: vec![],
+        read_only_paths: vec![],
     };
     let stateless_executor = NushellExecutor;
-    let persistent_executor = MockExecutor::new("test output".to_string(), "".to_string());
     let tool_executor = MockToolExecutor::new("tool output".to_string());
 
     let router = Arc::new(ToolRouter::new(
         config,
         vec![],
         stateless_executor,
-        persistent_executor,
         tool_executor,
-        cache,
     ));
 
     // Launch 3 concurrent requests
@@ -225,7 +128,6 @@ async fn test_mutex_not_held_during_concurrent_requests() {
             let mut args = serde_json::Map::new();
             args.insert(
                 "command".to_string(),
-                // Use a command that will trigger path validation
                 serde_json::Value::String(format!("echo test{}", i)),
             );
 
