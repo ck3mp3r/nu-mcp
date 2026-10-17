@@ -325,6 +325,24 @@ fn test_grant_path_metadata_dirs_skips_empty_entries() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn test_grant_path_metadata_dirs_registers_canonical_target() {
+    let target = TempDir::new("metadata-canonical-target");
+    let link_parent = TempDir::new("metadata-canonical-link");
+    let link = link_parent.path().join("bin");
+    std::os::unix::fs::symlink(target.path(), &link).expect("create symlink");
+    let path = std::env::join_paths([link.as_os_str()]).expect("join paths");
+    let caps = grant_path_metadata_dirs_in(CapabilitySet::new(), &path);
+    let dirs = caps.path_metadata_dirs();
+    assert!(dirs.contains(&link), "raw PATH entry should be registered");
+    let canonical = target.path().canonicalize().expect("canonicalize target");
+    assert!(
+        dirs.contains(&canonical),
+        "canonicalized PATH entry should be registered"
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn test_build_capability_set_registers_path_metadata_dirs() {
     let caps = build_capability_set(&Config::default()).expect("build");
     let dirs = caps.path_metadata_dirs();
