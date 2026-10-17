@@ -12,6 +12,7 @@ fn test_config_creation_default() {
         block_network: false,
         bypass_protection: vec![],
         read_only_paths: vec![],
+        allow_binaries: vec![],
     };
 
     assert!(config.tools_dir.is_none());
@@ -20,6 +21,7 @@ fn test_config_creation_default() {
     assert!(!config.block_network);
     assert!(config.bypass_protection.is_empty());
     assert!(config.read_only_paths.is_empty());
+    assert!(config.allow_binaries.is_empty());
 }
 
 #[test]
@@ -33,6 +35,7 @@ fn test_config_creation_tools_dir() {
         block_network: false,
         bypass_protection: vec![],
         read_only_paths: vec![],
+        allow_binaries: vec![],
     };
 
     assert_eq!(config.tools_dir, Some(tools_path));
@@ -47,6 +50,7 @@ fn test_config_creation_enable_run() {
         block_network: false,
         bypass_protection: vec![],
         read_only_paths: vec![],
+        allow_binaries: vec![],
     };
 
     assert!(config.enable_nu);
@@ -63,6 +67,7 @@ fn test_config_creation_sandbox_directories() {
         block_network: false,
         bypass_protection: vec![],
         read_only_paths: vec![],
+        allow_binaries: vec![],
     };
 
     assert_eq!(config.sandbox_directories, vec![sandbox_path]);
@@ -81,6 +86,7 @@ fn test_config_creation_full_configuration() {
         block_network: false,
         bypass_protection: vec![],
         read_only_paths: vec![],
+        allow_binaries: vec![],
     };
 
     assert_eq!(config.tools_dir, Some(tools_path));
@@ -100,9 +106,28 @@ fn test_config_creation_sandbox_options() {
         block_network: true,
         bypass_protection: vec![bypass.clone()],
         read_only_paths: vec![read_only.clone()],
+        allow_binaries: vec![],
     };
 
     assert!(config.block_network);
     assert_eq!(config.bypass_protection, vec![bypass]);
     assert_eq!(config.read_only_paths, vec![read_only]);
+}
+
+#[test]
+fn test_config_creation_allow_binaries() {
+    let config = Config {
+        tools_dir: None,
+        enable_nu: false,
+        sandbox_directories: vec![],
+        block_network: false,
+        bypass_protection: vec![],
+        read_only_paths: vec![],
+        allow_binaries: vec!["curl".to_string(), "git".to_string()],
+    };
+
+    assert_eq!(
+        config.allow_binaries,
+        vec!["curl".to_string(), "git".to_string()]
+    );
 }

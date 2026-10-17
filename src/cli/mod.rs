@@ -28,6 +28,10 @@ pub struct Cli {
     /// Add a read-only sandbox directory (can be specified multiple times)
     #[arg(long = "add-read-path")]
     pub read_only_paths: Vec<PathBuf>,
+
+    /// Allow an external binary in the sandbox (can be specified multiple times)
+    #[arg(long = "allow-binary")]
+    pub allow_binaries: Vec<String>,
 }
 
 #[cfg(test)]

@@ -35,6 +35,12 @@ const SYSTEM_READ_PATHS: &[&str] = &[];
 /// Paths granted [`AccessMode::ReadWrite`] on every platform.
 const SYSTEM_READWRITE_PATHS: &[&str] = &["/tmp"];
 
+/// External binaries that MCP tools shell out to through `nu`.
+///
+/// Each name is resolved in `$PATH` at startup and granted [`AccessMode::Read`]
+/// so sandboxed commands can execute it. Names that do not resolve are skipped.
+const DEFAULT_ALLOW_BINARIES: &[&str] = &["gh", "kubectl", "helm", "tmux", "argocd"];
+
 /// Build a nono capability set from sandbox configuration.
 ///
 /// - `config.sandbox_directories` are granted [`AccessMode::ReadWrite`].
@@ -45,6 +51,11 @@ const SYSTEM_READWRITE_PATHS: &[&str] = &["/tmp"];
 /// - Platform system paths are granted [`AccessMode::Read`] so `nu` can start.
 /// - The `nu` binary resolved from `$PATH` and its dynamic library dependencies
 ///   are granted [`AccessMode::Read`] (see [`grant_nu_access`]).
+/// - Every binary in [`DEFAULT_ALLOW_BINARIES`] and `config.allow_binaries` that
+///   resolves in `$PATH` is granted [`AccessMode::Read`] (see
+///   [`grant_allow_binaries`]).
+/// - Every non-empty `$PATH` directory is registered for metadata-only read on
+///   macOS (see [`grant_path_metadata_dirs`]).
 /// - When `config.block_network` is true, all network access is blocked.
 ///
 /// Paths that do not exist are skipped: [`CapabilitySet::allow_path`] rejects
@@ -56,6 +67,17 @@ pub fn build_capability_set(config: &Config) -> nono::Result<CapabilitySet> {
         caps = allow_if_dir(caps, Path::new(path), AccessMode::Read)?;
     }
     caps = grant_nu_access(caps)?;
+    if let Some(path) = std::env::var_os("PATH") {
+        caps = grant_allow_binaries(
+            caps,
+            DEFAULT_ALLOW_BINARIES
+                .iter()
+                .copied()
+                .chain(config.allow_binaries.iter().map(String::as_str)),
+            &path,
+        )?;
+    }
+    caps = grant_path_metadata_dirs(caps)?;
     for path in SYSTEM_READWRITE_PATHS {
         caps = allow_if_dir(caps, Path::new(path), AccessMode::ReadWrite)?;
     }
@@ -97,6 +119,23 @@ fn grant_nu_access(caps: CapabilitySet) -> nono::Result<CapabilitySet> {
     grant_binary_access(caps, find_in_path("nu").as_deref())
 }
 
+/// Grant [`AccessMode::Read`] to the parent directories of every binary in
+/// `names` that resolves in `path`.
+///
+/// Names that do not resolve are skipped without error.
+fn grant_allow_binaries<'a>(
+    caps: CapabilitySet,
+    names: impl IntoIterator<Item = &'a str>,
+    path: &OsStr,
+) -> nono::Result<CapabilitySet> {
+    let mut caps = caps;
+    for name in names {
+        let binary = find_in_path_in(name, path);
+        caps = grant_binary_access(caps, binary.as_deref())?;
+    }
+    Ok(caps)
+}
+
 /// Grant [`AccessMode::Read`] to the parent directory of `binary` and to the
 /// parent directories of its dynamic library dependencies.
 ///
@@ -116,6 +155,39 @@ fn grant_binary_access(caps: CapabilitySet, binary: Option<&Path>) -> nono::Resu
         tracing::debug!("granting Read to nu dependency directory {}", dir.display());
         caps = allow_if_dir(caps, &dir, AccessMode::Read)?;
     }
+    Ok(caps)
+}
+
+/// Register every non-empty `$PATH` directory for metadata-only read access.
+///
+/// On macOS, Seatbelt returns `EPERM` for denied `stat()` calls, which makes
+/// `execvp` abort the `$PATH` walk instead of continuing to the next entry.
+/// Metadata-only read lets `execvp` stat `<dir>/<command>` and receive `ENOENT`,
+/// so the walk continues. On other platforms this is a no-op.
+#[cfg(target_os = "macos")]
+fn grant_path_metadata_dirs(caps: CapabilitySet) -> nono::Result<CapabilitySet> {
+    let Some(path) = std::env::var_os("PATH") else {
+        return Ok(caps);
+    };
+    Ok(grant_path_metadata_dirs_in(caps, &path))
+}
+
+/// Register every non-empty directory in `path` for metadata-only read.
+#[cfg(target_os = "macos")]
+fn grant_path_metadata_dirs_in(caps: CapabilitySet, path: &OsStr) -> CapabilitySet {
+    let mut caps = caps;
+    for dir in std::env::split_paths(path) {
+        if dir.as_os_str().is_empty() {
+            continue;
+        }
+        caps.add_path_metadata_dir(dir);
+    }
+    caps
+}
+
+/// No-op on platforms where a denied `stat()` is non-fatal to `execvp`.
+#[cfg(not(target_os = "macos"))]
+fn grant_path_metadata_dirs(caps: CapabilitySet) -> nono::Result<CapabilitySet> {
     Ok(caps)
 }
 

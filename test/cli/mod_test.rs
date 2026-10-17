@@ -12,6 +12,7 @@ fn test_default_args() {
     assert!(!args.block_network);
     assert!(args.bypass_protection.is_empty());
     assert!(args.read_only_paths.is_empty());
+    assert!(args.allow_binaries.is_empty());
 }
 
 #[test]
@@ -86,6 +87,17 @@ fn test_add_read_path_flag_repeatable() {
 }
 
 #[test]
+fn test_allow_binary_flag_repeatable() {
+    let args = Cli::try_parse_from(["nu-mcp", "--allow-binary", "curl", "--allow-binary", "git"])
+        .expect("Failed to parse --allow-binary");
+
+    assert_eq!(
+        args.allow_binaries,
+        vec!["curl".to_string(), "git".to_string()]
+    );
+}
+
+#[test]
 fn test_all_flags_combined() {
     let args = Cli::try_parse_from([
         "nu-mcp",
@@ -99,6 +111,8 @@ fn test_all_flags_combined() {
         "/home/user/.kube",
         "--add-read-path",
         "/etc/ssl",
+        "--allow-binary",
+        "curl",
     ])
     .expect("Failed to parse combined flags");
 
@@ -111,6 +125,7 @@ fn test_all_flags_combined() {
         vec![PathBuf::from("/home/user/.kube")]
     );
     assert_eq!(args.read_only_paths, vec![PathBuf::from("/etc/ssl")]);
+    assert_eq!(args.allow_binaries, vec!["curl".to_string()]);
 }
 
 #[test]
