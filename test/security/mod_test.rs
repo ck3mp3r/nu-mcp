@@ -12,6 +12,7 @@ use crate::config::Config;
 use nono::{AccessMode, CapabilitySet};
 use serial_test::serial;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 /// A directory that exists and is not covered by a system read or write grant,
 /// so tests can distinguish `Read` from `ReadWrite` grants.
@@ -141,6 +142,170 @@ fn test_bypass_protection_paths_granted_readwrite() {
     assert!(
         caps.path_covered_with_access(&dir, AccessMode::ReadWrite),
         "bypass-protection path should be covered ReadWrite"
+    );
+}
+
+/// A [`MakeWriter`](tracing_subscriber::fmt::MakeWriter) that appends formatted
+/// tracing output to a shared buffer so tests can assert on emitted warnings.
+#[derive(Clone)]
+struct CaptureWriter(Arc<Mutex<Vec<u8>>>);
+
+impl std::io::Write for CaptureWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().expect("lock").extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for CaptureWriter {
+    type Writer = CaptureWriter;
+
+    fn make_writer(&'a self) -> Self::Writer {
+        self.clone()
+    }
+}
+
+/// Run `f` with a capturing `WARN`-level subscriber and return the formatted
+/// output.
+fn capture_warnings<F: FnOnce()>(f: F) -> String {
+    let buffer = Arc::new(Mutex::new(Vec::new()));
+    let subscriber = tracing_subscriber::fmt()
+        .with_writer(CaptureWriter(Arc::clone(&buffer)))
+        .with_ansi(false)
+        .with_max_level(tracing::Level::WARN)
+        .finish();
+    tracing::subscriber::with_default(subscriber, f);
+    let bytes = buffer.lock().expect("lock").clone();
+    String::from_utf8(bytes).expect("utf8")
+}
+
+#[test]
+#[serial]
+fn test_expand_home_config_paths() {
+    let home = TempDir::new("expand-home-config");
+    let sandbox = home.path().join("sandbox");
+    let read_only = home.path().join("read-only");
+    let tools = home.path().join("tools");
+    let bypass = home.path().join("bypass");
+    for dir in [&sandbox, &read_only, &tools, &bypass] {
+        std::fs::create_dir_all(dir).expect("create config dir");
+    }
+
+    let saved = std::env::var_os("HOME");
+    // SAFETY: `#[serial]` prevents concurrent env mutation in this process.
+    unsafe { std::env::set_var("HOME", home.path()) };
+    let config = Config {
+        sandbox_directories: vec![PathBuf::from("~/sandbox")],
+        read_only_paths: vec![PathBuf::from("~/read-only")],
+        tools_dir: Some(PathBuf::from("~/tools")),
+        bypass_protection: vec![PathBuf::from("~/bypass")],
+        ..Config::default()
+    };
+    let caps = build_capability_set(&config).expect("build");
+    if let Some(prev) = saved {
+        // SAFETY: restoring the value captured above.
+        unsafe { std::env::set_var("HOME", prev) };
+    } else {
+        // SAFETY: restoring the absence captured above.
+        unsafe { std::env::remove_var("HOME") };
+    }
+
+    assert!(
+        caps.fs_capabilities()
+            .iter()
+            .any(|c| c.original.as_path() == sandbox.as_path()
+                && c.access == AccessMode::ReadWrite),
+        "~/sandbox should be expanded and granted ReadWrite"
+    );
+    assert!(
+        caps.fs_capabilities()
+            .iter()
+            .any(|c| c.original.as_path() == read_only.as_path() && c.access == AccessMode::Read),
+        "~/read-only should be expanded and granted Read"
+    );
+    assert!(
+        caps.fs_capabilities()
+            .iter()
+            .any(|c| c.original.as_path() == tools.as_path() && c.access == AccessMode::Read),
+        "~/tools should be expanded and granted Read"
+    );
+    assert!(
+        caps.fs_capabilities()
+            .iter()
+            .any(|c| c.original.as_path() == bypass.as_path() && c.access == AccessMode::ReadWrite),
+        "~/bypass should be expanded and granted ReadWrite"
+    );
+}
+
+#[test]
+#[serial]
+fn test_expand_home_config_path_missing_warns() {
+    let home = TempDir::new("expand-home-missing");
+    let missing = home.path().join("does-not-exist");
+
+    let saved = std::env::var_os("HOME");
+    // SAFETY: `#[serial]` prevents concurrent env mutation in this process.
+    unsafe { std::env::set_var("HOME", home.path()) };
+    let config = Config {
+        sandbox_directories: vec![PathBuf::from("~/does-not-exist")],
+        ..Config::default()
+    };
+    let output = capture_warnings(|| {
+        let caps = build_capability_set(&config).expect("build");
+        assert!(
+            !caps
+                .fs_capabilities()
+                .iter()
+                .any(|c| c.original.as_path() == missing.as_path()),
+            "missing expanded path should not be granted"
+        );
+    });
+    if let Some(prev) = saved {
+        // SAFETY: restoring the value captured above.
+        unsafe { std::env::set_var("HOME", prev) };
+    } else {
+        // SAFETY: restoring the absence captured above.
+        unsafe { std::env::remove_var("HOME") };
+    }
+
+    assert!(
+        output.contains("does not exist or is not a directory"),
+        "expected a warning for the missing config path, got: {output}"
+    );
+}
+
+#[test]
+#[serial]
+fn test_expand_home_config_path_without_home_warns() {
+    let saved = std::env::var_os("HOME");
+    // SAFETY: `#[serial]` prevents concurrent env mutation in this process.
+    unsafe { std::env::remove_var("HOME") };
+    let config = Config {
+        sandbox_directories: vec![PathBuf::from("~/sandbox")],
+        ..Config::default()
+    };
+    let output = capture_warnings(|| {
+        let caps = build_capability_set(&config).expect("build");
+        assert!(
+            !caps
+                .fs_capabilities()
+                .iter()
+                .any(|c| c.original.as_path() == Path::new("~/sandbox")),
+            "unexpanded ~/ path should not be granted"
+        );
+    });
+    if let Some(prev) = saved {
+        // SAFETY: restoring the value captured above.
+        unsafe { std::env::set_var("HOME", prev) };
+    }
+
+    assert!(
+        output.contains("HOME is not set"),
+        "expected a warning when HOME is unset, got: {output}"
     );
 }
 

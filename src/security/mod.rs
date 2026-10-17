@@ -208,6 +208,9 @@ fn system_write_paths() -> &'static [&'static str] {
 ///   macOS (see [`grant_path_metadata_dirs`]).
 /// - When `config.block_network` is true, all network access is blocked.
 ///
+/// Config paths that start with `~/` are expanded against `$HOME` before the
+/// grant is attempted (see [`allow_config_dir`]).
+///
 /// Paths that do not exist are skipped: [`CapabilitySet::allow_path`] rejects
 /// missing paths, and the system path list differs between hosts.
 pub fn build_capability_set(config: &Config) -> nono::Result<CapabilitySet> {
@@ -237,16 +240,16 @@ pub fn build_capability_set(config: &Config) -> nono::Result<CapabilitySet> {
         caps = allow_if_dir(caps, Path::new(&tmpdir), AccessMode::ReadWrite)?;
     }
     for path in &config.sandbox_directories {
-        caps = allow_if_dir(caps, path, AccessMode::ReadWrite)?;
+        caps = allow_config_dir(caps, path, AccessMode::ReadWrite)?;
     }
     for path in &config.read_only_paths {
-        caps = allow_if_dir(caps, path, AccessMode::Read)?;
+        caps = allow_config_dir(caps, path, AccessMode::Read)?;
     }
     if let Some(tools_dir) = &config.tools_dir {
-        caps = allow_if_dir(caps, tools_dir, AccessMode::Read)?;
+        caps = allow_config_dir(caps, tools_dir, AccessMode::Read)?;
     }
     for path in &config.bypass_protection {
-        caps = allow_if_dir(caps, path, AccessMode::ReadWrite)?;
+        caps = allow_config_dir(caps, path, AccessMode::ReadWrite)?;
     }
 
     if config.block_network {
@@ -266,12 +269,46 @@ fn allow_if_dir(caps: CapabilitySet, path: &Path, mode: AccessMode) -> nono::Res
     }
 }
 
+/// Expand `~` in a config-specified path, then grant `mode` when the expanded
+/// path exists as a directory.
+///
+/// Logs a warning and skips the path when `HOME` is unset for a `~/` path, or
+/// when the path does not exist as a directory, so silently-dropped grants are
+/// visible in logs.
+fn allow_config_dir(
+    caps: CapabilitySet,
+    path: &Path,
+    mode: AccessMode,
+) -> nono::Result<CapabilitySet> {
+    let expanded = if path.starts_with("~/") {
+        match expand_home(path) {
+            Some(expanded) => expanded,
+            None => {
+                tracing::warn!(
+                    "config path {} starts with ~/ but HOME is not set; skipping",
+                    path.display()
+                );
+                return Ok(caps);
+            }
+        }
+    } else {
+        path.to_path_buf()
+    };
+    if !expanded.is_dir() {
+        tracing::warn!(
+            "config path {} does not exist or is not a directory; skipping",
+            expanded.display()
+        );
+    }
+    allow_if_dir(caps, &expanded, mode)
+}
+
 /// Expand a `~`-prefixed path to an absolute path using `$HOME`.
 ///
 /// Returns `None` when `HOME` is not set or `path` does not start with `~/`.
-fn expand_home(path: &str) -> Option<PathBuf> {
+fn expand_home(path: impl AsRef<Path>) -> Option<PathBuf> {
     let home = std::env::var_os("HOME")?;
-    let rest = path.strip_prefix("~/")?;
+    let rest = path.as_ref().strip_prefix("~/").ok()?;
     Some(PathBuf::from(home).join(rest))
 }
 
