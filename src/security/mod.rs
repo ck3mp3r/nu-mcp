@@ -129,11 +129,26 @@ fn grant_allow_binaries<'a>(
 /// Grant [`AccessMode::Read`] to the parent directory of `binary` and to the
 /// parent directories of its dynamic library dependencies.
 ///
-/// When `binary` is `None`, logs a warning and returns the set unchanged.
+/// `binary` is canonicalized first: when the `$PATH` entry is a symlink (Homebrew,
+/// nix profile, NixOS), the kernel resolves it at exec and checks access on the
+/// target path, so the target's parent directory must be granted.
+///
+/// When `binary` is `None`, logs a warning and returns the set unchanged. When
+/// canonicalization fails, logs a warning and returns the set unchanged.
 fn grant_binary_access(caps: CapabilitySet, binary: Option<&Path>) -> nono::Result<CapabilitySet> {
     let Some(binary) = binary else {
         tracing::warn!("nu binary not found in PATH; skipping nu path grants");
         return Ok(caps);
+    };
+    let binary = match std::fs::canonicalize(binary) {
+        Ok(path) => path,
+        Err(err) => {
+            tracing::warn!(
+                "failed to canonicalize {}: {err}; skipping nu path grants",
+                binary.display()
+            );
+            return Ok(caps);
+        }
     };
     tracing::debug!("resolved nu binary at {}", binary.display());
 
@@ -141,7 +156,7 @@ fn grant_binary_access(caps: CapabilitySet, binary: Option<&Path>) -> nono::Resu
     if let Some(parent) = binary.parent() {
         caps = allow_if_dir(caps, parent, AccessMode::Read)?;
     }
-    for dir in nu_library_dirs(binary) {
+    for dir in nu_library_dirs(&binary) {
         tracing::debug!("granting Read to nu dependency directory {}", dir.display());
         caps = allow_if_dir(caps, &dir, AccessMode::Read)?;
     }

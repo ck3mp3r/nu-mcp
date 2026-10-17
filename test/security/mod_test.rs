@@ -8,6 +8,7 @@ use super::{
 };
 use crate::config::Config;
 use nono::{AccessMode, CapabilitySet};
+use serial_test::serial;
 use std::path::{Path, PathBuf};
 
 /// A directory that exists and is not a system path or `/tmp`, so tests can
@@ -217,6 +218,42 @@ fn test_grant_binary_access_without_binary_is_noop() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn test_grant_binary_access_canonicalizes_symlink() {
+    let target_dir = TempDir::new("grant-binary-target");
+    let link_dir = TempDir::new("grant-binary-link");
+    let target = target_dir.path().join("nu");
+    std::fs::write(&target, b"").expect("write nu target");
+    let link = link_dir.path().join("nu");
+    std::os::unix::fs::symlink(&target, &link).expect("create symlink");
+
+    let caps = grant_binary_access(CapabilitySet::new(), Some(&link)).expect("grant");
+    let real_parent = target_dir
+        .path()
+        .canonicalize()
+        .expect("canonicalize target dir");
+    assert!(
+        caps.path_covered_with_access(&real_parent, AccessMode::Read),
+        "symlink target parent directory {} should be covered Read",
+        real_parent.display()
+    );
+}
+
+#[test]
+#[serial]
+fn test_find_in_path_returns_none_without_path() {
+    let saved = std::env::var_os("PATH");
+    // SAFETY: `#[serial]` prevents concurrent env mutation in this process.
+    unsafe { std::env::remove_var("PATH") };
+    let result = find_in_path("nu");
+    if let Some(path) = saved {
+        // SAFETY: restoring the value captured above.
+        unsafe { std::env::set_var("PATH", path) };
+    }
+    assert_eq!(result, None, "find_in_path should return None without PATH");
+}
+
 #[test]
 fn test_build_capability_set_grants_nu_binary_directory() {
     let Some(binary) = find_in_path("nu") else {
@@ -339,7 +376,7 @@ fn test_build_capability_set_grants_config_allow_binary() {
         .into_iter()
         .filter_map(|name| {
             let binary = find_in_path(name)?;
-            let parent = binary.parent()?.canonicalize().ok()?;
+            let parent = binary.canonicalize().ok()?.parent()?.to_path_buf();
             Some((name, parent))
         })
         .find(|(_, parent)| !default_caps.path_covered_with_access(parent, AccessMode::Read))
