@@ -161,22 +161,10 @@
           toolPackages = import ./nix/packages.nix {
             inherit pkgs cargoToml mkToolPackage;
           };
-
-          # Container image - only on Linux (cross-compilation deferred to CI)
-          containerPackage =
-            if builtins.match ".*-darwin" system == null
-            then {
-              container = import ./nix/container.nix {
-                inherit pkgs cargoToml;
-                defaultPackage = config.packages.default;
-              };
-            }
-            else {};
         in
           regularPackages
           // archivePackages
-          // toolPackages
-          // containerPackage;
+          // toolPackages;
 
         devShells = {
           # Regular shell for development - loaded from devenv.nix module

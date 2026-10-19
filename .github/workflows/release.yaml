@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
 
 permissions:
-  packages: write
   contents: write
   actions: read
   checks: read
@@ -82,16 +81,12 @@ jobs:
         include:
           - os: ubuntu-latest
             nix_system: x86_64-linux
-            docker_arch: amd64
           - os: macos-15
             nix_system: x86_64-darwin
-            docker_arch: na
           - os: macos-15
             nix_system: aarch64-darwin
-            docker_arch: na
           - os: ubuntu-24.04-arm
             nix_system: aarch64-linux
-            docker_arch: arm64
     steps:
       - name: Checkout release branch
         uses: actions/checkout@v7
@@ -121,23 +116,6 @@ jobs:
             ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}.tgz
             ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}.sha256
             ${{ github.workspace }}/nu-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}-nix.sha256
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        if: ${{ matrix.docker_arch != 'na' }}
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push ${{ matrix.nix_system }} container
-        if: ${{ matrix.docker_arch != 'na' }}
-        run: |
-          VERSION=${{ needs.prep-release.outputs.version }}
-          nix build .#container --system ${{ matrix.nix_system }} && cat result | docker load
-
-          docker tag nu-mcp:${VERSION} ghcr.io/${{ github.repository_owner }}/nu-mcp:${VERSION}-${{ matrix.docker_arch }}
-          docker push ghcr.io/${{ github.repository_owner }}/nu-mcp:${VERSION}-${{ matrix.docker_arch }}
 
   finalize-release:
     needs:
@@ -231,30 +209,3 @@ jobs:
 
         env:
           GITHUB_TOKEN: ${{ steps.token.outputs.token }}
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create and push multi-arch manifests
-        run: |
-          VERSION=${{ needs.prep-release.outputs.version }}
-          REPO=ghcr.io/${{ github.repository_owner }}/nu-mcp
-
-          # Pull architecture-specific images
-          docker pull $REPO:$VERSION-amd64
-          docker pull $REPO:$VERSION-arm64
-
-          # Create versioned multi-arch manifest
-          docker manifest create $REPO:$VERSION \
-            $REPO:$VERSION-amd64 \
-            $REPO:$VERSION-arm64
-          docker manifest push $REPO:$VERSION
-
-          docker manifest create $REPO:latest --amend \
-            $REPO:$VERSION-amd64 \
-            $REPO:$VERSION-arm64
-          docker manifest push $REPO:latest
