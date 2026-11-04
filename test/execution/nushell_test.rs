@@ -39,7 +39,7 @@ async fn test_nushell_executor_timeout_with_parameter() -> Result<()> {
     let result = executor.execute("sleep 10sec", &work_dir, Some(5)).await;
 
     assert!(result.is_err());
-    let error = result.unwrap_err();
+    let error = result.err().ok_or("command should time out")?;
     assert!(
         error.contains("timed out"),
         "Expected timeout error, got: {}",
@@ -78,7 +78,7 @@ async fn test_nushell_executor_nonzero_exit_is_error() -> Result<()> {
     let result = executor.execute("exit 1", &work_dir, None).await;
 
     assert!(result.is_err());
-    let error = result.unwrap_err();
+    let error = result.err().ok_or("command should fail on non-zero exit")?;
     assert!(
         error.contains("nu exited with"),
         "Expected non-zero exit error, got: {}",

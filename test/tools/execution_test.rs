@@ -298,7 +298,10 @@ async fn test_tool_executor_timeout_with_parameter() -> Result<()> {
             .await;
 
     assert!(result.is_err());
-    let error = result.unwrap_err().to_string();
+    let error = result
+        .err()
+        .ok_or("command should fail with timeout")?
+        .to_string();
     assert!(
         error.contains("timed out") || error.contains("timeout"),
         "Expected timeout error, got: {}",

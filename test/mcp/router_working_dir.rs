@@ -33,22 +33,25 @@ fn test_determine_working_directory_skips_invalid_sandboxes() -> Result<()> {
     } else {
         // If not in /tmp, should error since other sandboxes are invalid
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .contains("Current directory could not be determined")
-        );
+        let err = result
+            .err()
+            .ok_or("should fail when no sandbox resolves the cwd")?;
+        assert!(err.contains("Current directory could not be determined"));
     }
     Ok(())
 }
 
 #[test]
-fn test_determine_working_directory_with_empty_sandboxes() {
+fn test_determine_working_directory_with_empty_sandboxes() -> Result<()> {
     let sandboxes: Vec<PathBuf> = vec![];
 
     let result = determine_working_directory(&sandboxes);
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("No sandbox directories"));
+    let err = result
+        .err()
+        .ok_or("should return Err for empty sandboxes")?;
+    assert!(err.contains("No sandbox directories"));
+    Ok(())
 }
 
 #[test]

@@ -33,12 +33,14 @@ async fn test_mock_executor_with_stderr() -> Result<()> {
 }
 
 #[tokio::test]
-async fn test_mock_executor_failure() {
+async fn test_mock_executor_failure() -> Result<()> {
     let executor = MockExecutor::failing("command not found".to_string());
     let result = executor
         .execute("invalid command", Path::new("/tmp"), None)
         .await;
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err(), "command not found");
+    let err = result.err().ok_or("failing executor should return Err")?;
+    assert_eq!(err, "command not found");
+    Ok(())
 }
