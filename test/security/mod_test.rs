@@ -11,14 +11,16 @@ use nono::{AccessMode, CapabilitySet};
 use serial_test::serial;
 use std::path::{Path, PathBuf};
 
+type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
+
 /// A unique temporary directory, removed when dropped.
 struct TempDir(PathBuf);
 
 impl TempDir {
-    fn new(label: &str) -> Self {
+    fn new(label: &str) -> Result<Self> {
         let dir = Path::new("/tmp").join(format!("nu-mcp-{label}-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect("create temp dir");
-        Self(dir)
+        std::fs::create_dir_all(&dir)?;
+        Ok(Self(dir))
     }
 
     fn path(&self) -> &Path {
@@ -183,69 +185,72 @@ fn test_missing_config_path_errors() {
 }
 
 #[test]
-fn test_find_in_path_in_finds_file() {
-    let dir = TempDir::new("find-in-path");
+fn test_find_in_path_in_finds_file() -> Result<()> {
+    let dir = TempDir::new("find-in-path")?;
     let bin = dir.path().join("nu-mcp-test-bin");
-    std::fs::write(&bin, b"").expect("write test binary");
-    let path = std::env::join_paths([dir.path().as_os_str()]).expect("join paths");
+    std::fs::write(&bin, b"")?;
+    let path = std::env::join_paths([dir.path().as_os_str()])?;
     assert_eq!(find_in_path_in("nu-mcp-test-bin", &path), Some(bin));
+    Ok(())
 }
 
 #[test]
-fn test_find_in_path_in_returns_none_for_missing() {
-    let dir = TempDir::new("find-in-path-missing");
-    let path = std::env::join_paths([dir.path().as_os_str()]).expect("join paths");
+fn test_find_in_path_in_returns_none_for_missing() -> Result<()> {
+    let dir = TempDir::new("find-in-path-missing")?;
+    let path = std::env::join_paths([dir.path().as_os_str()])?;
     assert_eq!(find_in_path_in("nu-mcp-does-not-exist-xyz", &path), None);
+    Ok(())
 }
 
 #[test]
-fn test_find_in_path_resolves_nu() {
-    let found = find_in_path("nu").expect("nu should be resolvable in PATH");
+fn test_find_in_path_resolves_nu() -> Result<()> {
+    let found = find_in_path("nu").ok_or("nu should be resolvable in PATH")?;
     assert!(found.is_file(), "resolved nu path should be a file");
+    Ok(())
 }
 
 #[test]
-fn test_grant_binary_access_grants_parent_directory() {
-    let dir = TempDir::new("grant-binary");
+fn test_grant_binary_access_grants_parent_directory() -> Result<()> {
+    let dir = TempDir::new("grant-binary")?;
     let binary = dir.path().join("nu");
-    std::fs::write(&binary, b"").expect("write nu");
-    let caps = grant_binary_access(CapabilitySet::new(), Some(&binary)).expect("grant");
-    let parent = dir.path().canonicalize().expect("canonicalize");
+    std::fs::write(&binary, b"")?;
+    let caps = grant_binary_access(CapabilitySet::new(), Some(&binary))?;
+    let parent = dir.path().canonicalize()?;
     assert!(
         caps.path_covered_with_access(&parent, AccessMode::Read),
         "nu parent directory should be covered Read"
     );
+    Ok(())
 }
 
 #[test]
-fn test_grant_binary_access_without_binary_is_noop() {
-    let caps = grant_binary_access(CapabilitySet::new(), None).expect("grant");
+fn test_grant_binary_access_without_binary_is_noop() -> Result<()> {
+    let caps = grant_binary_access(CapabilitySet::new(), None)?;
     assert!(
         caps.fs_capabilities().is_empty(),
         "no capabilities should be granted when nu is absent"
     );
+    Ok(())
 }
 
 #[cfg(unix)]
 #[test]
-fn test_grant_binary_access_canonicalizes_symlink() {
-    let target_dir = TempDir::new("grant-binary-target");
-    let link_dir = TempDir::new("grant-binary-link");
+fn test_grant_binary_access_canonicalizes_symlink() -> Result<()> {
+    let target_dir = TempDir::new("grant-binary-target")?;
+    let link_dir = TempDir::new("grant-binary-link")?;
     let target = target_dir.path().join("nu");
-    std::fs::write(&target, b"").expect("write nu target");
+    std::fs::write(&target, b"")?;
     let link = link_dir.path().join("nu");
-    std::os::unix::fs::symlink(&target, &link).expect("create symlink");
+    std::os::unix::fs::symlink(&target, &link)?;
 
-    let caps = grant_binary_access(CapabilitySet::new(), Some(&link)).expect("grant");
-    let real_parent = target_dir
-        .path()
-        .canonicalize()
-        .expect("canonicalize target dir");
+    let caps = grant_binary_access(CapabilitySet::new(), Some(&link))?;
+    let real_parent = target_dir.path().canonicalize()?;
     assert!(
         caps.path_covered_with_access(&real_parent, AccessMode::Read),
         "symlink target parent directory {} should be covered Read",
         real_parent.display()
     );
+    Ok(())
 }
 
 #[test]
@@ -263,21 +268,18 @@ fn test_find_in_path_returns_none_without_path() {
 }
 
 #[test]
-fn test_build_capability_set_grants_nu_binary_directory() {
+fn test_build_capability_set_grants_nu_binary_directory() -> Result<()> {
     let Some(binary) = find_in_path("nu") else {
-        return;
+        return Ok(());
     };
-    let caps = build_capability_set(&Config::default()).expect("build");
-    let parent = binary
-        .parent()
-        .expect("parent")
-        .canonicalize()
-        .expect("canonicalize");
+    let caps = build_capability_set(&Config::default())?;
+    let parent = binary.parent().ok_or("parent")?.canonicalize()?;
     assert!(
         caps.path_covered_with_access(&parent, AccessMode::Read),
         "nu binary directory {} should be covered Read",
         parent.display()
     );
+    Ok(())
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -301,8 +303,8 @@ fn test_library_dirs_filters_system_paths() {
 
 #[cfg(target_os = "macos")]
 #[test]
-fn test_grant_path_metadata_dirs_registers_entries() {
-    let path = std::env::join_paths(["/usr/bin", "/bin"]).expect("join paths");
+fn test_grant_path_metadata_dirs_registers_entries() -> Result<()> {
+    let path = std::env::join_paths(["/usr/bin", "/bin"])?;
     let caps = grant_path_metadata_dirs_in(CapabilitySet::new(), &path);
     let dirs = caps.path_metadata_dirs();
     assert!(
@@ -313,12 +315,13 @@ fn test_grant_path_metadata_dirs_registers_entries() {
         dirs.contains(&PathBuf::from("/bin")),
         "second PATH entry should be registered"
     );
+    Ok(())
 }
 
 #[cfg(target_os = "macos")]
 #[test]
-fn test_grant_path_metadata_dirs_skips_empty_entries() {
-    let path = std::env::join_paths(["", "/usr/bin", ""]).expect("join paths");
+fn test_grant_path_metadata_dirs_skips_empty_entries() -> Result<()> {
+    let path = std::env::join_paths(["", "/usr/bin", ""])?;
     let caps = grant_path_metadata_dirs_in(CapabilitySet::new(), &path);
     let dirs = caps.path_metadata_dirs();
     assert!(
@@ -329,59 +332,58 @@ fn test_grant_path_metadata_dirs_skips_empty_entries() {
         dirs.contains(&PathBuf::from("/usr/bin")),
         "non-empty PATH entry should be registered"
     );
+    Ok(())
 }
 
 #[cfg(target_os = "macos")]
 #[test]
-fn test_grant_path_metadata_dirs_registers_canonical_target() {
-    let target = TempDir::new("metadata-canonical-target");
-    let link_parent = TempDir::new("metadata-canonical-link");
+fn test_grant_path_metadata_dirs_registers_canonical_target() -> Result<()> {
+    let target = TempDir::new("metadata-canonical-target")?;
+    let link_parent = TempDir::new("metadata-canonical-link")?;
     let link = link_parent.path().join("bin");
-    std::os::unix::fs::symlink(target.path(), &link).expect("create symlink");
-    let path = std::env::join_paths([link.as_os_str()]).expect("join paths");
+    std::os::unix::fs::symlink(target.path(), &link)?;
+    let path = std::env::join_paths([link.as_os_str()])?;
     let caps = grant_path_metadata_dirs_in(CapabilitySet::new(), &path);
     let dirs = caps.path_metadata_dirs();
     assert!(dirs.contains(&link), "raw PATH entry should be registered");
-    let canonical = target.path().canonicalize().expect("canonicalize target");
+    let canonical = target.path().canonicalize()?;
     assert!(
         dirs.contains(&canonical),
         "canonicalized PATH entry should be registered"
     );
+    Ok(())
 }
 
 #[cfg(target_os = "macos")]
 #[test]
-fn test_grant_path_metadata_dirs_registers_canonical_nonexistent() {
-    let target = TempDir::new("metadata-canonical-nonexistent-target");
-    let link_parent = TempDir::new("metadata-canonical-nonexistent-link");
+fn test_grant_path_metadata_dirs_registers_canonical_nonexistent() -> Result<()> {
+    let target = TempDir::new("metadata-canonical-nonexistent-target")?;
+    let link_parent = TempDir::new("metadata-canonical-nonexistent-link")?;
     let link = link_parent.path().join("bin");
-    std::os::unix::fs::symlink(target.path(), &link).expect("create symlink");
+    std::os::unix::fs::symlink(target.path(), &link)?;
     let entry = link.join("nonexistent_subdir");
-    let path = std::env::join_paths([entry.as_os_str()]).expect("join paths");
+    let path = std::env::join_paths([entry.as_os_str()])?;
     let caps = grant_path_metadata_dirs_in(CapabilitySet::new(), &path);
     let dirs = caps.path_metadata_dirs();
     assert!(dirs.contains(&entry), "raw PATH entry should be registered");
-    let canonical = target
-        .path()
-        .canonicalize()
-        .expect("canonicalize target")
-        .join("nonexistent_subdir");
+    let canonical = target.path().canonicalize()?.join("nonexistent_subdir");
     assert!(
         dirs.contains(&canonical),
         "canonicalized non-existent PATH entry should be registered"
     );
+    Ok(())
 }
 
 #[cfg(target_os = "macos")]
 #[test]
-fn test_build_capability_set_registers_path_metadata_dirs() {
-    let caps = build_capability_set(&Config::default()).expect("build");
+fn test_build_capability_set_registers_path_metadata_dirs() -> Result<()> {
+    let caps = build_capability_set(&Config::default())?;
     let dirs = caps.path_metadata_dirs();
     assert!(
         !dirs.is_empty(),
         "expected PATH metadata dirs to be registered"
     );
-    let path = std::env::var_os("PATH").expect("PATH should be set");
+    let path = std::env::var_os("PATH").ok_or("PATH should be set")?;
     for dir in std::env::split_paths(&path).filter(|d| !d.as_os_str().is_empty()) {
         assert!(
             dirs.contains(&dir),
@@ -389,38 +391,39 @@ fn test_build_capability_set_registers_path_metadata_dirs() {
             dir.display()
         );
     }
+    Ok(())
 }
 
 #[test]
-fn test_grant_allow_binaries_grants_resolved_binary() {
-    let dir = TempDir::new("allow-binaries");
+fn test_grant_allow_binaries_grants_resolved_binary() -> Result<()> {
+    let dir = TempDir::new("allow-binaries")?;
     let binary = dir.path().join("nu-mcp-allow-bin");
-    std::fs::write(&binary, b"").expect("write test binary");
-    let path = std::env::join_paths([dir.path().as_os_str()]).expect("join paths");
-    let caps =
-        grant_allow_binaries(CapabilitySet::new(), ["nu-mcp-allow-bin"], &path).expect("grant");
-    let parent = dir.path().canonicalize().expect("canonicalize");
+    std::fs::write(&binary, b"")?;
+    let path = std::env::join_paths([dir.path().as_os_str()])?;
+    let caps = grant_allow_binaries(CapabilitySet::new(), ["nu-mcp-allow-bin"], &path)?;
+    let parent = dir.path().canonicalize()?;
     assert!(
         caps.path_covered_with_access(&parent, AccessMode::Read),
         "allowlisted binary parent directory should be covered Read"
     );
+    Ok(())
 }
 
 #[test]
-fn test_grant_allow_binaries_skips_missing_binary() {
-    let dir = TempDir::new("allow-binaries-missing");
-    let path = std::env::join_paths([dir.path().as_os_str()]).expect("join paths");
-    let caps = grant_allow_binaries(CapabilitySet::new(), ["nu-mcp-does-not-exist-xyz"], &path)
-        .expect("grant");
+fn test_grant_allow_binaries_skips_missing_binary() -> Result<()> {
+    let dir = TempDir::new("allow-binaries-missing")?;
+    let path = std::env::join_paths([dir.path().as_os_str()])?;
+    let caps = grant_allow_binaries(CapabilitySet::new(), ["nu-mcp-does-not-exist-xyz"], &path)?;
     assert!(
         caps.fs_capabilities().is_empty(),
         "missing allowlisted binary should grant nothing"
     );
+    Ok(())
 }
 
 #[test]
-fn test_build_capability_set_grants_config_allow_binary() {
-    let default_caps = build_capability_set(&Config::default()).expect("build");
+fn test_build_capability_set_grants_config_allow_binary() -> Result<()> {
+    let default_caps = build_capability_set(&Config::default())?;
     let Some((name, parent)) = ["git", "cargo", "rustc", "nix", "bash", "sh"]
         .into_iter()
         .filter_map(|name| {
@@ -430,17 +433,17 @@ fn test_build_capability_set_grants_config_allow_binary() {
         })
         .find(|(_, parent)| !default_caps.path_covered_with_access(parent, AccessMode::Read))
     else {
-        return;
+        return Ok(());
     };
 
     let caps = build_capability_set(&Config {
         allow_binaries: vec![name.to_string()],
         ..Config::default()
-    })
-    .expect("build");
+    })?;
     assert!(
         caps.path_covered_with_access(&parent, AccessMode::Read),
         "config allow_binaries {name} directory {} should be covered Read",
         parent.display()
     );
+    Ok(())
 }
