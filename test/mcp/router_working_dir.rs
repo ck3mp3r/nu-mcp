@@ -1,19 +1,22 @@
 use super::*;
 
+type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
+
 #[test]
-fn test_determine_working_directory_returns_current_dir_when_in_sandbox() {
+fn test_determine_working_directory_returns_current_dir_when_in_sandbox() -> Result<()> {
     // If current directory IS in a sandbox, it should return current directory
-    let cwd = env::current_dir().unwrap();
+    let cwd = env::current_dir()?;
 
     // Use the actual current directory as one of the sandboxes
     let sandboxes = vec![cwd.clone()];
     let result = determine_working_directory(&sandboxes);
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), cwd);
+    assert_eq!(result?, cwd);
+    Ok(())
 }
 
 #[test]
-fn test_determine_working_directory_skips_invalid_sandboxes() {
+fn test_determine_working_directory_skips_invalid_sandboxes() -> Result<()> {
     // Should skip invalid sandbox paths and check remaining valid ones
     let sandboxes = vec![
         PathBuf::from("/nonexistent/path/that/does/not/exist"),
@@ -23,7 +26,7 @@ fn test_determine_working_directory_skips_invalid_sandboxes() {
 
     let result = determine_working_directory(&sandboxes);
 
-    let cwd = env::current_dir().unwrap();
+    let cwd = env::current_dir()?;
     if cwd.starts_with("/tmp") || cwd.starts_with("/private/tmp") {
         // If we're in /tmp, should succeed
         assert!(result.is_ok());
@@ -36,6 +39,7 @@ fn test_determine_working_directory_skips_invalid_sandboxes() {
                 .contains("Current directory could not be determined")
         );
     }
+    Ok(())
 }
 
 #[test]
@@ -48,9 +52,9 @@ fn test_determine_working_directory_with_empty_sandboxes() {
 }
 
 #[test]
-fn test_determine_working_directory_with_additional_sandboxes() {
+fn test_determine_working_directory_with_additional_sandboxes() -> Result<()> {
     // Current directory PLUS additional sandboxes (realistic scenario from main.rs)
-    let cwd = env::current_dir().unwrap();
+    let cwd = env::current_dir()?;
     let sandboxes = vec![
         cwd.clone(),
         PathBuf::from("/tmp"),
@@ -59,5 +63,6 @@ fn test_determine_working_directory_with_additional_sandboxes() {
 
     let result = determine_working_directory(&sandboxes);
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), cwd);
+    assert_eq!(result?, cwd);
+    Ok(())
 }
