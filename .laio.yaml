@@ -30,8 +30,6 @@ windows:
               - reviewer
               - --name
               - jack
-              - --store
-              - jsonl
       - flex: 1
         commands:
           - command: ^agent
@@ -41,8 +39,6 @@ windows:
               - researcher
               - --name
               - lucy
-              - --store
-              - jsonl
       - flex: 1
         commands:
           - command: ^agent
@@ -52,8 +48,6 @@ windows:
               - developer
               - --name
               - bob
-              - --store
-              - jsonl
   - name: misc
     flex_direction: row
     panes:
