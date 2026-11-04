@@ -9,6 +9,9 @@ pub struct Config {
     pub bypass_protection: Vec<PathBuf>,
     pub read_only_paths: Vec<PathBuf>,
     pub allow_binaries: Vec<String>,
+    pub env_credentials: Vec<String>,
+    pub keyring_service: Option<String>,
+    pub disable_sandbox: bool,
 }
 
 #[cfg(test)]

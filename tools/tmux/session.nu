@@ -182,7 +182,7 @@ export def get_session_info [session: string] {
     # Use group-by to create proper nested table with expansion
     let nested_table = $all_panes | select window window_name pane process directory status | group-by window window_name --to-table | update items {|row| $row.items | select pane process directory status }
 
-    let table_output = $nested_table | table --expand
+    let table_output = $nested_table | table --expand --width 300
     $output = ($output | append $table_output)
 
     $output | str join (char newline)

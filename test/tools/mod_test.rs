@@ -5,16 +5,31 @@ use serde_json::{Map, Value};
 
 use super::ExtensionTool;
 
+type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
+
 #[test]
-fn test_path_operations() {
+fn test_path_operations() -> Result<()> {
     let module_path = PathBuf::from("/test/path");
     let mod_file = module_path.join("mod.nu");
 
-    assert_eq!(mod_file.extension().unwrap(), "nu");
-    assert_eq!(mod_file.file_stem().unwrap(), "mod");
+    assert_eq!(
+        mod_file
+            .extension()
+            .ok_or("mod.nu should have extension / stem")?,
+        "nu"
+    );
+    assert_eq!(
+        mod_file
+            .file_stem()
+            .ok_or("mod.nu should have extension / stem")?,
+        "mod"
+    );
 
-    let parent = module_path.parent().unwrap();
+    let parent = module_path
+        .parent()
+        .ok_or("module path should have a parent")?;
     assert_eq!(parent, PathBuf::from("/test"));
+    Ok(())
 }
 
 #[test]

@@ -50,9 +50,33 @@ The `tools/` directory contains a growing catalog of useful MCP tools:
 - `--block-network` (`-n`) - Block all network access for sandboxed commands
 - `--bypass-protection=PATH` (`-b PATH`) - Unblock a sensitive path (can be specified multiple times)
 - `--allow-binary=NAME` (`-a NAME`) - Allow an external binary in the sandbox
+- `--env-credential=REF=ENV_VAR` - Load a credential and inject it as an environment variable (can be specified multiple times)
+- `--keyring-service=SERVICE` - Keyring service name used for bare credential names (default: `nono`)
+- `--disable-sandbox` - Disable self-sandboxing (use when the server already runs inside a sandbox)
 
 ### Environment Variables
 - `MCP_NU_MCP_TIMEOUT` - Default timeout in seconds for tool execution (default: 300)
+
+### Env Credentials
+
+`--env-credential` resolves a credential reference and injects the value into the server environment, so every child `nu` process inherits it:
+
+```bash
+nu-mcp --env-credential=op://Private/github/token=GITHUB_TOKEN \
+       --env-credential=file:///run/secrets/api-token=API_TOKEN
+```
+
+Each value uses the `REF=ENV_VAR` form and splits at the **last** `=`, so a reference may itself contain `=`. Supported reference schemes:
+
+- `env://VAR` - Read an existing environment variable
+- `file:///absolute/path` - Read a file
+- `keyring://service/account` - System keyring entry
+- `op://vault/item/field` - 1Password CLI (`op`)
+- `bw://item[/field]` - Bitwarden CLI (`bw`)
+- `apple-password://server/account` - Apple Passwords
+- `bare-keyring-name` - Keyring account resolved under `--keyring-service` (default service: `nono`)
+
+The credential phase runs before the sandbox is applied, because the secret brokers (`op`, `bw`, `security`) need host access. A credential that cannot be resolved aborts startup. See [docs/security.md](docs/security.md#environment-credentials).
 
 ### Example MCP Configuration
 ```yaml
@@ -73,8 +97,11 @@ Filesystem and network access are enforced by the kernel through nono (Landlock 
 - `--add-read-path` grants read-only access to additional directories
 - `--block-network` blocks all network access
 - `--bypass-protection` unblocks a sensitive path
+- `--disable-sandbox` turns off self-sandboxing for a server that already runs inside a sandbox
 
 Access outside the granted paths fails with `EACCES` from the kernel. See [docs/security.md](docs/security.md) for details.
+
+> **Warning:** with `--disable-sandbox` the capability set is never built, so the server and every child `nu` process run unrestricted. `--block-network` and all path grants are then unenforced as well.
 
 For detailed configuration options and tool development, see the [documentation](docs/).
 

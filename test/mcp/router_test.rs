@@ -8,9 +8,11 @@ use crate::{
 };
 use std::sync::Arc;
 
-fn create_test_router() -> ToolRouter<NushellExecutor, MockToolExecutor> {
+type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
+
+fn create_test_router() -> Result<ToolRouter<NushellExecutor, MockToolExecutor>> {
     // Use current directory as sandbox so tests can run from anywhere
-    let cwd = env::current_dir().unwrap();
+    let cwd = env::current_dir()?;
     let config = Config {
         tools_dir: None,
         enable_nu: true,
@@ -19,15 +21,23 @@ fn create_test_router() -> ToolRouter<NushellExecutor, MockToolExecutor> {
         bypass_protection: vec![],
         read_only_paths: vec![],
         allow_binaries: vec![],
+        env_credentials: vec![],
+        keyring_service: None,
+        disable_sandbox: false,
     };
     let stateless_executor = NushellExecutor;
     let tool_executor = MockToolExecutor::new("tool output".to_string());
-    ToolRouter::new(config, vec![], stateless_executor, tool_executor)
+    Ok(ToolRouter::new(
+        config,
+        vec![],
+        stateless_executor,
+        tool_executor,
+    ))
 }
 
 #[tokio::test]
-async fn test_router_run_stateless() {
-    let router = create_test_router();
+async fn test_router_run_stateless() -> Result<()> {
+    let router = create_test_router()?;
 
     let mut args = serde_json::Map::new();
     args.insert(
@@ -42,11 +52,12 @@ async fn test_router_run_stateless() {
         eprintln!("Router error: {:?}", e);
     }
     assert!(result.is_ok());
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_router_extension_tool() {
-    let cwd = env::current_dir().unwrap();
+async fn test_router_extension_tool() -> Result<()> {
+    let cwd = env::current_dir()?;
     let config = Config {
         tools_dir: None,
         enable_nu: true,
@@ -55,6 +66,9 @@ async fn test_router_extension_tool() {
         bypass_protection: vec![],
         read_only_paths: vec![],
         allow_binaries: vec![],
+        env_credentials: vec![],
+        keyring_service: None,
+        disable_sandbox: false,
     };
     let stateless_executor = NushellExecutor;
     let tool_executor = MockToolExecutor::new("tool output".to_string());
@@ -77,16 +91,18 @@ async fn test_router_extension_tool() {
 
     let result = router.route_call(request).await;
     assert!(result.is_ok());
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_router_unknown_tool() {
-    let router = create_test_router();
+async fn test_router_unknown_tool() -> Result<()> {
+    let router = create_test_router()?;
 
     let request = CallToolRequestParams::new("nonexistent_tool");
 
     let result = router.route_call(request).await;
     assert!(result.is_err());
+    Ok(())
 }
 
 // NOTE: Poisoned mutex test removed - RwLock doesn't poison
@@ -94,14 +110,14 @@ async fn test_router_unknown_tool() {
 // This is one of the benefits of using RwLock over Mutex
 
 #[tokio::test]
-async fn test_mutex_not_held_during_concurrent_requests() {
+async fn test_mutex_not_held_during_concurrent_requests() -> Result<()> {
     // RED PHASE: This test demonstrates the blocking I/O problem
     // The test will show that concurrent requests block each other
 
     use std::time::Instant;
     use tokio::task::JoinSet;
 
-    let cwd = env::current_dir().unwrap();
+    let cwd = env::current_dir()?;
     let config = Config {
         tools_dir: None,
         enable_nu: true,
@@ -110,6 +126,9 @@ async fn test_mutex_not_held_during_concurrent_requests() {
         bypass_protection: vec![],
         read_only_paths: vec![],
         allow_binaries: vec![],
+        env_credentials: vec![],
+        keyring_service: None,
+        disable_sandbox: false,
     };
     let stateless_executor = NushellExecutor;
     let tool_executor = MockToolExecutor::new("tool output".to_string());
@@ -147,7 +166,7 @@ async fn test_mutex_not_held_during_concurrent_requests() {
     // Wait for all requests to complete
     let mut results = Vec::new();
     while let Some(res) = set.join_next().await {
-        results.push(res.unwrap());
+        results.push(res?);
     }
 
     let total_duration = start.elapsed();
@@ -175,4 +194,5 @@ async fn test_mutex_not_held_during_concurrent_requests() {
     // If requests were truly concurrent, total time should be close to max individual time
     // If serialized, total time would be sum of all times
     // For this test, we just verify they all complete without hanging
+    Ok(())
 }

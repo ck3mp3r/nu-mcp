@@ -1,5 +1,9 @@
 # Configuration
 
+## Toolchain Requirements
+
+Building nu-mcp requires a Rust toolchain of 1.95 or newer (`rust-version = "1.95"` in `Cargo.toml`, the floor set by the `nono` sandbox dependency).
+
 ## Command-Line Options
 
 ### Extension System
@@ -12,6 +16,35 @@
 - `--block-network` (`-n`) - Block all network access for sandboxed commands.
 - `--bypass-protection=PATH` (`-b PATH`) - Unblock a sensitive path (can be used multiple times).
 - `--allow-binary=NAME` (`-a NAME`) - Allow an external binary in the sandbox (can be specified multiple times).
+- `--disable-sandbox` - Disable self-sandboxing. The capability set is never built and never applied, so `--block-network` and all path grants are unenforced. Use it only when the server already runs inside a sandbox. See [security.md](security.md#disabling-the-sandbox).
+
+### Credentials
+- `--env-credential=REF=ENV_VAR` - Resolve a credential and inject it into the server environment (can be specified multiple times).
+- `--keyring-service=SERVICE` - Keyring service name used for bare credential names (default: `nono`, the nono keystore default service).
+
+Each `--env-credential` value splits at its **last** `=`: everything before it is the credential reference, everything after it is the destination variable name. Trimmed halves must be non-empty, and the destination name must match `[A-Za-z0-9_]+` and must not be a dangerous variable such as `PATH` or `LD_PRELOAD`.
+
+The reference may itself contain `=`. Supported schemes:
+
+| Reference | Source |
+|-----------|--------|
+| `env://VAR` | An existing environment variable |
+| `file:///absolute/path` | A file; the trailing newline is stripped |
+| `keyring://service/account` | The system keyring |
+| `op://vault/item/field` | 1Password CLI (`op`) |
+| `bw://item[/field]` | Bitwarden CLI (`bw`) |
+| `apple-password://server/account` | Apple Passwords |
+| `bare-keyring-name` | Keyring account under `--keyring-service` |
+
+Credentials are resolved during startup, before the sandbox is applied, because the secret brokers (`op`, `bw`, `security`) need host access. A reference that cannot be resolved aborts startup.
+
+```yaml
+nu-mcp:
+  command: "nu-mcp"
+  args:
+    - "--env-credential=op://Private/github/token=GITHUB_TOKEN"
+    - "--env-credential=file:///run/secrets/api-token=API_TOKEN"
+```
 
 ## Environment Variables
 
