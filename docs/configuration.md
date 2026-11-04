@@ -1,5 +1,9 @@
 # Configuration
 
+## Toolchain Requirements
+
+Building nu-mcp requires a Rust toolchain of 1.95 or newer (`rust-version = "1.95"` in `Cargo.toml`, the floor set by the `nono` sandbox dependency).
+
 ## Command-Line Options
 
 ### Extension System
