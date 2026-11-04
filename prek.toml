@@ -43,3 +43,12 @@ entry = "alejandra --check"
 files = "\\.nix$"
 pass_filenames = true
 stages = ["pre-commit"]
+
+[[repos.hooks]]
+id = "run-tool-tests"
+name = "nu tool suite"
+language = "system"
+entry = "nu tools/run_all_tests.nu"
+files = "\\.nu$"
+pass_filenames = false
+stages = ["pre-push"]
