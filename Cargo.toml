@@ -1,6 +1,6 @@
 [package]
 name = "nu-mcp"
-version = "0.9.0"
+version = "0.10.0"
 description = ""
 edition = "2024"
 rust-version = "1.95"
