@@ -1,5 +1,8 @@
 use super::Config;
+use crate::auth::parse_env_credentials;
 use std::path::PathBuf;
+
+type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
 
 // Test simplified config creation
 
@@ -13,6 +16,9 @@ fn test_config_creation_default() {
         bypass_protection: vec![],
         read_only_paths: vec![],
         allow_binaries: vec![],
+        env_credentials: vec![],
+        keyring_service: None,
+        disable_sandbox: false,
     };
 
     assert!(config.tools_dir.is_none());
@@ -36,6 +42,9 @@ fn test_config_creation_tools_dir() {
         bypass_protection: vec![],
         read_only_paths: vec![],
         allow_binaries: vec![],
+        env_credentials: vec![],
+        keyring_service: None,
+        disable_sandbox: false,
     };
 
     assert_eq!(config.tools_dir, Some(tools_path));
@@ -51,6 +60,9 @@ fn test_config_creation_enable_run() {
         bypass_protection: vec![],
         read_only_paths: vec![],
         allow_binaries: vec![],
+        env_credentials: vec![],
+        keyring_service: None,
+        disable_sandbox: false,
     };
 
     assert!(config.enable_nu);
@@ -68,6 +80,9 @@ fn test_config_creation_sandbox_directories() {
         bypass_protection: vec![],
         read_only_paths: vec![],
         allow_binaries: vec![],
+        env_credentials: vec![],
+        keyring_service: None,
+        disable_sandbox: false,
     };
 
     assert_eq!(config.sandbox_directories, vec![sandbox_path]);
@@ -87,6 +102,9 @@ fn test_config_creation_full_configuration() {
         bypass_protection: vec![],
         read_only_paths: vec![],
         allow_binaries: vec![],
+        env_credentials: vec![],
+        keyring_service: None,
+        disable_sandbox: false,
     };
 
     assert_eq!(config.tools_dir, Some(tools_path));
@@ -107,6 +125,9 @@ fn test_config_creation_sandbox_options() {
         bypass_protection: vec![bypass.clone()],
         read_only_paths: vec![read_only.clone()],
         allow_binaries: vec![],
+        env_credentials: vec![],
+        keyring_service: None,
+        disable_sandbox: false,
     };
 
     assert!(config.block_network);
@@ -124,10 +145,71 @@ fn test_config_creation_allow_binaries() {
         bypass_protection: vec![],
         read_only_paths: vec![],
         allow_binaries: vec!["curl".to_string(), "git".to_string()],
+        env_credentials: vec![],
+        keyring_service: None,
+        disable_sandbox: false,
     };
 
     assert_eq!(
         config.allow_binaries,
         vec!["curl".to_string(), "git".to_string()]
     );
+}
+
+#[test]
+fn test_config_creation_env_credentials_verbatim() -> Result<()> {
+    // -- Setup & Fixtures
+    let values = vec![
+        "file:///run/secrets/api-token=API_TOKEN".to_string(),
+        "keyring://nu-mcp/git=GIT_TOKEN".to_string(),
+    ];
+
+    // -- Exec
+    let config = Config {
+        tools_dir: None,
+        enable_nu: false,
+        sandbox_directories: vec![],
+        block_network: false,
+        bypass_protection: vec![],
+        read_only_paths: vec![],
+        allow_binaries: vec![],
+        env_credentials: values.clone(),
+        keyring_service: None,
+        disable_sandbox: false,
+    };
+
+    // -- Check
+    assert_eq!(config.env_credentials, values);
+    let pairs = parse_env_credentials(&config.env_credentials)?;
+    assert_eq!(
+        pairs,
+        vec![
+            (
+                "file:///run/secrets/api-token".to_string(),
+                "API_TOKEN".to_string()
+            ),
+            ("keyring://nu-mcp/git".to_string(), "GIT_TOKEN".to_string()),
+        ]
+    );
+    assert!(config.keyring_service.is_none());
+    Ok(())
+}
+
+#[test]
+fn test_config_creation_keyring_service_and_disable_sandbox() {
+    let config = Config {
+        tools_dir: None,
+        enable_nu: false,
+        sandbox_directories: vec![],
+        block_network: false,
+        bypass_protection: vec![],
+        read_only_paths: vec![],
+        allow_binaries: vec![],
+        env_credentials: vec![],
+        keyring_service: Some("my-service".to_string()),
+        disable_sandbox: true,
+    };
+
+    assert_eq!(config.keyring_service.as_deref(), Some("my-service"));
+    assert!(config.disable_sandbox);
 }

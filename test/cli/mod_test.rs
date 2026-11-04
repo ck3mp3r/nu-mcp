@@ -2,6 +2,8 @@ use super::Cli;
 use clap::Parser;
 use std::path::PathBuf;
 
+type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
+
 #[test]
 fn test_default_args() {
     let args = Cli::try_parse_from(["nu-mcp"]).expect("Failed to parse default args");
@@ -13,6 +15,9 @@ fn test_default_args() {
     assert!(args.bypass_protection.is_empty());
     assert!(args.read_only_paths.is_empty());
     assert!(args.allow_binaries.is_empty());
+    assert!(args.env_credentials.is_empty());
+    assert!(args.keyring_service.is_none());
+    assert!(!args.disable_sandbox);
 }
 
 #[test]
@@ -98,6 +103,76 @@ fn test_allow_binary_flag_repeatable() {
 }
 
 #[test]
+fn test_env_credential_flag_repeatable() -> Result<()> {
+    // -- Setup & Fixtures
+    let args = vec![
+        "nu-mcp",
+        "--env-credential",
+        "file:///run/secrets/api-token=API_TOKEN",
+        "--env-credential",
+        "keyring://nu-mcp/git=GIT_TOKEN",
+    ];
+
+    // -- Exec
+    let cli = Cli::try_parse_from(args)?;
+
+    // -- Check
+    assert_eq!(
+        cli.env_credentials,
+        vec![
+            "file:///run/secrets/api-token=API_TOKEN".to_string(),
+            "keyring://nu-mcp/git=GIT_TOKEN".to_string(),
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn test_keyring_service_flag() -> Result<()> {
+    // -- Setup & Fixtures
+    let args = vec!["nu-mcp", "--keyring-service", "my-service"];
+
+    // -- Exec
+    let cli = Cli::try_parse_from(args)?;
+
+    // -- Check
+    assert_eq!(cli.keyring_service.as_deref(), Some("my-service"));
+    Ok(())
+}
+
+#[test]
+fn test_disable_sandbox_flag() -> Result<()> {
+    // -- Setup & Fixtures
+    let args = vec!["nu-mcp", "--disable-sandbox"];
+
+    // -- Exec
+    let cli = Cli::try_parse_from(args)?;
+
+    // -- Check
+    assert!(
+        cli.disable_sandbox,
+        "--disable-sandbox should parse as true"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_disable_sandbox_flag_has_no_short_form() -> Result<()> {
+    // -- Setup & Fixtures
+    let args = vec!["nu-mcp", "-d"];
+
+    // -- Exec
+    let parsed = Cli::try_parse_from(args);
+
+    // -- Check
+    assert!(
+        parsed.is_err(),
+        "--disable-sandbox must not carry a short form"
+    );
+    Ok(())
+}
+
+#[test]
 fn test_all_flags_combined() {
     let args = Cli::try_parse_from([
         "nu-mcp",
@@ -113,6 +188,11 @@ fn test_all_flags_combined() {
         "/etc/ssl",
         "--allow-binary",
         "curl",
+        "--env-credential",
+        "file:///run/secrets/api-token=API_TOKEN",
+        "--keyring-service",
+        "my-service",
+        "--disable-sandbox",
     ])
     .expect("Failed to parse combined flags");
 
@@ -126,6 +206,12 @@ fn test_all_flags_combined() {
     );
     assert_eq!(args.read_only_paths, vec![PathBuf::from("/etc/ssl")]);
     assert_eq!(args.allow_binaries, vec!["curl".to_string()]);
+    assert_eq!(
+        args.env_credentials,
+        vec!["file:///run/secrets/api-token=API_TOKEN".to_string()]
+    );
+    assert_eq!(args.keyring_service.as_deref(), Some("my-service"));
+    assert!(args.disable_sandbox);
 }
 
 #[test]

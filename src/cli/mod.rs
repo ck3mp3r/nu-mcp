@@ -32,6 +32,18 @@ pub struct Cli {
     /// Allow an external binary in the sandbox (can be specified multiple times)
     #[arg(long = "allow-binary", short = 'a')]
     pub allow_binaries: Vec<String>,
+
+    /// Load an environment credential (repeatable, REF=ENV_VAR)
+    #[arg(long = "env-credential")]
+    pub env_credentials: Vec<String>,
+
+    /// Keyring service name for bare credential names
+    #[arg(long = "keyring-service")]
+    pub keyring_service: Option<String>,
+
+    /// Disable self-sandboxing (use when the server already runs inside a sandbox)
+    #[arg(long, default_value_t = false)]
+    pub disable_sandbox: bool,
 }
 
 #[cfg(test)]

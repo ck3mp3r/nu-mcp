@@ -15,6 +15,9 @@ fn test_get_info_includes_sandbox_info() {
         bypass_protection: vec![],
         read_only_paths: vec![],
         allow_binaries: vec![],
+        env_credentials: vec![],
+        keyring_service: None,
+        disable_sandbox: false,
     };
     let stateless_executor = NushellExecutor;
     let tool_executor = MockToolExecutor::new("test".to_string());
@@ -36,6 +39,9 @@ fn test_get_info_default_sandbox() {
         bypass_protection: vec![],
         read_only_paths: vec![],
         allow_binaries: vec![],
+        env_credentials: vec![],
+        keyring_service: None,
+        disable_sandbox: false,
     };
     let stateless_executor = NushellExecutor;
     let tool_executor = MockToolExecutor::new("test".to_string());
@@ -56,6 +62,9 @@ fn test_get_info_basic_fields() {
         bypass_protection: vec![],
         read_only_paths: vec![],
         allow_binaries: vec![],
+        env_credentials: vec![],
+        keyring_service: None,
+        disable_sandbox: false,
     };
     let stateless_executor = NushellExecutor;
     let tool_executor = MockToolExecutor::new("test".to_string());
@@ -79,6 +88,9 @@ fn test_get_info_marks_current_directory() {
         bypass_protection: vec![],
         read_only_paths: vec![],
         allow_binaries: vec![],
+        env_credentials: vec![],
+        keyring_service: None,
+        disable_sandbox: false,
     };
     let stateless_executor = NushellExecutor;
     let tool_executor = MockToolExecutor::new("test".to_string());

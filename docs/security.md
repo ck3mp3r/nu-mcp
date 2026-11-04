@@ -25,6 +25,7 @@ The current working directory is always granted read-write access. Additional ac
 | `--add-read-path=PATH` | Grant read-only access to an additional directory (repeatable) |
 | `--block-network` | Block all network access |
 | `--bypass-protection=PATH` | Unblock a sensitive path (repeatable) |
+| `--disable-sandbox` | Do not build or apply a capability set at all |
 
 Example:
 
@@ -60,6 +61,35 @@ If `nu` is not found, or `otool`/`ldd` fails, nu-mcp logs a warning and continue
 ## Sensitive Paths
 
 nono blocks sensitive paths by default. Use `--bypass-protection=PATH` to unblock a path the user explicitly opts into. The bypassed path is granted read-write access.
+
+## Environment Credentials
+
+`--env-credential` values are resolved at startup and written into the server process environment. Child processes inherit that environment:
+
+- Every `run` tool call spawns `nu` without environment filtering (`src/execution/nushell.rs`)
+- Every extension tool call spawns `nu` without environment filtering (`src/tools/execution.rs`)
+
+The injected variables are therefore readable by every command the server executes. They are not scoped to one tool or one call. Configure credentials only for commands you trust.
+
+`--keyring-service` selects the keyring service used for bare credential names (default `nono`). Scheme references carry their own addressing: `keyring://service/account`, `op://vault/item/field`, `bw://item[/field]`, `apple-password://server/account`, `file:///absolute/path`, `env://VAR`.
+
+The credential phase runs before the sandbox is applied. The secret brokers (`op`, `bw`, `security`), keyring access, and credential file reads need host access that the sandbox would deny, so they are host-privileged startup helpers by design. The capability set is built after the phase and applied to the server process, and the already-set environment is what children inherit.
+
+Credentials are injected as environment variables only. Proxy injection — handing a secret to a child through a socket or a proxy process — is explicitly out of scope.
+
+A reference that cannot be resolved logs an error and aborts startup: the server does not start with a missing credential.
+
+## Disabling the Sandbox
+
+`--disable-sandbox` starts the server without building or applying a capability set. It exists for the case where nu-mcp already runs inside a sandbox (container, VM, another sandbox launcher) and a second sandbox is undesirable. The server logs a warning at startup.
+
+Consequences:
+
+- The server process and every child `nu` process run unrestricted
+- The capability set is never built, so `--block-network`, `--add-path`, `--add-read-path`, `--bypass-protection`, and `--allow-binary` have no effect. The flag disables the whole capability layer, not just filesystem restrictions
+- Injected credential environment variables (see [Environment Credentials](#environment-credentials)) are readable by every child process
+
+The default remains fail-closed: without the flag, a capability set that cannot be built or applied aborts startup.
 
 ## Error Behavior
 
