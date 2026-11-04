@@ -120,7 +120,7 @@ fn test_system_read_paths_contains_expanded_list() {
 
 #[cfg(target_os = "macos")]
 #[test]
-fn test_system_read_paths_contains_expanded_list() {
+fn test_system_read_paths_contains_macos_expanded_list() {
     let expected = [
         "/bin",
         "/sbin",
