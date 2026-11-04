@@ -8,7 +8,7 @@ rust-version = "1.95"
 [dependencies]
 anyhow = "1.0.104"
 nono = "0.81"
-rmcp-macros = "3.5.1"
+rmcp-macros = "3.8.0"
 schemars = "1.2.3"
 serde_json = "1.0.154"
 tracing = "0.1.44"
@@ -22,7 +22,7 @@ version = "1.53.2"
 features = ["full"]
 
 [dependencies.rmcp]
-version = "3.5.1"
+version = "3.8.0"
 features = [
     "server",
     "transport-io",
