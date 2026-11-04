@@ -1,11 +1,11 @@
 use std::{path::PathBuf, sync::Arc};
 
-use anyhow::Result;
-
 use rmcp::model::Tool;
 use serde_json::Map;
 
 use super::{ExtensionTool, NushellToolExecutor, ToolExecutor, discover_tools};
+
+type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
 
 fn get_test_tools_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test/tools")
@@ -16,7 +16,7 @@ async fn execute_extension_tool_helper(
     tool_name: &str,
     args: &str,
     timeout_secs: Option<u64>,
-) -> Result<String> {
+) -> anyhow::Result<String> {
     let tool_executor = NushellToolExecutor;
     tool_executor
         .execute_tool(extension, tool_name, args, timeout_secs)
@@ -24,17 +24,15 @@ async fn execute_extension_tool_helper(
 }
 
 #[tokio::test]
-async fn test_execute_simple_tool() {
+async fn test_execute_simple_tool() -> Result<()> {
     let tools_dir = get_test_tools_dir();
-    let tools = discover_tools(&tools_dir)
-        .await
-        .expect("Failed to discover tools");
+    let tools = discover_tools(&tools_dir).await?;
 
     // Find the echo_test tool
     let echo_tool = tools
         .iter()
         .find(|t| t.tool_definition.name == "echo_test")
-        .expect("echo_test tool not found");
+        .ok_or("echo_test tool not found")?;
 
     // Execute the tool
     let result = execute_extension_tool_helper(
@@ -46,56 +44,53 @@ async fn test_execute_simple_tool() {
     .await;
 
     assert!(result.is_ok());
-    let output = result.unwrap();
+    let output = result?;
     assert!(output.contains("Echo: Hello Integration Test"));
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_execute_math_tools() {
+async fn test_execute_math_tools() -> Result<()> {
     let tools_dir = get_test_tools_dir();
-    let tools = discover_tools(&tools_dir)
-        .await
-        .expect("Failed to discover tools");
+    let tools = discover_tools(&tools_dir).await?;
 
     // Find math tools - make test more robust
     let add_tool = tools.iter().find(|t| t.tool_definition.name == "add");
 
     if add_tool.is_none() {
         // Skip test if add tool not available
-        return;
+        return Ok(());
     }
-    let add_tool = add_tool.unwrap();
+    let add_tool = add_tool.ok_or("add tool not found")?;
 
     // Test addition
     let result = execute_extension_tool_helper(add_tool, "add", r#"{"x": 5, "y": 3}"#, None).await;
 
     assert!(result.is_ok());
-    let output = result.unwrap();
+    let output = result?;
     assert!(output.contains("8"));
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_execute_tool_unknown_tool() {
+async fn test_execute_tool_unknown_tool() -> Result<()> {
     let tools_dir = get_test_tools_dir();
-    let tools = discover_tools(&tools_dir)
-        .await
-        .expect("Failed to discover tools");
+    let tools = discover_tools(&tools_dir).await?;
 
     if let Some(tool) = tools.first() {
         // Try to execute with wrong tool name
         let result = execute_extension_tool_helper(tool, "nonexistent_tool", "{}", None).await;
 
         // Should handle unknown tool gracefully
-        assert!(result.is_err() || result.unwrap().contains("error"));
+        assert!(result.is_err() || result.ok().is_some_and(|o| o.contains("error")));
     }
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_execute_tool_invalid_args() {
+async fn test_execute_tool_invalid_args() -> Result<()> {
     let tools_dir = get_test_tools_dir();
-    let tools = discover_tools(&tools_dir)
-        .await
-        .expect("Failed to discover tools");
+    let tools = discover_tools(&tools_dir).await?;
 
     if let Some(tool) = tools.first() {
         // Try to execute with invalid JSON args
@@ -104,16 +99,15 @@ async fn test_execute_tool_invalid_args() {
                 .await;
 
         // Should handle invalid arguments gracefully
-        assert!(result.is_err() || result.unwrap().contains("error"));
+        assert!(result.is_err() || result.ok().is_some_and(|o| o.contains("error")));
     }
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_execute_tool_with_complex_json() {
+async fn test_execute_tool_with_complex_json() -> Result<()> {
     let tools_dir = get_test_tools_dir();
-    let tools = discover_tools(&tools_dir)
-        .await
-        .expect("Failed to discover tools");
+    let tools = discover_tools(&tools_dir).await?;
 
     if let Some(tool) = tools.first() {
         let complex_args = r#"{
@@ -131,14 +125,13 @@ async fn test_execute_tool_with_complex_json() {
         // Should handle complex JSON arguments
         assert!(result.is_ok() || result.is_err()); // Just ensure it doesn't panic
     }
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_execute_tool_with_unicode_content() {
+async fn test_execute_tool_with_unicode_content() -> Result<()> {
     let tools_dir = get_test_tools_dir();
-    let tools = discover_tools(&tools_dir)
-        .await
-        .expect("Failed to discover tools");
+    let tools = discover_tools(&tools_dir).await?;
 
     if let Some(echo_tool) = tools.iter().find(|t| t.tool_definition.name == "echo_test") {
         let unicode_args = r#"{"message": "Hello 世界 🌍 🚀"}"#;
@@ -147,41 +140,40 @@ async fn test_execute_tool_with_unicode_content() {
             execute_extension_tool_helper(echo_tool, "echo_test", unicode_args, None).await;
 
         assert!(result.is_ok());
-        let output = result.unwrap();
+        let output = result?;
         assert!(output.contains("世界") || output.contains("🌍"));
     }
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_execute_tool_error_handling() {
+async fn test_execute_tool_error_handling() -> Result<()> {
     let tools_dir = get_test_tools_dir();
-    let tools = discover_tools(&tools_dir)
-        .await
-        .expect("Failed to discover tools");
+    let tools = discover_tools(&tools_dir).await?;
 
     // Test with missing required arguments
     if let Some(tool) = tools.iter().find(|t| t.tool_definition.name == "add") {
         let result = execute_extension_tool_helper(tool, "add", "{}", None).await;
 
         // Should handle missing required args gracefully
-        assert!(result.is_err() || result.unwrap().contains("error"));
+        assert!(result.is_err() || result.ok().is_some_and(|o| o.contains("error")));
     }
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_execute_tool_missing_required_args() {
+async fn test_execute_tool_missing_required_args() -> Result<()> {
     let tools_dir = get_test_tools_dir();
-    let tools = discover_tools(&tools_dir)
-        .await
-        .expect("Failed to discover tools");
+    let tools = discover_tools(&tools_dir).await?;
 
     if let Some(add_tool) = tools.iter().find(|t| t.tool_definition.name == "add") {
         // Missing y parameter
         let result = execute_extension_tool_helper(add_tool, "add", r#"{"x": 5}"#, None).await;
 
         // Should handle missing required parameters
-        assert!(result.is_err() || result.unwrap().contains("error"));
+        assert!(result.is_err() || result.ok().is_some_and(|o| o.contains("error")));
     }
+    Ok(())
 }
 
 #[tokio::test]
@@ -199,11 +191,9 @@ async fn test_execute_extension_tool_with_nonexistent_script() {
 }
 
 #[tokio::test]
-async fn test_execute_extension_tool_large_output() {
+async fn test_execute_extension_tool_large_output() -> Result<()> {
     let tools_dir = get_test_tools_dir();
-    let tools = discover_tools(&tools_dir)
-        .await
-        .expect("Failed to discover tools");
+    let tools = discover_tools(&tools_dir).await?;
 
     if let Some(tool) = tools.first() {
         // Test with args that might produce large output
@@ -215,14 +205,13 @@ async fn test_execute_extension_tool_large_output() {
         // Should handle large input/output gracefully
         assert!(result.is_ok() || result.is_err()); // Just ensure it doesn't panic
     }
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_execute_extension_tool_timeout() {
+async fn test_execute_extension_tool_timeout() -> Result<()> {
     let tools_dir = get_test_tools_dir();
-    let tools = discover_tools(&tools_dir)
-        .await
-        .expect("Failed to discover tools");
+    let tools = discover_tools(&tools_dir).await?;
 
     if let Some(tool) = tools.first() {
         // Execute tool (should complete in reasonable time)
@@ -232,14 +221,13 @@ async fn test_execute_extension_tool_timeout() {
         // Should complete without timing out
         assert!(result.is_ok() || result.is_err()); // Just ensure it doesn't hang
     }
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_execute_extension_tool_empty_args() {
+async fn test_execute_extension_tool_empty_args() -> Result<()> {
     let tools_dir = get_test_tools_dir();
-    let tools = discover_tools(&tools_dir)
-        .await
-        .expect("Failed to discover tools");
+    let tools = discover_tools(&tools_dir).await?;
 
     if let Some(tool) = tools.first() {
         let result =
@@ -248,14 +236,13 @@ async fn test_execute_extension_tool_empty_args() {
         // Should handle empty args gracefully
         assert!(result.is_ok() || result.is_err()); // Just ensure it doesn't panic
     }
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_execute_extension_tool_special_characters() {
+async fn test_execute_extension_tool_special_characters() -> Result<()> {
     let tools_dir = get_test_tools_dir();
-    let tools = discover_tools(&tools_dir)
-        .await
-        .expect("Failed to discover tools");
+    let tools = discover_tools(&tools_dir).await?;
 
     if let Some(echo_tool) = tools.iter().find(|t| t.tool_definition.name == "echo_test") {
         let special_args = r#"{"message": "Test with \"quotes\" and \n newlines \t tabs"}"#;
@@ -266,14 +253,13 @@ async fn test_execute_extension_tool_special_characters() {
         // Should handle special characters gracefully
         assert!(result.is_ok() || result.is_err()); // Just ensure it doesn't panic
     }
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_execute_extension_tool_wrong_types() {
+async fn test_execute_extension_tool_wrong_types() -> Result<()> {
     let tools_dir = get_test_tools_dir();
-    let tools = discover_tools(&tools_dir)
-        .await
-        .expect("Failed to discover tools");
+    let tools = discover_tools(&tools_dir).await?;
 
     if let Some(add_tool) = tools.iter().find(|t| t.tool_definition.name == "add") {
         // Pass string instead of number
@@ -286,8 +272,9 @@ async fn test_execute_extension_tool_wrong_types() {
         .await;
 
         // Should handle wrong types gracefully
-        assert!(result.is_err() || result.unwrap().contains("error"));
+        assert!(result.is_err() || result.ok().is_some_and(|o| o.contains("error")));
     }
+    Ok(())
 }
 
 // ============================================================================
@@ -295,17 +282,15 @@ async fn test_execute_extension_tool_wrong_types() {
 // ============================================================================
 
 #[tokio::test]
-async fn test_tool_executor_timeout_with_parameter() {
+async fn test_tool_executor_timeout_with_parameter() -> Result<()> {
     let tools_dir = get_test_tools_dir();
-    let tools = discover_tools(&tools_dir)
-        .await
-        .expect("Failed to discover tools");
+    let tools = discover_tools(&tools_dir).await?;
 
     // Find the sleep_test tool
     let sleep_tool = tools
         .iter()
         .find(|t| t.tool_definition.name == "sleep_test")
-        .expect("sleep_test tool not found");
+        .ok_or("sleep_test tool not found")?;
 
     // Execute tool that sleeps 10 seconds with 3 second timeout
     let result =
@@ -324,25 +309,25 @@ async fn test_tool_executor_timeout_with_parameter() {
         "Expected timeout message to mention 3 seconds, got: {}",
         error
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_tool_executor_short_command_completes() {
+async fn test_tool_executor_short_command_completes() -> Result<()> {
     let tools_dir = get_test_tools_dir();
-    let tools = discover_tools(&tools_dir)
-        .await
-        .expect("Failed to discover tools");
+    let tools = discover_tools(&tools_dir).await?;
 
     let sleep_tool = tools
         .iter()
         .find(|t| t.tool_definition.name == "sleep_test")
-        .expect("sleep_test tool not found");
+        .ok_or("sleep_test tool not found")?;
 
     // Execute tool that sleeps 1 second with default timeout (should complete)
     let result =
         execute_extension_tool_helper(sleep_tool, "sleep_test", r#"{"seconds": 1}"#, None).await;
 
     assert!(result.is_ok());
-    let output = result.unwrap();
+    let output = result?;
     assert!(output.contains("Slept for 1 seconds"));
+    Ok(())
 }
